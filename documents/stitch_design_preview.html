@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="tr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusAI Gateway - UI/UX Tasarım Önizleme & Onay Prototipi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: 'var(--brand-50)',
+              100: 'var(--brand-100)',
+              200: 'var(--brand-200)',
+              500: 'var(--brand-500)',
+              600: 'var(--brand-600)',
+              700: 'var(--brand-700)',
+              900: 'var(--brand-900)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 4 Preset Renk Paleti (CSS Değişkenleri ile Sıfır Bağımlılık) */
+    :root {
+      /* Varsayılan: Nexus Indigo */
+      --brand-50: #eef2ff;
+      --brand-100: #e0e7ff;
+      --brand-200: #c7d2fe;
+      --brand-500: #6366f1;
+      --brand-600: #4f46e5;
+      --brand-700: #4338ca;
+      --brand-900: #312e81;
+    }
+
+    [data-palette="emerald"] {
+      --brand-50: #ecfdf5;
+      --brand-100: #d1fae5;
+      --brand-200: #a7f3d0;
+      --brand-500: #10b981;
+      --brand-600: #059669;
+      --brand-700: #047857;
+      --brand-900: #064e3b;
+    }
+
+    [data-palette="obsidian"] {
+      --brand-50: #f4f4f5;
+      --brand-100: #e4e4e7;
+      --brand-200: #d4d4d8;
+      --brand-500: #3f3f46;
+      --brand-600: #27272a;
+      --brand-700: #18181b;
+      --brand-900: #09090b;
+    }
+
+    [data-palette="ocean"] {
+      --brand-50: #f0f9ff;
+      --brand-100: #e0f2fe;
+      --brand-200: #bae6fd;
+      --brand-500: #0ea5e9;
+      --brand-600: #0284c7;
+      --brand-700: #0369a1;
+      --brand-900: #0c4a6e;
+    }
+
+    /* Özel Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(100, 116, 139, 0.6);
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-brand-500 selection:text-white transition-colors duration-200">
+
+  <!-- ÜST KONTROL BAR: EKRAN DEĞİŞTİRİCİ, TEMA VE PALET SEÇİCİ -->
+  <header class="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-sm shadow-sm shadow-brand-500/30">
+        NX
+      </div>
+      <div>
+        <h1 class="text-sm font-bold tracking-tight text-slate-900 dark:text-white">NexusAI Gateway & Knowledge Base</h1>
+        <p class="text-xs text-slate-500 dark:text-slate-400">UI/UX Mimari Prototipi (Stitch AI & Clean React)</p>
+      </div>
+    </div>
+
+    <!-- EKRAN SEKME SEÇİCİ (USER CHAT vs ADMIN DASHBOARD) -->
+    <div class="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium">
+      <button id="tab-user-btn" onclick="switchView('user')" class="px-3.5 py-1.5 rounded-md transition-all font-semibold bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-200 shadow-sm">
+        1. Kullanıcı Arayüzü (Chat & RAG Inspector)
+      </button>
+      <button id="tab-compare-btn" onclick="switchView('compare')" class="px-3.5 py-1.5 rounded-md transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900">
+        2. Yan Yana Kıyaslama (Side-by-Side)
+      </button>
+      <button id="tab-admin-btn" onclick="switchView('admin')" class="px-3.5 py-1.5 rounded-md transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900">
+        3. Yönetici Paneli (Admin & Modeller)
+      </button>
+    </div>
+
+    <!-- HIZLI TEMA & DERİN AYARLAR BUTONLARI -->
+    <div class="flex items-center gap-2 text-xs">
+      <!-- Hızlı Aydınlık / Karanlık Mod Değiştirici -->
+      <button onclick="toggleTheme()" class="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors" title="Hızlı Tema Değiştir (Aydınlık / Karanlık)">
+        <svg id="themeIconSun" class="w-4 h-4 hidden dark:block text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+        <svg id="themeIconMoon" class="w-4 h-4 block dark:hidden text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+      </button>
+
+      <!-- Derin Ayarlar Modalı Açıcı (Görünüm & Paletler) -->
+      <button onclick="openSettingsModal()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium transition-colors" title="Arayüz Tercihleri ve Renk Paleti">
+        <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+        <span>Görünüm Ayarları</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 1. GÖRÜNÜM: KULLANICI SOHBET VE RAG INSPECTOR (USER UI) -->
+  <!-- ========================================================================= -->
+  <main id="view-user" class="flex h-[calc(100vh-53px)] overflow-hidden">
+    <!-- SOL DARALTILABİLİR SIDEBAR -->
+    <aside id="chatSidebar" class="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 transition-all duration-300">
+      <div class="p-3 flex flex-col gap-3">
+        <!-- Yeni Sohbet Butonu -->
+        <button class="w-full flex items-center justify-between px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all">
+          <span class="flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Yeni Sohbet
+          </span>
+          <span class="text-[10px] bg-brand-700 px-1.5 py-0.5 rounded font-mono">⌘N</span>
+        </button>
+
+        <!-- Arama Kutusu -->
+        <div class="relative">
+          <svg class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+          <input type="text" placeholder="Sohbet geçmişinde ara..." class="w-full pl-8 pr-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-500">
+        </div>
+
+        <!-- Sohbet Geçmişi Listesi -->
+        <div class="space-y-4 overflow-y-auto max-h-[calc(100vh-270px)] pr-1">
+          <div>
+            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">Sabitlenenler & Departmanlar</div>
+            <div class="space-y-0.5">
+              <a href="#" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-medium text-xs">
+                <span class="truncate flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-brand-600"></span>
+                  Q3 KVKK & Hukuk Değerlendirmesi
+                </span>
+                <span class="text-[10px] px-1 rounded bg-brand-100 dark:bg-brand-800 text-brand-700 dark:text-brand-200">Hukuk</span>
+              </a>
+              <a href="#" class="flex items-center justify-between px-2.5 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs">
+                <span class="truncate flex items-center gap-2">
+                  <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                  Mali Tablo ve Bilanço Özeti
+                </span>
+                <span class="text-[10px] px-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Finans</span>
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">Bugün</div>
+            <div class="space-y-0.5">
+              <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs truncate">
+                RAG Vektör Arama & Qdrant Yapılandırması
+              </a>
+              <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs truncate">
+                Llama 3.3 70B Prompt Şablonu Testi
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">Geçmiş 7 Gün</div>
+            <div class="space-y-0.5">
+              <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs truncate">
+                BullMQ Doküman Parçalama Kuyruk Analizi
+              </a>
+              <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs truncate">
+                Docker Multi-Container Kurulum Notları
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kullanıcı Profili ve Kota Kartı -->
+      <div class="p-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2">
+        <div class="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700/60">
+          <div class="flex justify-between items-center text-[11px] mb-1">
+            <span class="text-slate-500 dark:text-slate-400">Günlük Token Limiti</span>
+            <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">42,500 / 100,000</span>
+          </div>
+          <div class="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-brand-600 h-full rounded-full" style="width: 42.5%"></div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between pt-1">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 font-bold text-xs flex items-center justify-center">
+              AE
+            </div>
+            <div class="leading-tight">
+              <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Ahmet Emre</div>
+              <div class="text-[10px] text-slate-400">Hukuk & Veri Analisti</div>
+            </div>
+          </div>
+          <button onclick="openSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" title="Görünüm ve Tema Ayarları">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ORTA ANA SOHBET AKIŞI -->
+    <section class="flex-1 flex flex-col h-full bg-white dark:bg-slate-950 overflow-hidden relative">
+      <!-- Sohbet Üst Barı (Model Seçimi, Kıyasla, Paylaş) -->
+      <div class="h-13 px-6 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/50 dark:bg-slate-900/50 backdrop-blur shrink-0">
+        <div class="flex items-center gap-3">
+          <!-- Model Seçici Dropdown -->
+          <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg text-xs">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span class="font-semibold text-slate-800 dark:text-slate-200">Llama 3.3 70B</span>
+            <span class="text-[10px] text-slate-400 bg-slate-200 dark:bg-slate-700 px-1 rounded font-mono">Yerel (Ollama)</span>
+            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+          </div>
+          <span class="text-xs text-slate-400">|</span>
+          <!-- Aktif Bilgi Bankası Havuzu -->
+          <div class="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+            <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+            <span>Bağlı Veri: <strong class="text-slate-700 dark:text-slate-200 font-medium">Hukuk & Sözleşmeler DB</strong> (24 Doküman)</span>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 text-xs">
+          <button onclick="switchView('compare')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium transition-colors">
+            <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+            Yan Yana Kıyasla
+          </button>
+          <button class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors" title="Sohbeti Bağlantı Olarak Paylaş">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg>
+          </button>
+          <!-- Sağ Çekmeceyi Aç/Kapa Butonu -->
+          <button onclick="toggleInspector()" class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 font-medium" title="Kaynak Önizleme Çekmecesi">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <span class="hidden sm:inline">RAG Kaynakları (2)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- SOHBET MESAJLARI AKIŞI -->
+      <div class="flex-1 overflow-y-auto p-6 space-y-6 max-w-4xl mx-auto w-full">
+        <!-- Kullanıcı Mesajı -->
+        <div class="flex gap-3 justify-end">
+          <div class="bg-brand-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm max-w-xl shadow-sm">
+            <p>2026 yılı kurumsal bulut yedekleme sözleşmesindeki veri saklama süresi ve üçüncü taraf transfer şartları nelerdir? Bilgi bankasındaki güncel PDF'e göre özetler misin?</p>
+            <div class="text-[10px] text-brand-200 mt-1.5 text-right font-mono">14:32 • Ahmet Emre</div>
+          </div>
+        </div>
+
+        <!-- AI Asistan Yanıtı (RAG & Kaynak Gösterimli) -->
+        <div class="flex gap-3.5">
+          <div class="w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 font-bold text-xs flex items-center justify-center shrink-0 mt-1 shadow-sm">
+            AI
+          </div>
+          <div class="space-y-3 max-w-2xl text-sm leading-relaxed">
+            <div class="flex items-center gap-2">
+              <span class="font-semibold text-slate-900 dark:text-white text-xs">Nexus AI</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">Llama 3.3 70B (Yerel)</span>
+              <span class="text-[10px] text-slate-400 font-mono">1.2s • 348 token</span>
+            </div>
+
+            <p class="text-slate-700 dark:text-slate-300">
+              Yüklenen ve indekslenen kurumsal sözleşmeye göre veri saklama ve aktarım hükümleri iki ana maddede toplanmıştır:
+            </p>
+
+            <ul class="list-disc pl-5 space-y-1.5 text-slate-700 dark:text-slate-300">
+              <li>
+                <strong>Veri Saklama Süresi:</strong> Aktif hizmet dönemi boyunca tüm yedekler şifreli olarak tutulur. Sözleşme feshinden sonra müşteri verileri en geç <strong>60 gün</strong> içinde güvenli bir şekilde silinmek zorundadır.
+                <button onclick="openInspectorSource(1)" class="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono text-[11px] hover:bg-blue-100 transition-colors">
+                  [1] KVKK_Sozlesmesi_2026.pdf (s. 14)
+                </button>
+              </li>
+              <li>
+                <strong>Üçüncü Taraf Transferi:</strong> Müşterinin açık yazılı onayı olmaksızın veriler yurt dışına veya üçüncü taraf alt yüklenicilere devredilemez. Tüm altyapı Türkiye içi on-prem / yerel sunucu izolasyonuna tabidir.
+                <button onclick="openInspectorSource(2)" class="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-mono text-[11px] hover:bg-blue-100 transition-colors">
+                  [2] Veri_Guvenligi_Politikasi.docx (s. 3)
+                </button>
+              </li>
+            </ul>
+
+            <!-- Örnek Kod Bloğu -->
+            <div class="rounded-lg bg-slate-900 text-slate-100 border border-slate-800 overflow-hidden font-mono text-xs">
+              <div class="px-4 py-1.5 bg-slate-800/80 flex justify-between items-center text-[11px] text-slate-400 border-b border-slate-700/60">
+                <span>sql-query.sql (Denetim Kaydı)</span>
+                <button onclick="copyCode(this)" class="hover:text-white transition-colors">Kopyala</button>
+              </div>
+              <pre class="p-3.5 overflow-x-auto text-[11px]"><code>SELECT audit_id, action, tenant_id, timestamp 
+FROM audit_logs 
+WHERE action = 'DOCUMENT_RETRIEVAL' 
+  AND document_id = 'doc_kvkk_2026'
+ORDER BY timestamp DESC LIMIT 5;</code></pre>
+            </div>
+
+            <!-- Aksiyon Butonları -->
+            <div class="flex items-center gap-2 pt-1 text-xs text-slate-400">
+              <button class="hover:text-slate-600 dark:hover:text-slate-200 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                Kopyala
+              </button>
+              <span>•</span>
+              <button class="hover:text-slate-600 dark:hover:text-slate-200 flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                Yeniden Üret
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALT PROMPT GİRİŞ ALANI (YÜZEN DOCK TASARIMI) -->
+      <div class="p-4 bg-gradient-to-t from-white via-white dark:from-slate-950 dark:via-slate-950 to-transparent shrink-0">
+        <div class="max-w-4xl mx-auto bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-2xl shadow-lg p-2.5 flex flex-col gap-2 focus-within:ring-2 focus-within:ring-brand-500/30 focus-within:border-brand-500 transition-all">
+          <!-- Textarea -->
+          <textarea rows="2" placeholder="Kurumsal bilgi bankasında ara veya modele soru sor... (PDF yüklemek için sol alttaki + ikonuna tıkla)" class="w-full bg-transparent resize-none text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none px-2 pt-1"></textarea>
+
+          <!-- Alt Araç Çubuğu -->
+          <div class="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2 px-1 text-xs">
+            <div class="flex items-center gap-2">
+              <!-- Doküman Yükleme Butonu (RAG) -->
+              <button class="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium transition-colors" title="Doküman Ekle (PDF/DOCX)">
+                <svg class="w-3.5 h-3.5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Doküman Ekle
+              </button>
+              <!-- Şablon Kütüphanesi -->
+              <button class="flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                Şablonlar
+              </button>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <span class="text-[10px] text-slate-400 font-mono hidden sm:inline">Shift + Enter yeni satır</span>
+              <button class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                <span>Gönder</span>
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SAĞ TARAF: RAG DOKÜMAN ÖNİZLEME ÇEKMECESİ (DRAWER) -->
+    <aside id="inspectorDrawer" class="w-88 bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 transition-all duration-300">
+      <div class="p-4 flex flex-col gap-4 overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 flex items-center justify-center font-bold text-xs">
+              §
+            </div>
+            <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">RAG Kaynak Denetçisi</h3>
+          </div>
+          <button onclick="toggleInspector()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+
+        <!-- Seçili Kaynak Detayı -->
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-3 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">KVKK_Sozlesmesi_2026.pdf</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-semibold">%94 Eşleşme</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-500 dark:text-slate-400 border-y border-slate-100 dark:border-slate-700/60 py-2">
+            <div>Sayfa No: <strong class="text-slate-700 dark:text-slate-200 font-mono">14</strong></div>
+            <div>Chunk ID: <strong class="text-slate-700 dark:text-slate-200 font-mono">#chunk-082</strong></div>
+            <div>Vektör Skoru: <strong class="text-slate-700 dark:text-slate-200 font-mono">0.9412</strong></div>
+            <div>Bölüm: <strong class="text-slate-700 dark:text-slate-200">Madde 8.4</strong></div>
+          </div>
+
+          <!-- Alıntılanan Metin Parçası (Vurgulu) -->
+          <div class="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-lg border border-slate-200 dark:border-slate-700/60 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+            "...Hizmet sözleşmesinin sona ermesi veya taraflarca feshedilmesi durumunda, sağlayıcı müşteri tarafından yüklenen tüm verileri ve şifrelenmiş yedekleri <mark class="bg-amber-200 dark:bg-amber-900/60 dark:text-amber-200 px-1 rounded">en geç altmış (60) takvim günü içinde</mark> güvenli silme standartlarına uygun olarak imha etmekle yükümlüdür..."
+          </div>
+
+          <button class="w-full py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 font-medium transition-colors flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+            Tüm Orijinal Belgeyi Aç
+          </button>
+        </div>
+
+        <!-- İkinci Kaynak Kartı -->
+        <div class="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 space-y-2 opacity-80 hover:opacity-100 transition-opacity">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">Veri_Guvenligi_Politikasi.docx</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-semibold">%88 Eşleşme</span>
+          </div>
+          <p class="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2">"Veriler hiçbir surette yurt dışı veri merkezlerine veya onaylanmamış alt işlemcilere aktarılamaz..."</p>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 text-center">
+        Qdrant Hybrid Search (Dense + Sparse BM25)
+      </div>
+    </aside>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 2. GÖRÜNÜM: YAN YANA MODEL KIYASLAMA EKRANI (SIDE-BY-SIDE MODE) -->
+  <!-- ========================================================================= -->
+  <main id="view-compare" class="hidden h-[calc(100vh-53px)] overflow-hidden flex flex-col bg-slate-100 dark:bg-slate-950">
+    <div class="h-12 px-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="font-bold text-xs text-slate-800 dark:text-slate-100">Yan Yana Çoklu Model Kıyaslama (Side-by-Side Arena)</span>
+        <span class="text-[10px] bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full font-medium">PRD Faz 2 Özelliği</span>
+      </div>
+      <div class="text-xs text-slate-500">Aynı prompt her iki modele eş zamanlı gönderilir ve yanıt akışı bölünmüş ekranda canlı izlenir.</div>
+    </div>
+
+    <!-- İki Sütunlu Kıyaslama Alanı -->
+    <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 overflow-y-auto">
+      <!-- Model 1 (Yerel Model) -->
+      <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden shadow-sm">
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center text-xs">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span class="font-semibold text-slate-800 dark:text-slate-100">Llama 3.3 70B Instruct</span>
+            <span class="text-[10px] px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 rounded font-mono">Yerel (Ollama)</span>
+          </div>
+          <span class="text-slate-400 font-mono text-[11px]">Gecikme: 142ms</span>
+        </div>
+        <div class="p-4 flex-1 text-xs space-y-3 leading-relaxed text-slate-700 dark:text-slate-300 overflow-y-auto">
+          <p><strong>Özet Analiz:</strong> Sözleşmenin 8. maddesi uyarınca veri saklama süresi kesin olarak 60 gün ile sınırlandırılmıştır. Veri imhası NIST SP 800-88 standartlarına göre belgelendirilmelidir.</p>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded border border-slate-200 dark:border-slate-700 font-mono text-[11px]">
+            Hız: 64 token/saniye | Bellek: 38.2 GB VRAM
+          </div>
+        </div>
+      </div>
+
+      <!-- Model 2 (Bulut Modeli) -->
+      <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden shadow-sm">
+        <div class="p-3 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center text-xs">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+            <span class="font-semibold text-slate-800 dark:text-slate-100">GPT-4o Enterprise</span>
+            <span class="text-[10px] px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded font-mono">Bulut API</span>
+          </div>
+          <span class="text-slate-400 font-mono text-[11px]">Gecikme: 320ms</span>
+        </div>
+        <div class="p-4 flex-1 text-xs space-y-3 leading-relaxed text-slate-700 dark:text-slate-300 overflow-y-auto">
+          <p><strong>Özet Analiz:</strong> Sözleşme iki aşamalı bir fesih protokolü içermektedir. Hizmet feshi akabinde 60 günlük silme takvimi işletilirken, üçüncü taraflara aktarım açık rıza olmaksızın kesin bir gizlilik ihlali sayılmaktadır.</p>
+          <div class="bg-slate-50 dark:bg-slate-800 p-2.5 rounded border border-slate-200 dark:border-slate-700 font-mono text-[11px]">
+            Hız: 82 token/saniye | Maliyet: $0.0042
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 3. GÖRÜNÜM: YÖNETİCİ KONTROL PANELİ (ADMIN DASHBOARD) -->
+  <!-- ========================================================================= -->
+  <main id="view-admin" class="hidden h-[calc(100vh-53px)] overflow-hidden flex bg-slate-50 dark:bg-slate-950">
+    <!-- ADMIN SOL SABİT MENÜ (SIDEBAR) -->
+    <aside class="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 p-4">
+      <div class="space-y-6">
+        <div class="flex items-center gap-2.5 px-2">
+          <div class="w-7 h-7 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-xs">
+            NX
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-900 dark:text-white">Admin Dashboard</div>
+            <div class="text-[10px] text-slate-400">On-Premises Gateway v2.1</div>
+          </div>
+        </div>
+
+        <nav class="space-y-1 text-xs">
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-semibold">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+            Genel Bakış
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path></svg>
+            LLM & Yerel Modeller
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+            Bilgi Bankası & RAG
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            Kullanıcılar & Esnek RBAC
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            Denetim Kayıtları (Audit Logs)
+          </a>
+          <a href="#" class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+            Sistem Ayarları
+          </a>
+        </nav>
+      </div>
+
+      <div class="pt-4 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400">
+        <div class="flex items-center justify-between mb-1">
+          <span>Ollama Engine</span>
+          <span class="text-emerald-500 font-mono font-semibold">Bağlı</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span>vLLM Cluster</span>
+          <span class="text-emerald-500 font-mono font-semibold">Bağlı</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ADMIN İÇERİK BÖLGESİ -->
+    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+      <!-- Üst Durum Kartı (Uptime & GPU) -->
+      <div class="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 dark:text-white">Sistem Genel Bakış & Donanım Telemetrisi</h2>
+          <p class="text-xs text-slate-500">Yerel Ollama/vLLM orkestrasyonu ve kurumsal RAG veri indeksleme boru hattı</p>
+        </div>
+        <div class="flex items-center gap-3 text-xs">
+          <span class="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            Uptime: %99.98
+          </span>
+          <span class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-mono">
+            NVIDIA A100 GPU: %42 Yük
+          </span>
+        </div>
+      </div>
+
+      <!-- 4 Temel Metrik Kartı -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">Toplam Token Kullanımı</div>
+          <div class="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-2">248.4M</div>
+          <div class="text-[11px] text-emerald-600 mt-1">↑ %14.2 bu hafta</div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">Aktif Yerel Modeller</div>
+          <div class="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-2">12 / 16</div>
+          <div class="text-[11px] text-slate-400 mt-1">Ollama & vLLM Cluster</div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">Bekleyen RAG İndekslemeleri</div>
+          <div class="text-2xl font-bold font-mono text-amber-600 mt-2">3 Doküman</div>
+          <div class="text-[11px] text-amber-500 mt-1">BullMQ kuyrukta işleniyor</div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div class="text-xs text-slate-500 font-medium">Aktif Yetkili Kullanıcılar</div>
+          <div class="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-2">1,420</div>
+          <div class="text-[11px] text-emerald-600 mt-1">● 84 şu anda çevrim içi</div>
+        </div>
+      </div>
+
+      <!-- Orta Kısım: GPU & Token Grafiği ve Canlı Gecikme Widget'ı -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div class="flex justify-between items-center mb-3">
+            <div>
+              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">GPU & Token Tüketim Dağılımı</h3>
+              <p class="text-xs text-slate-400">Son 24 saatlik kaynak kullanımı</p>
+            </div>
+            <div class="flex gap-1 text-[11px]">
+              <span class="px-2 py-0.5 rounded bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 font-medium">24S</span>
+              <span class="px-2 py-0.5 rounded text-slate-400">7G</span>
+              <span class="px-2 py-0.5 rounded text-slate-400">30G</span>
+            </div>
+          </div>
+          <!-- Grafik Çubukları -->
+          <div class="h-44 flex items-end gap-2 border-b border-slate-100 dark:border-slate-800 pb-2">
+            <div class="flex-1 bg-brand-200 dark:bg-brand-900/40 hover:bg-brand-500 rounded-t h-[35%] transition-all"></div>
+            <div class="flex-1 bg-brand-200 dark:bg-brand-900/40 hover:bg-brand-500 rounded-t h-[55%] transition-all"></div>
+            <div class="flex-1 bg-brand-200 dark:bg-brand-900/40 hover:bg-brand-500 rounded-t h-[40%] transition-all"></div>
+            <div class="flex-1 bg-brand-200 dark:bg-brand-900/40 hover:bg-brand-500 rounded-t h-[75%] transition-all"></div>
+            <div class="flex-1 bg-brand-200 dark:bg-brand-900/40 hover:bg-brand-500 rounded-t h-[90%] transition-all"></div>
+            <div class="flex-1 bg-brand-200 dark:bg-brand-900/40 hover:bg-brand-500 rounded-t h-[65%] transition-all"></div>
+            <div class="flex-1 bg-brand-500 rounded-t h-[85%] transition-all"></div>
+            <div class="flex-1 bg-brand-500 rounded-t h-[95%] transition-all"></div>
+            <div class="flex-1 bg-brand-500 rounded-t h-[70%] transition-all"></div>
+            <div class="flex-1 bg-brand-600 rounded-t h-[88%] transition-all"></div>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-400 pt-2 font-mono">
+            <span>00:00</span>
+            <span>06:00</span>
+            <span>12:00</span>
+            <span>18:00</span>
+            <span>Şimdi (Canlı)</span>
+          </div>
+        </div>
+
+        <!-- Anlık Gecikme (Latency) Widget'ı -->
+        <div class="bg-white dark:bg-slate-900 p-5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <h3 class="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider">Model Yanıt Süresi</h3>
+              <span class="text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-mono">Canlı</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">Ortalama İlk Token Gecikmesi (TTFT)</p>
+
+            <div class="space-y-3.5 text-xs">
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="font-medium text-slate-700 dark:text-slate-300">Llama-3.3-70B</span>
+                  <span class="font-mono font-bold text-brand-600 dark:text-brand-400">142 ms</span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div class="bg-brand-500 h-full rounded-full" style="width: 45%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="font-medium text-slate-700 dark:text-slate-300">Mistral-Nemo-12B</span>
+                  <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400">89 ms</span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div class="bg-emerald-500 h-full rounded-full" style="width: 28%"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="flex justify-between mb-1">
+                  <span class="font-medium text-slate-700 dark:text-slate-300">Qwen-2.5-Coder-32B</span>
+                  <span class="font-mono font-bold text-blue-600 dark:text-blue-400">115 ms</span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div class="bg-blue-500 h-full rounded-full" style="width: 35%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400 flex justify-between">
+            <span>Cluster Donanımı:</span>
+            <span class="font-mono text-slate-700 dark:text-slate-300">SX-M4 NVLink</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alt Kısım: PRD 4.2 Lokal Model İndirme Yöneticisi Tablosu -->
+      <div class="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div class="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap justify-between items-center gap-3">
+          <div>
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Lokal Model İndirme & Orkestrasyon Yöneticisi</h3>
+            <p class="text-xs text-slate-500">Ollama ve vLLM entegre sunucuya doğrudan açık kaynak LLM indirme ve dağıtım modülü</p>
+          </div>
+          <button class="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Yeni Açık Kaynak Model İndir
+          </button>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-semibold">
+              <tr>
+                <th class="py-3 px-4">Model Adı</th>
+                <th class="py-3 px-4">Disk Boyutu</th>
+                <th class="py-3 px-4">Parametre</th>
+                <th class="py-3 px-4">Sağlayıcı</th>
+                <th class="py-3 px-4">Durum</th>
+                <th class="py-3 px-4">İlerleme / Bellek</th>
+                <th class="py-3 px-4 text-right">Aksiyonlar</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                <td class="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  Llama-3.3-70B-Instruct
+                </td>
+                <td class="py-3 px-4 font-mono text-slate-500">38.4 GB</td>
+                <td class="py-3 px-4 font-mono text-slate-500">70 Billion</td>
+                <td class="py-3 px-4">Ollama Local</td>
+                <td class="py-3 px-4">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300">Aktif & Hazır</span>
+                </td>
+                <td class="py-3 px-4">
+                  <div class="w-36 bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                    <div class="bg-emerald-500 h-full w-full"></div>
+                  </div>
+                </td>
+                <td class="py-3 px-4 text-right space-x-1.5">
+                  <button class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300">Yapılandır</button>
+                  <button class="px-2 py-1 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100">Durdur</button>
+                </td>
+              </tr>
+
+              <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                <td class="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                  DeepSeek-R1-Distill-70B
+                </td>
+                <td class="py-3 px-4 font-mono text-slate-500">43.2 GB</td>
+                <td class="py-3 px-4 font-mono text-slate-500">70 Billion</td>
+                <td class="py-3 px-4">vLLM Cluster</td>
+                <td class="py-3 px-4">
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">İndiriliyor (%68)</span>
+                </td>
+                <td class="py-3 px-4">
+                  <div class="flex items-center gap-2">
+                    <div class="w-28 bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                      <div class="bg-brand-600 h-full" style="width: 68%"></div>
+                    </div>
+                    <span class="text-[10px] font-mono text-slate-400">42 MB/s</span>
+                  </div>
+                </td>
+                <td class="py-3 px-4 text-right space-x-1.5">
+                  <button class="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300">Duraklat</button>
+                  <button class="px-2 py-1 rounded bg-rose-50 dark:bg-rose-950/40 text-rose-600 hover:bg-rose-100">İptal</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- JAVASCRIPT: EKRAN GEÇİŞİ, TEMA VE PALET YÖNETİMİ (SIFIR DIŞ BAĞIMLILIK) -->
+  <script>
+    // 1. TEMA YÖNETİMİ: Sistem varsayılanı kontrolü, tespit edilemezse Light fallback
+    function initTheme() {
+      const savedTheme = localStorage.getItem('nexus_theme');
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else {
+        // Sistem temasını kontrol et
+        const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (systemPrefersDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          // Bulunamazsa varsayılan Aydınlık (Light) tema
+          document.documentElement.classList.remove('dark');
+        }
+      }
+
+  <!-- ========================================================================= -->
+  <!-- 4. DERİN AYARLAR MODALI: GÖRÜNÜM & RENK PALETİ SEÇİCİ -->
+  <!-- ========================================================================= -->
+  <div id="settingsModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 transition-all">
+    <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <!-- Modal Başlık -->
+      <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/50 text-brand-600 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900 dark:text-white">Görünüm ve Tema Ayarları</h3>
+            <p class="text-xs text-slate-400">Kurumsal arayüz renklerini ve sistem temanızı özelleştirin</p>
+          </div>
+        </div>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+      </div>
+
+      <!-- Modal İçeriği -->
+      <div class="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <!-- 1. BÖLÜM: TEMA TERCİHİ -->
+        <div>
+          <label class="block text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2">Tema Modu</label>
+          <div class="grid grid-cols-3 gap-2.5">
+            <button onclick="setThemeMode('system')" id="theme-btn-system" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left hover:border-brand-500 transition-all flex flex-col gap-1.5">
+              <div class="flex items-center justify-between">
+                <svg class="w-4 h-4 text-slate-600 dark:text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <span id="theme-check-system" class="w-2 h-2 rounded-full bg-brand-600 hidden"></span>
+              </div>
+              <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Sistem</div>
+              <div class="text-[10px] text-slate-400">İşletim sistemine uy</div>
+            </button>
+
+            <button onclick="setThemeMode('light')" id="theme-btn-light" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left hover:border-brand-500 transition-all flex flex-col gap-1.5">
+              <div class="flex items-center justify-between">
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <span id="theme-check-light" class="w-2 h-2 rounded-full bg-brand-600 hidden"></span>
+              </div>
+              <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Aydınlık</div>
+              <div class="text-[10px] text-slate-400">Temiz açık zemin</div>
+            </button>
+
+            <button onclick="setThemeMode('dark')" id="theme-btn-dark" class="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-left hover:border-brand-500 transition-all flex flex-col gap-1.5">
+              <div class="flex items-center justify-between">
+                <svg class="w-4 h-4 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                <span id="theme-check-dark" class="w-2 h-2 rounded-full bg-brand-600 hidden"></span>
+              </div>
+              <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Karanlık</div>
+              <div class="text-[10px] text-slate-400">Göz yormayan koyu</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. BÖLÜM: RENK PALETİ TERCİHİ (DERİNDE) -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">Kurumsal Renk Paleti</label>
+            <span class="text-[10px] text-slate-400">Seçim anında uygulanır</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- Palet 1: Nexus Indigo -->
+            <div onclick="selectPalette('indigo')" id="palette-card-indigo" class="p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-brand-500 cursor-pointer transition-all flex items-start gap-3 bg-white dark:bg-slate-800/80">
+              <div class="flex -space-x-1.5 pt-0.5">
+                <span class="w-5 h-5 rounded-full bg-[#4338ca] shadow-sm"></span>
+                <span class="w-5 h-5 rounded-full bg-[#0284c7] shadow-sm"></span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100">Nexus Indigo</div>
+                  <span id="check-indigo" class="text-xs text-brand-600 font-bold hidden">✓</span>
+                </div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Modern AI & Yüksek Teknoloji</div>
+              </div>
+            </div>
+
+            <!-- Palet 2: Emerald Sentinel -->
+            <div onclick="selectPalette('emerald')" id="palette-card-emerald" class="p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-brand-500 cursor-pointer transition-all flex items-start gap-3 bg-white dark:bg-slate-800/80">
+              <div class="flex -space-x-1.5 pt-0.5">
+                <span class="w-5 h-5 rounded-full bg-[#059669] shadow-sm"></span>
+                <span class="w-5 h-5 rounded-full bg-[#0d9488] shadow-sm"></span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100">Emerald Sentinel</div>
+                  <span id="check-emerald" class="text-xs text-emerald-600 font-bold hidden">✓</span>
+                </div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Veri Güvenliği & Mevzuat</div>
+              </div>
+            </div>
+
+            <!-- Palet 3: Obsidian Minimal -->
+            <div onclick="selectPalette('obsidian')" id="palette-card-obsidian" class="p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-brand-500 cursor-pointer transition-all flex items-start gap-3 bg-white dark:bg-slate-800/80">
+              <div class="flex -space-x-1.5 pt-0.5">
+                <span class="w-5 h-5 rounded-full bg-[#18181b] shadow-sm border border-slate-600"></span>
+                <span class="w-5 h-5 rounded-full bg-[#71717a] shadow-sm"></span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100">Obsidian Minimal</div>
+                  <span id="check-obsidian" class="text-xs text-slate-900 dark:text-white font-bold hidden">✓</span>
+                </div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Linear Tarzı Monokrom</div>
+              </div>
+            </div>
+
+            <!-- Palet 4: Cyber Ocean -->
+            <div onclick="selectPalette('ocean')" id="palette-card-ocean" class="p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 hover:border-brand-500 cursor-pointer transition-all flex items-start gap-3 bg-white dark:bg-slate-800/80">
+              <div class="flex -space-x-1.5 pt-0.5">
+                <span class="w-5 h-5 rounded-full bg-[#0284c7] shadow-sm"></span>
+                <span class="w-5 h-5 rounded-full bg-[#6366f1] shadow-sm"></span>
+              </div>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs font-bold text-slate-800 dark:text-slate-100">Cyber Ocean</div>
+                  <span id="check-ocean" class="text-xs text-sky-600 font-bold hidden">✓</span>
+                </div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Kurumsal Bulut Mavisi</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Alt Aksiyon -->
+      <div class="px-6 py-3.5 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+        <button onclick="closeSettingsModal()" class="px-4 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white font-semibold text-xs transition-colors">
+          Tamam
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT: EKRAN GEÇİŞİ, TEMA VE PALET YÖNETİMİ (SIFIR DIŞ BAĞIMLILIK) -->
+  <script>
+    // 1. TEMA YÖNETİMİ
+    function initTheme() {
+      const savedTheme = localStorage.getItem('nexus_theme');
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+        updateThemeUI('dark');
+      } else if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+        updateThemeUI('light');
+      } else {
+        // Sistem temasını kontrol et
+        const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (systemPrefersDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+        updateThemeUI('system');
+      }
+
+      // Palet kontrolü
+      const savedPalette = localStorage.getItem('nexus_palette') || 'indigo';
+      selectPalette(savedPalette);
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.toggle('dark');
+      const newMode = isDark ? 'dark' : 'light';
+      localStorage.setItem('nexus_theme', newMode);
+      updateThemeUI(newMode);
+    }
+
+    function setThemeMode(mode) {
+      if (mode === 'system') {
+        localStorage.removeItem('nexus_theme');
+        const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (systemPrefersDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } else if (mode === 'light') {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('nexus_theme', 'light');
+      } else if (mode === 'dark') {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('nexus_theme', 'dark');
+      }
+      updateThemeUI(mode);
+    }
+
+    function updateThemeUI(activeMode) {
+      ['system', 'light', 'dark'].forEach(m => {
+        const btn = document.getElementById('theme-btn-' + m);
+        const check = document.getElementById('theme-check-' + m);
+        if (btn && check) {
+          if (m === activeMode) {
+            btn.classList.add('border-brand-500', 'ring-1', 'ring-brand-500');
+            check.classList.remove('hidden');
+          } else {
+            btn.classList.remove('border-brand-500', 'ring-1', 'ring-brand-500');
+            check.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    // 2. RENK PALETİ SEÇİCİ (DERİNDE)
+    function selectPalette(paletteName) {
+      document.documentElement.setAttribute('data-palette', paletteName);
+      localStorage.setItem('nexus_palette', paletteName);
+
+      ['indigo', 'emerald', 'obsidian', 'ocean'].forEach(p => {
+        const card = document.getElementById('palette-card-' + p);
+        const check = document.getElementById('check-' + p);
+        if (card && check) {
+          if (p === paletteName) {
+            card.classList.add('border-brand-500', 'bg-brand-50/40', 'dark:bg-brand-900/20');
+            card.classList.remove('border-slate-200', 'dark:border-slate-700');
+            check.classList.remove('hidden');
+          } else {
+            card.classList.remove('border-brand-500', 'bg-brand-50/40', 'dark:bg-brand-900/20');
+            card.classList.add('border-slate-200', 'dark:border-slate-700');
+            check.classList.add('hidden');
+          }
+        }
+      });
+    }
+
+    // 3. AYARLAR MODALI AÇ/KAPA
+    function openSettingsModal() {
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    // Modal dışına tıklayınca kapat
+    document.getElementById('settingsModal')?.addEventListener('click', function(e) {
+      if (e.target === this) closeSettingsModal();
+    });
+
+    // 4. EKRAN GÖRÜNÜMÜ GEÇİŞİ
+    function switchView(viewName) {
+      document.getElementById('view-user').classList.add('hidden');
+      document.getElementById('view-compare').classList.add('hidden');
+      document.getElementById('view-admin').classList.add('hidden');
+
+      document.getElementById('tab-user-btn').className = "px-3.5 py-1.5 rounded-md transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900";
+      document.getElementById('tab-compare-btn').className = "px-3.5 py-1.5 rounded-md transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900";
+      document.getElementById('tab-admin-btn').className = "px-3.5 py-1.5 rounded-md transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900";
+
+      if (viewName === 'user') {
+        document.getElementById('view-user').classList.remove('hidden');
+        document.getElementById('tab-user-btn').className = "px-3.5 py-1.5 rounded-md transition-all font-semibold bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-200 shadow-sm";
+      } else if (viewName === 'compare') {
+        document.getElementById('view-compare').classList.remove('hidden');
+        document.getElementById('tab-compare-btn').className = "px-3.5 py-1.5 rounded-md transition-all font-semibold bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-200 shadow-sm";
+      } else if (viewName === 'admin') {
+        document.getElementById('view-admin').classList.remove('hidden');
+        document.getElementById('tab-admin-btn').className = "px-3.5 py-1.5 rounded-md transition-all font-semibold bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-200 shadow-sm";
+      }
+    }
+
+    // 5. RAG INSPECTOR ÇEKMECESİ AÇ/KAPA
+    function toggleInspector() {
+      const drawer = document.getElementById('inspectorDrawer');
+      if (drawer.classList.contains('hidden')) {
+        drawer.classList.remove('hidden');
+      } else {
+        drawer.classList.add('hidden');
+      }
+    }
+
+    function openInspectorSource(id) {
+      const drawer = document.getElementById('inspectorDrawer');
+      drawer.classList.remove('hidden');
+    }
+
+    function copyCode(btn) {
+      btn.innerText = "Kopyalandı!";
+      setTimeout(() => { btn.innerText = "Kopyala"; }, 1500);
+    }
+
+    // ESC tuşu ile modalları kapat
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeSettingsModal();
+      }
+    });
+
+    // Başlangıçta temayı yükle
+    initTheme();
+  </script>
+</body>
+</html>
