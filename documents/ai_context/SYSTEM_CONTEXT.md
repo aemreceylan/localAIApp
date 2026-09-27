@@ -44,6 +44,7 @@ localAIApp/
 4. **React & Sıfır Bağımlılık (Zero-Dependency):**
    - Dış paket bağımlılığı en aza indirilecektir.
    - Radix, HeadlessUI veya harici UI kütüphaneleri kurulmayacaktır; bileşenler saf React + Tailwind ile `components/ui/` içinde yazılacaktır.
-5. **Backend Clean Architecture:**
-   - 4 Katman: `Domain` -> `Application` -> `Infrastructure` -> `Presentation`.
+5. **Backend Modüler Monolit (Modular Monolith) Mimarisi:**
+   - İş alanlarına (Bounded Contexts) göre ayrılmış bağımsız modüller (`auth`, `tenant`, `chat`, `rag`, `ollama`) ve ortak `shared/` katmanı.
+   - Katı veri izolasyonu (modüller arası doğrudan DB sorgusu yasaktır) ve her modülün kendi public API (`index.ts`) üzerinden haberleşmesi.
    - Multi-Tenancy: MongoDB ve Qdrant üzerinde `tenant_id` bazlı Row-Level Security (RLS).
