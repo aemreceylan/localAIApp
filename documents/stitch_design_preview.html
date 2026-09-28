@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr" class="h-full">
+<html lang="tr" class="h-full overflow-hidden">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -92,10 +92,10 @@
     }
   </style>
 </head>
-<body class="h-full bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-brand-500 selection:text-white transition-colors duration-200">
+<body class="h-screen w-screen overflow-hidden flex flex-col bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-brand-500 selection:text-white transition-colors duration-200">
 
   <!-- ÜST KONTROL BAR: EKRAN DEĞİŞTİRİCİ, TEMA VE PALET SEÇİCİ -->
-  <header class="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-2.5 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+  <header class="shrink-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-6 py-2.5 flex items-center justify-between gap-4 shadow-sm">
     <div class="flex items-center gap-3">
       <div class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-sm shadow-sm shadow-brand-500/30">
         NX
@@ -138,106 +138,182 @@
   <!-- ========================================================================= -->
   <!-- 1. GÖRÜNÜM: KULLANICI SOHBET VE RAG INSPECTOR (USER UI) -->
   <!-- ========================================================================= -->
-  <main id="view-user" class="flex h-[calc(100vh-53px)] overflow-hidden">
-    <!-- SOL DARALTILABİLİR SIDEBAR -->
-    <aside id="chatSidebar" class="w-72 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 transition-all duration-300">
-      <div class="p-3 flex flex-col gap-3">
-        <!-- Yeni Sohbet Butonu -->
-        <button class="w-full flex items-center justify-between px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all">
-          <span class="flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-            Yeni Sohbet
-          </span>
-          <span class="text-[10px] bg-brand-700 px-1.5 py-0.5 rounded font-mono">⌘N</span>
-        </button>
+  <main id="view-user" class="flex flex-1 min-h-0 overflow-hidden relative">
+    <!-- SOL DARALTILABİLİR & SÜRÜKLENEBİLİR SIDEBAR (TAM VE İNCE ÇUBUK MODLARI) -->
+    <aside id="chatSidebar" class="bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 transition-[width] duration-200 overflow-hidden relative select-none" style="width: 288px; min-width: 68px;">
+      
+      <!-- 1. GENİŞLETİLMİŞ İÇERİK (EXPANDED SIDEBAR) -->
+      <div id="sidebarExpandedContent" class="flex flex-col justify-between h-full w-full overflow-hidden">
+        <div class="p-3 flex flex-col gap-2.5 flex-1 min-h-0 overflow-hidden">
+          <!-- Üst Bar: Yeni Sohbet & Daralt Butonu -->
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button class="flex-1 flex items-center justify-between px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all">
+              <span class="flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                Yeni Sohbet
+              </span>
+              <span class="text-[10px] bg-brand-700 px-1.5 py-0.5 rounded font-mono">⌘N</span>
+            </button>
+            <button onclick="toggleSidebar()" class="p-2 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0" title="İnce Çubuk Moduna Daralt (Ctrl+B)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
+            </button>
+          </div>
 
-        <!-- Arama Kutusu -->
-        <div class="relative">
-          <svg class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          <input type="text" placeholder="Sohbet geçmişinde ara..." class="w-full pl-8 pr-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-500">
+          <!-- RAG Kaynak Denetçisi Butonu (SOL BARDA) -->
+          <button onclick="toggleInspector()" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-brand-50 hover:bg-brand-100/80 dark:bg-brand-900/30 dark:hover:bg-brand-900/50 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 text-xs font-semibold transition-all shrink-0 group">
+            <span class="flex items-center gap-2">
+              <span class="w-5 h-5 rounded bg-brand-600 text-white flex items-center justify-center font-bold text-[11px] shadow-sm">
+                §
+              </span>
+              <span>RAG Kaynakları</span>
+            </span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-200 dark:bg-brand-800 text-brand-800 dark:text-brand-200 font-mono font-medium">2 Aktif</span>
+          </button>
+
+          <!-- Arama Kutusu -->
+          <div class="relative shrink-0">
+            <svg class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <input type="text" placeholder="Sohbet geçmişinde ara..." class="w-full pl-8 pr-3 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md text-xs placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-brand-500">
+          </div>
+
+          <!-- Sohbet Geçmişi Listesi (Bağımsız Flex Dikey Scroll) -->
+          <div class="space-y-4 overflow-y-auto flex-1 pr-1 min-h-0 pt-1">
+            <div>
+              <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">Sabitlenenler & Departmanlar</div>
+              <div class="space-y-0.5">
+                <a href="#" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-medium text-xs">
+                  <span class="truncate flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-brand-600"></span>
+                    Q3 KVKK & Hukuk Değerlendirmesi
+                  </span>
+                  <span class="text-[10px] px-1 rounded bg-brand-100 dark:bg-brand-800 text-brand-700 dark:text-brand-200">Hukuk</span>
+                </a>
+                <a href="#" class="flex items-center justify-between px-2.5 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs">
+                  <span class="truncate flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    Mali Tablo ve Bilanço Özeti
+                  </span>
+                  <span class="text-[10px] px-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Finans</span>
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">Bugün</div>
+              <div class="space-y-0.5">
+                <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs truncate">
+                  RAG Vektör Arama & Qdrant Yapılandırması
+                </a>
+                <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs truncate">
+                  Llama 3.3 70B Prompt Şablonu Testi
+                </a>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">Geçmiş 7 Gün</div>
+              <div class="space-y-0.5">
+                <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs truncate">
+                  BullMQ Doküman Parçalama Kuyruk Analizi
+                </a>
+                <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs truncate">
+                  Docker Multi-Container Kurulum Notları
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Sohbet Geçmişi Listesi -->
-        <div class="space-y-4 overflow-y-auto max-h-[calc(100vh-270px)] pr-1">
-          <div>
-            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">Sabitlenenler & Departmanlar</div>
-            <div class="space-y-0.5">
-              <a href="#" class="flex items-center justify-between px-2.5 py-2 rounded-md bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-medium text-xs">
-                <span class="truncate flex items-center gap-2">
-                  <span class="w-1.5 h-1.5 rounded-full bg-brand-600"></span>
-                  Q3 KVKK & Hukuk Değerlendirmesi
-                </span>
-                <span class="text-[10px] px-1 rounded bg-brand-100 dark:bg-brand-800 text-brand-700 dark:text-brand-200">Hukuk</span>
-              </a>
-              <a href="#" class="flex items-center justify-between px-2.5 py-2 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs">
-                <span class="truncate flex items-center gap-2">
-                  <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                  Mali Tablo ve Bilanço Özeti
-                </span>
-                <span class="text-[10px] px-1 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">Finans</span>
-              </a>
+        <!-- Kullanıcı Profili ve Kota Kartı (Genişletilmiş) -->
+        <div class="p-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2 shrink-0">
+          <div class="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700/60">
+            <div class="flex justify-between items-center text-[11px] mb-1">
+              <span class="text-slate-500 dark:text-slate-400">Günlük Token Limiti</span>
+              <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">42,500 / 100,000</span>
+            </div>
+            <div class="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+              <div class="bg-brand-600 h-full rounded-full" style="width: 42.5%"></div>
             </div>
           </div>
-
-          <div>
-            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">Bugün</div>
-            <div class="space-y-0.5">
-              <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs truncate">
-                RAG Vektör Arama & Qdrant Yapılandırması
-              </a>
-              <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs truncate">
-                Llama 3.3 70B Prompt Şablonu Testi
-              </a>
+          <div class="flex items-center justify-between pt-1">
+            <div class="flex items-center gap-2">
+              <div class="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 font-bold text-xs flex items-center justify-center">
+                AE
+              </div>
+              <div class="leading-tight">
+                <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Ahmet Emre</div>
+                <div class="text-[10px] text-slate-400">Hukuk & Veri Analisti</div>
+              </div>
             </div>
-          </div>
-
-          <div>
-            <div class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1.5">Geçmiş 7 Gün</div>
-            <div class="space-y-0.5">
-              <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs truncate">
-                BullMQ Doküman Parçalama Kuyruk Analizi
-              </a>
-              <a href="#" class="block px-2.5 py-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 text-xs truncate">
-                Docker Multi-Container Kurulum Notları
-              </a>
-            </div>
+            <button onclick="openSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Görünüm ve Tema Ayarları">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Kullanıcı Profili ve Kota Kartı -->
-      <div class="p-3 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2">
-        <div class="bg-slate-50 dark:bg-slate-800/60 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700/60">
-          <div class="flex justify-between items-center text-[11px] mb-1">
-            <span class="text-slate-500 dark:text-slate-400">Günlük Token Limiti</span>
-            <span class="font-mono font-semibold text-brand-600 dark:text-brand-400">42,500 / 100,000</span>
-          </div>
-          <div class="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-            <div class="bg-brand-600 h-full rounded-full" style="width: 42.5%"></div>
-          </div>
-        </div>
-        <div class="flex items-center justify-between pt-1">
-          <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 font-bold text-xs flex items-center justify-center">
-              AE
-            </div>
-            <div class="leading-tight">
-              <div class="text-xs font-semibold text-slate-800 dark:text-slate-200">Ahmet Emre</div>
-              <div class="text-[10px] text-slate-400">Hukuk & Veri Analisti</div>
-            </div>
-          </div>
-          <button onclick="openSettingsModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" title="Görünüm ve Tema Ayarları">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+      <!-- 2. İNCE ÇUBUK / DARALTILMIŞ MOD İÇERİĞİ (MINI SLIM RAIL) -->
+      <div id="sidebarMiniContent" class="hidden flex-col items-center justify-between h-full w-full py-3 px-1.5 overflow-hidden">
+        <!-- Üst İkon Aksiyonları -->
+        <div class="flex flex-col items-center gap-2.5 w-full">
+          <!-- Genişletme Butonu -->
+          <button onclick="toggleSidebar()" class="w-10 h-10 rounded-xl text-slate-400 hover:text-slate-800 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors shrink-0" title="Kenar Çubuğunu Genişlet (Ctrl+B)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+          </button>
+
+          <!-- Yeni Sohbet İkon Butonu -->
+          <button class="w-10 h-10 rounded-xl bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center shadow-sm shadow-brand-500/30 transition-all shrink-0 group relative" title="Yeni Sohbet (⌘N)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+          </button>
+
+          <!-- RAG Kaynakları İkon Butonu (Sağdan Çekmeceyi Açar) -->
+          <button onclick="toggleInspector()" class="w-10 h-10 rounded-xl bg-brand-50 hover:bg-brand-100 dark:bg-brand-900/40 dark:hover:bg-brand-900/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 flex items-center justify-center transition-all relative shrink-0" title="RAG Kaynak Denetçisi (2 Kaynak)">
+            <span class="font-bold text-sm">§</span>
+            <span class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-brand-600 text-white text-[9px] font-bold flex items-center justify-center">2</span>
+          </button>
+
+          <!-- İnce Ayırıcı -->
+          <div class="w-6 h-px bg-slate-200 dark:bg-slate-800 my-1"></div>
+
+          <!-- Hızlı Kısayol İkonları -->
+          <button class="w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 flex items-center justify-center transition-colors shrink-0" title="Sabitlenen: Q3 KVKK & Hukuk">
+            <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          </button>
+
+          <button class="w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 flex items-center justify-center transition-colors shrink-0" title="Sabitlenen: Mali Tablo & Bilanço">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
           </button>
         </div>
+
+        <!-- Alt Kısım: Ayarlar Butonu ve Kullanıcı Profili -->
+        <div class="flex flex-col items-center gap-2.5 w-full pt-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
+          <button onclick="openSettingsModal()" class="w-9 h-9 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 flex items-center justify-center transition-colors" title="Görünüm ve Tema Ayarları">
+            <svg class="w-4 h-4 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+          </button>
+          
+          <div onclick="openSettingsModal()" class="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 font-bold text-xs flex items-center justify-center cursor-pointer border border-brand-300 dark:border-brand-700/60 relative" title="Ahmet Emre (Hukuk & Veri Analisti)">
+            AE
+            <span class="absolute bottom-0 right-0 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-slate-900"></span>
+          </div>
+        </div>
       </div>
+
     </aside>
 
+    <!-- SOL SIDEBAR BOYUT AYARLAMA TUTAMACI (RESIZER) -->
+    <div id="sidebarResizer" class="w-1.5 hover:w-2 cursor-col-resize select-none shrink-0 z-30 flex items-center justify-center relative hover:bg-brand-500/20 active:bg-brand-500/40 transition-colors -ml-1 group" title="Sürükleyerek sol menü genişliğini ayarlayın">
+      <div class="w-0.5 h-7 bg-slate-300 dark:bg-slate-700 rounded-full group-hover:bg-brand-500 group-hover:h-12 transition-all"></div>
+    </div>
+
     <!-- ORTA ANA SOHBET AKIŞI -->
-    <section class="flex-1 flex flex-col h-full bg-white dark:bg-slate-950 overflow-hidden relative">
+    <section class="flex-1 min-w-0 flex flex-col h-full bg-white dark:bg-slate-950 overflow-hidden relative">
       <!-- Sohbet Üst Barı (Model Seçimi, Kıyasla, Paylaş) -->
       <div class="h-13 px-6 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/50 dark:bg-slate-900/50 backdrop-blur shrink-0">
         <div class="flex items-center gap-3">
+          <!-- Kenar Çubuğu Daraltıldığında Gözüken Aç Butonu -->
+          <button id="sidebarExpandBtn" onclick="toggleSidebar()" class="hidden p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors shadow-sm" title="Kenar Çubuğunu Aç (Ctrl+B)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+          </button>
           <!-- Model Seçici Dropdown -->
           <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1.5 rounded-lg text-xs">
             <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -372,17 +448,24 @@ ORDER BY timestamp DESC LIMIT 5;</code></pre>
       </div>
     </section>
 
-    <!-- SAĞ TARAF: RAG DOKÜMAN ÖNİZLEME ÇEKMECESİ (DRAWER) -->
-    <aside id="inspectorDrawer" class="w-88 bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 transition-all duration-300">
-      <div class="p-4 flex flex-col gap-4 overflow-y-auto">
-        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+    <!-- SAĞ TARAF: RAG DOKÜMAN ÖNİZLEME ÇEKMECESİ (DRAWER - ÇİFT AŞAMALI: SIKIŞTIRMA + ÜZERİNE GEÇME) -->
+    <aside id="inspectorDrawer" class="relative bg-slate-50 dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 transition-[width,opacity] duration-150" style="width: 380px;">
+      
+      <!-- RAG INSPECTOR BOYUT AYARLAMA TUTAMACI (SOL KENAR - HEM AKIŞTA HEM OVERLAY'DE BAĞLI) -->
+      <div id="inspectorResizer" class="absolute -left-1.5 top-0 bottom-0 w-3 cursor-col-resize select-none z-40 flex items-center justify-center group hover:bg-brand-500/20 active:bg-brand-500/40 transition-colors" title="Sürükleyerek RAG paneli genişliğini ayarlayın (Genişledikçe Sohbetin Üzerine Geçer)">
+        <div class="w-1 h-8 bg-slate-300 dark:bg-slate-700 rounded-full group-hover:bg-brand-500 group-hover:h-14 transition-all shadow-sm"></div>
+      </div>
+
+      <div class="p-4 flex flex-col gap-4 flex-1 min-h-0 overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 shrink-0">
           <div class="flex items-center gap-2">
-            <div class="w-6 h-6 rounded bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 flex items-center justify-center font-bold text-xs">
+            <div class="w-6 h-6 rounded bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 flex items-center justify-center font-bold text-xs shadow-sm">
               §
             </div>
             <h3 class="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">RAG Kaynak Denetçisi</h3>
+            <span id="overlayBadge" class="hidden text-[10px] font-mono px-1.5 py-0.5 rounded bg-brand-100 dark:bg-brand-900/60 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800">Üzerine Açık</span>
           </div>
-          <button onclick="toggleInspector()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <button onclick="toggleInspector()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors" title="Kapat">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -431,7 +514,7 @@ ORDER BY timestamp DESC LIMIT 5;</code></pre>
   <!-- ========================================================================= -->
   <!-- 2. GÖRÜNÜM: YAN YANA MODEL KIYASLAMA EKRANI (SIDE-BY-SIDE MODE) -->
   <!-- ========================================================================= -->
-  <main id="view-compare" class="hidden h-[calc(100vh-53px)] overflow-hidden flex flex-col bg-slate-100 dark:bg-slate-950">
+  <main id="view-compare" class="hidden flex-1 min-h-0 flex-col overflow-hidden bg-slate-100 dark:bg-slate-950">
     <div class="h-12 px-6 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between shrink-0">
       <div class="flex items-center gap-2">
         <span class="font-bold text-xs text-slate-800 dark:text-slate-100">Yan Yana Çoklu Model Kıyaslama (Side-by-Side Arena)</span>
@@ -483,7 +566,7 @@ ORDER BY timestamp DESC LIMIT 5;</code></pre>
   <!-- ========================================================================= -->
   <!-- 3. GÖRÜNÜM: YÖNETİCİ KONTROL PANELİ (ADMIN DASHBOARD) -->
   <!-- ========================================================================= -->
-  <main id="view-admin" class="hidden h-[calc(100vh-53px)] overflow-hidden flex bg-slate-50 dark:bg-slate-950">
+  <main id="view-admin" class="hidden flex-1 min-h-0 flex overflow-hidden bg-slate-50 dark:bg-slate-950">
     <!-- ADMIN SOL SABİT MENÜ (SIDEBAR) -->
     <aside class="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between shrink-0 p-4">
       <div class="space-y-6">
@@ -748,31 +831,12 @@ ORDER BY timestamp DESC LIMIT 5;</code></pre>
     </div>
   </main>
 
-  <!-- JAVASCRIPT: EKRAN GEÇİŞİ, TEMA VE PALET YÖNETİMİ (SIFIR DIŞ BAĞIMLILIK) -->
-  <script>
-    // 1. TEMA YÖNETİMİ: Sistem varsayılanı kontrolü, tespit edilemezse Light fallback
-    function initTheme() {
-      const savedTheme = localStorage.getItem('nexus_theme');
-      if (savedTheme === 'dark') {
-        document.documentElement.classList.add('dark');
-      } else if (savedTheme === 'light') {
-        document.documentElement.classList.remove('dark');
-      } else {
-        // Sistem temasını kontrol et
-        const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (systemPrefersDark) {
-          document.documentElement.classList.add('dark');
-        } else {
-          // Bulunamazsa varsayılan Aydınlık (Light) tema
-          document.documentElement.classList.remove('dark');
-        }
-      }
-  // <!-- ========================================================================= -->
-  // <!-- 4. DERİN AYARLAR MODALI: GÖRÜNÜM & RENK PALETİ SEÇİCİ -->
-  // <!-- ========================================================================= -->
+  <!-- ========================================================================= -->
+  <!-- 4. DERİN AYARLAR MODALI: GÖRÜNÜM & RENK PALETİ SEÇİCİ -->
+  <!-- ========================================================================= -->
   <div id="settingsModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 transition-all">
     <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-      // <!-- Modal Başlık -->
+      <!-- Modal Başlık -->
       <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
         <div class="flex items-center gap-2.5">
           <div class="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-900/50 text-brand-600 flex items-center justify-center">
@@ -1010,31 +1074,174 @@ ORDER BY timestamp DESC LIMIT 5;</code></pre>
 
     // 4. EKRAN GÖRÜNÜMÜ GEÇİŞİ
     function switchView(viewName) {
-      document.getElementById('view-user').classList.add('hidden');
-      document.getElementById('view-compare').classList.add('hidden');
-      document.getElementById('view-admin').classList.add('hidden');
+      const views = {
+        'user': document.getElementById('view-user'),
+        'compare': document.getElementById('view-compare'),
+        'admin': document.getElementById('view-admin')
+      };
+
+      Object.values(views).forEach(v => {
+        if (v) {
+          v.classList.add('hidden');
+          v.classList.remove('flex');
+        }
+      });
 
       document.getElementById('tab-user-btn').className = "px-3.5 py-1.5 rounded-md transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900";
       document.getElementById('tab-compare-btn').className = "px-3.5 py-1.5 rounded-md transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900";
       document.getElementById('tab-admin-btn').className = "px-3.5 py-1.5 rounded-md transition-all text-slate-600 dark:text-slate-300 hover:text-slate-900";
 
-      if (viewName === 'user') {
-        document.getElementById('view-user').classList.remove('hidden');
-        document.getElementById('tab-user-btn').className = "px-3.5 py-1.5 rounded-md transition-all font-semibold bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-200 shadow-sm";
-      } else if (viewName === 'compare') {
-        document.getElementById('view-compare').classList.remove('hidden');
-        document.getElementById('tab-compare-btn').className = "px-3.5 py-1.5 rounded-md transition-all font-semibold bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-200 shadow-sm";
-      } else if (viewName === 'admin') {
-        document.getElementById('view-admin').classList.remove('hidden');
-        document.getElementById('tab-admin-btn').className = "px-3.5 py-1.5 rounded-md transition-all font-semibold bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-200 shadow-sm";
+      const target = views[viewName];
+      if (target) {
+        target.classList.remove('hidden');
+        target.classList.add('flex');
+        const activeBtn = document.getElementById('tab-' + viewName + '-btn');
+        if (activeBtn) {
+          activeBtn.className = "px-3.5 py-1.5 rounded-md transition-all font-semibold bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-200 shadow-sm";
+        }
       }
     }
 
-    // 5. RAG INSPECTOR ÇEKMECESİ AÇ/KAPA
+    // 5. SOL MENÜ DARALTMA & YENİDEN BOYUTLANDIRMA (RESIZABLE SIDEBAR)
+    let savedSidebarWidth = parseInt(localStorage.getItem('nexus_sidebar_width')) || 288;
+    let isSidebarCollapsed = localStorage.getItem('nexus_sidebar_collapsed') === 'true';
+
+    function setSidebarCollapsed(collapsed) {
+      isSidebarCollapsed = collapsed;
+      localStorage.setItem('nexus_sidebar_collapsed', isSidebarCollapsed ? 'true' : 'false');
+
+      const chatSidebar = document.getElementById('chatSidebar');
+      const expandedContent = document.getElementById('sidebarExpandedContent');
+      const miniContent = document.getElementById('sidebarMiniContent');
+      if (!chatSidebar) return;
+
+      if (isSidebarCollapsed) {
+        chatSidebar.style.width = '68px';
+        if (expandedContent) expandedContent.classList.add('hidden');
+        if (miniContent) {
+          miniContent.classList.remove('hidden');
+          miniContent.classList.add('flex');
+        }
+      } else {
+        chatSidebar.style.width = (savedSidebarWidth || 288) + 'px';
+        if (miniContent) {
+          miniContent.classList.add('hidden');
+          miniContent.classList.remove('flex');
+        }
+        if (expandedContent) expandedContent.classList.remove('hidden');
+      }
+    }
+
+    function toggleSidebar() {
+      setSidebarCollapsed(!isSidebarCollapsed);
+    }
+
+    // Sidebar Resizer Drag Logic
+    (function initSidebarResizer() {
+      const resizer = document.getElementById('sidebarResizer');
+      const sidebar = document.getElementById('chatSidebar');
+      if (!resizer || !sidebar) return;
+
+      // Başlangıçta kayıtlı durumu uygula
+      if (isSidebarCollapsed) {
+        setSidebarCollapsed(true);
+      } else if (savedSidebarWidth) {
+        sidebar.style.width = savedSidebarWidth + 'px';
+      }
+
+      resizer.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = sidebar.offsetWidth;
+        sidebar.style.transition = 'none';
+        document.body.classList.add('select-none');
+        document.body.style.cursor = 'col-resize';
+
+        function onMouseMove(ev) {
+          const delta = ev.clientX - startX;
+          let newW = startWidth + delta;
+
+          // Eğer ince çubuk modundayken sağa çekilirse tam moda genişlet
+          if (isSidebarCollapsed && newW > 100) {
+            setSidebarCollapsed(false);
+          }
+
+          if (!isSidebarCollapsed) {
+            if (newW < 130) {
+              // Çok sola itilirse ince çubuk moduna kenetle
+              setSidebarCollapsed(true);
+              return;
+            }
+            if (newW < 200) newW = 200;
+            if (newW > 550) newW = 550;
+            sidebar.style.width = newW + 'px';
+            savedSidebarWidth = newW;
+          }
+        }
+
+        function onMouseUp() {
+          sidebar.style.transition = '';
+          document.body.classList.remove('select-none');
+          document.body.style.cursor = '';
+          if (!isSidebarCollapsed) {
+            localStorage.setItem('nexus_sidebar_width', savedSidebarWidth);
+          }
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+        }
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+      });
+    })();
+
+    // 6. RAG INSPECTOR ÇEKMECESİ AÇ/KAPA VE ÇİFT AŞAMALI BOYUTLANDIRMA
+    // (Önce chat sıkışır, bir sınırdan sonra chat sabit kalıp çekmece üzerine genişler)
+    let savedInspectorWidth = parseInt(localStorage.getItem('nexus_inspector_width')) || 380;
+
+    function updateInspectorLayout(width) {
+      const drawer = document.getElementById('inspectorDrawer');
+      const viewUser = document.getElementById('view-user');
+      const sidebar = document.getElementById('chatSidebar');
+      const overlayBadge = document.getElementById('overlayBadge');
+      if (!drawer || !viewUser) return;
+
+      const viewUserWidth = viewUser.offsetWidth;
+      const sidebarWidth = sidebar ? sidebar.offsetWidth : 68;
+      const availableWidth = viewUserWidth - sidebarWidth;
+      
+      // Sohbet alanının rahat okunabilirlik için minimum genişliği
+      const chatMinInFlow = 460;
+      const inFlowThreshold = Math.max(320, availableWidth - chatMinInFlow);
+
+      if (width > inFlowThreshold) {
+        // 2. AŞAMA: SOHBETİN ÜZERİNE GEÇME (FLOATING OVERLAY)
+        drawer.classList.add('absolute', 'right-0', 'top-0', 'bottom-0', 'z-30', 'shadow-2xl', 'ring-1', 'ring-slate-900/10', 'dark:ring-slate-100/10');
+        drawer.classList.remove('relative');
+        if (overlayBadge) overlayBadge.classList.remove('hidden');
+
+        // Neredeyse tüm ekrana kadar genişletilebilir (ekranın %90+'ı)
+        const maxOverlayWidth = Math.max(360, availableWidth - 30);
+        const clampedW = Math.min(width, maxOverlayWidth);
+        drawer.style.width = clampedW + 'px';
+      } else {
+        // 1. AŞAMA: AKIŞ İÇİNDE SIKIŞTIRMA (IN-FLOW COMPRESSION)
+        drawer.classList.remove('absolute', 'right-0', 'top-0', 'bottom-0', 'z-30', 'shadow-2xl', 'ring-1', 'ring-slate-900/10', 'dark:ring-slate-100/10');
+        drawer.classList.add('relative');
+        if (overlayBadge) overlayBadge.classList.add('hidden');
+
+        const clampedW = Math.max(260, width);
+        drawer.style.width = clampedW + 'px';
+      }
+    }
+
     function toggleInspector() {
       const drawer = document.getElementById('inspectorDrawer');
+      if (!drawer) return;
+
       if (drawer.classList.contains('hidden')) {
         drawer.classList.remove('hidden');
+        updateInspectorLayout(savedInspectorWidth || 380);
       } else {
         drawer.classList.add('hidden');
       }
@@ -1042,18 +1249,79 @@ ORDER BY timestamp DESC LIMIT 5;</code></pre>
 
     function openInspectorSource(id) {
       const drawer = document.getElementById('inspectorDrawer');
-      drawer.classList.remove('hidden');
+      if (drawer) {
+        drawer.classList.remove('hidden');
+        updateInspectorLayout(savedInspectorWidth || 380);
+      }
     }
 
+    // RAG Inspector Resizer Drag Logic (Sol Kenardan Sürükleme)
+    (function initInspectorResizer() {
+      const resizer = document.getElementById('inspectorResizer');
+      const drawer = document.getElementById('inspectorDrawer');
+      if (!resizer || !drawer) return;
+
+      // Başlangıç genişliğini uygula
+      if (savedInspectorWidth) {
+        updateInspectorLayout(savedInspectorWidth);
+      }
+
+      resizer.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = drawer.offsetWidth;
+        drawer.style.transition = 'none';
+        document.body.classList.add('select-none');
+        document.body.style.cursor = 'col-resize';
+
+        function onMouseMove(ev) {
+          // Sol kenardan tutulduğu için sola çekildikçe (startX - ev.clientX) genişlik artar
+          const delta = startX - ev.clientX;
+          const newW = startWidth + delta;
+          updateInspectorLayout(newW);
+          savedInspectorWidth = drawer.offsetWidth;
+        }
+
+        function onMouseUp() {
+          drawer.style.transition = '';
+          document.body.classList.remove('select-none');
+          document.body.style.cursor = '';
+          localStorage.setItem('nexus_inspector_width', savedInspectorWidth);
+          window.removeEventListener('mousemove', onMouseMove);
+          window.removeEventListener('mouseup', onMouseUp);
+        }
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+      });
+    })();
+
+    // Pencere boyutu değiştiğinde overlay sınırlarını dinamik güncelle
+    window.addEventListener('resize', () => {
+      const drawer = document.getElementById('inspectorDrawer');
+      if (drawer && !drawer.classList.contains('hidden')) {
+        updateInspectorLayout(savedInspectorWidth || 380);
+      }
+    });
+
+    // 7. YARDIMCI İŞLEVLER
     function copyCode(btn) {
+      const codeBlock = btn.closest('.rounded-lg')?.querySelector('code');
+      if (codeBlock && navigator.clipboard) {
+        navigator.clipboard.writeText(codeBlock.innerText);
+      }
       btn.innerText = "Kopyalandı!";
       setTimeout(() => { btn.innerText = "Kopyala"; }, 1500);
     }
 
-    // ESC tuşu ile modalları kapat
+    // Kısayol Tuşları (ESC: Modalları kapat, Ctrl+B / Cmd+B: Kenar çubuğunu aç/kapat)
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeSettingsModal();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebar();
       }
     });
 
