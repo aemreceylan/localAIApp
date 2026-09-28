@@ -34,7 +34,7 @@ localAIApp/
 
 1. **Görsel Dil & Tasarım:**
    - Onaylanan estetik: "Nexus Precision" (Modern B2B SaaS, temiz grid çizgileri, slate kenarlıklar).
-   - [stitch_design_preview.html](file:///c:/Users/ahmet/Desktop/YAZILIM/localAIApp/documents/stitch_design_preview.html) dosyasındaki yerleşim, bileşenler ve etkileşimler referanstır.
+   - [stitch_design_preview.html](../stitch_design_preview.html) dosyasındaki yerleşim, bileşenler ve etkileşimler referanstır.
 2. **Tema Davranışı:**
    - Varsayılan: `prefers-color-scheme` sistem teması.
    - Fallback: Aydınlık (Light) Mod.
@@ -48,3 +48,6 @@ localAIApp/
    - İş alanlarına (Bounded Contexts) göre ayrılmış bağımsız modüller (`auth`, `tenant`, `chat`, `rag`, `ollama`) ve ortak `shared/` katmanı.
    - Katı veri izolasyonu (modüller arası doğrudan DB sorgusu yasaktır) ve her modülün kendi public API (`index.ts`) üzerinden haberleşmesi.
    - Multi-Tenancy: MongoDB ve Qdrant üzerinde `tenant_id` bazlı Row-Level Security (RLS).
+6. **Geliştirici Çalışma Prensipleri & Anti-Loop Protokolü:**
+   - En fazla 5 başarısız denemeden sonra durup kullanıcıya danışılması (anti-loop kuralı), token verimliliği, pragmatik mantık odaklı testler ve yaşayan çift odaklı (insan/AI) dökümantasyon kuralları ([DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md)) onaylanmıştır.
+

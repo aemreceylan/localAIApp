@@ -3,7 +3,7 @@
 **Proje:** Kurumsal LLM & Veri Yönetim Platformu (*NexusAI Gateway & Knowledge Base*)  
 **Rol:** AI Product Designer & Frontend Lead  
 **Durum:** Kullanıcı Tarafından Onaylandı  
-**İnteraktif Prototip:** [stitch_design_preview.html](file:///c:/Users/ahmet/Desktop/YAZILIM/localAIApp/documents/stitch_design_preview.html)
+**İnteraktif Prototip:** [stitch_design_preview.html](../stitch_design_preview.html)
 
 ---
 

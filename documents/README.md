@@ -22,7 +22,8 @@ documents/
 └── ai_context/                            # 2. AI OTURUMLARINA YÖNELİK BELGELER (Yüksek Sinyal, Net Kurallar)
     ├── SYSTEM_CONTEXT.md                  # Proje özeti, teknoloji yığını, dizin haritası ve anlık durum
     ├── UI_FRONTEND_CONVENTIONS.md         # React, Tailwind ve Sıfır Bağımlılık (Zero-Dependency) Kuralları
-    └── ARCHITECTURE_RULES.md              # Clean Architecture, Multi-Tenancy (RLS) ve Güvenlik Kuralları
+    ├── ARCHITECTURE_RULES.md              # Clean Architecture, Multi-Tenancy (RLS) ve Güvenlik Kuralları
+    └── DEVELOPMENT_GUIDELINES.md          # AI çalışma prensipleri, anti-loop kuralı, test & dökümantasyon standartları
 ```
 
 ---
@@ -31,13 +32,15 @@ documents/
 
 | Doküman | Hedef Kitle | Açıklama |
 | :--- | :--- | :--- |
-| **[Canlı Tasarım Prototipi](file:///c:/Users/ahmet/Desktop/YAZILIM/localAIApp/documents/stitch_design_preview.html)** | Tümü | Tarayıcıda doğrudan test edilebilen User Chat, Side-by-Side ve Admin Dashboard prototipi. |
-| **[PRD Dokümanı](file:///c:/Users/ahmet/Desktop/YAZILIM/localAIApp/documents/kurumsal_llm_veri_y_netim_platformu_prd.md)** | İnsan | v2.1.0 iş analizi, kullanıcı rolleri, RAG gereksinimleri ve MoSCoW MVP fazlandırması. |
-| **[Yazılım Mimarisi (SAD)](file:///c:/Users/ahmet/Desktop/YAZILIM/localAIApp/documents/software_architecture_document.md)** | İnsan | v1.1.0 Clean Architecture, MongoDB Mongoose RLS, Qdrant ve BullMQ akışları. |
-| **[UI/UX Şartnamesi](file:///c:/Users/ahmet/Desktop/YAZILIM/localAIApp/documents/human/ui_ux_specification.md)** | İnsan & AI | Onaylanan arayüz düzenleri, sağ RAG çekmecesi ve modal davranışları. |
-| **[Tasarım Sistemi & Token'lar](file:///c:/Users/ahmet/Desktop/YAZILIM/localAIApp/documents/human/design_system_and_tokens.md)** | İnsan & AI | 4 hazır renk paleti, tipografi ölçeği ve CSS değişkenleri. |
-| **[AI Sistem Bağlamı](file:///c:/Users/ahmet/Desktop/YAZILIM/localAIApp/documents/ai_context/SYSTEM_CONTEXT.md)** | AI Oturumları | AI ajanlarının oturum başında okuması gereken özet ve durum raporu. |
-| **[AI Frontend Kuralları](file:///c:/Users/ahmet/Desktop/YAZILIM/localAIApp/documents/ai_context/UI_FRONTEND_CONVENTIONS.md)** | AI Oturumları | React kodlarken minimum dış bağımlılık ve bileşen yazım standartları. |
+| **[Canlı Tasarım Prototipi](stitch_design_preview.html)** | Tümü | Tarayıcıda doğrudan test edilebilen User Chat, Side-by-Side ve Admin Dashboard prototipi. |
+| **[PRD Dokümanı](kurumsal_llm_veri_y_netim_platformu_prd.md)** | İnsan | v2.1.0 iş analizi, kullanıcı rolleri, RAG gereksinimleri ve MoSCoW MVP fazlandırması. |
+| **[Yazılım Mimarisi (SAD)](software_architecture_document.md)** | İnsan | v1.1.0 Clean Architecture, MongoDB Mongoose RLS, Qdrant ve BullMQ akışları. |
+| **[UI/UX Şartnamesi](human/ui_ux_specification.md)** | İnsan & AI | Onaylanan arayüz düzenleri, sağ RAG çekmecesi ve modal davranışları. |
+| **[Tasarım Sistemi & Token'lar](human/design_system_and_tokens.md)** | İnsan & AI | 4 hazır renk paleti, tipografi ölçeği ve CSS değişkenleri. |
+| **[AI Sistem Bağlamı](ai_context/SYSTEM_CONTEXT.md)** | AI Oturumları | AI ajanlarının oturum başında okuması gereken özet ve durum raporu. |
+| **[AI Frontend Kuralları](ai_context/UI_FRONTEND_CONVENTIONS.md)** | AI Oturumları | React kodlarken minimum dış bağımlılık ve bileşen yazım standartları. |
+| **[AI Çalışma İlkeleri & Anti-Loop](ai_context/DEVELOPMENT_GUIDELINES.md)** | AI Oturumları | Token verimliliği, 5-deneme anti-loop kuralı, test stratejisi ve dökümantasyon yaşam döngüsü. |
+
 
 ---
 
