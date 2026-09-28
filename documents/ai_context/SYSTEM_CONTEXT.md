@@ -49,5 +49,6 @@ localAIApp/
    - Katı veri izolasyonu (modüller arası doğrudan DB sorgusu yasaktır) ve her modülün kendi public API (`index.ts`) üzerinden haberleşmesi.
    - Multi-Tenancy: MongoDB ve Qdrant üzerinde `tenant_id` bazlı Row-Level Security (RLS).
 6. **Geliştirici Çalışma Prensipleri & Anti-Loop Protokolü:**
-   - En fazla 5 başarısız denemeden sonra durup kullanıcıya danışılması (anti-loop kuralı), token verimliliği, pragmatik mantık odaklı testler ve yaşayan çift odaklı (insan/AI) dökümantasyon kuralları ([DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md)) onaylanmıştır.
+   - Adım adım, parça parça ve kullanıcı ile istişare ederek ilerleme prensibi, en fazla 5 başarısız denemeden sonra durup kullanıcıya danışılması (anti-loop kuralı), token verimliliği, pragmatik mantık odaklı testler ve yaşayan çift odaklı (insan/AI) dökümantasyon kuralları ([DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md)) onaylanmıştır.
+
 

@@ -66,6 +66,9 @@ Projenin kapsamlı dökümantasyonu `documents/` dizininde iki ana kategoride tu
    Mimari test edilebilir tasarlanır; çekirdek domain mantığı, yetkilendirme ve çok kiracılı veri izolasyonu (Multi-Tenancy) test edilir. Ancak en küçük UI veya önemsiz detay için anlamsız testler yazarak proje hantallaştırılmaz.
 6. **Çift Odaklı ve Yaşayan Dökümantasyon Kültürü:**  
    Dökümantasyon her zaman güncel tutulur. İnsanlar için detaylı ve görsel (`documents/human/`), AI'lar için net ve amaca yönelik (`documents/ai_context/`) belgeler güncellenir veya gerekirse yenileri oluşturulur.
+7. **Adım Adım, Parça Parça ve İstişareli Geliştirme (Iterative Collaborative Engineering):**  
+   Büyük kod blokları veya çoklu katmanlar asla tek seferde ve tek taraflı varsayımlarla yazılamaz. Her geliştirme adımı öncesinde kullanıcı ile mimari yöntem, kapsam ve uygulanacak parçalar istişare edilir; kullanıcının teyidi ve onayı alındıktan sonra adım adım, parça parça kodlanır ve doğrulanır.
    *(Ayrıntılı yönergeler için: [DEVELOPMENT_GUIDELINES.md](documents/ai_context/DEVELOPMENT_GUIDELINES.md))*
+
 
 

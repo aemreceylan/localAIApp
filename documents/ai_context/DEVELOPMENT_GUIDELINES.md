@@ -23,6 +23,11 @@
    - Kullanıcının reddettiği kütüphaneler (ör. harici UI paketleri) veya benimsediği tasarım kuralları (ör. sistem teması varsayılanı, RLS zorunluluğu) asla keyfi biçimde delinemez.
 2. **Varsayımlar Yerine Hizalama:**
    - Bir gereksinim veya tasarım tercihi net değilse, rastgele varsayımlar üretmek yerine soru sorarak kullanıcı ile hizalanmalıdır.
+3. **Adım Adım, Parça Parça ve İstişareli Geliştirme (Iterative Collaborative Engineering):**
+   - Kodlama süreçlerinde devasa ve kontrolsüz kod blokları bir defada üretilmez.
+   - Her yeni katman, modül veya mimari parça geliştirilmeden önce kullanıcı ile istişare edilir; yöntem, kapsam ve plan netleştirilir.
+   - Kullanıcı onayı alındıktan sonra parça parça kodlanır, test edilerek doğrulanır ve bir sonraki adım için tekrar istişare edilir.
+
 
 ---
 
