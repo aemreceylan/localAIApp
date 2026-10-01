@@ -90,16 +90,29 @@ export class ChatService {
   }
 
   /**
-   * Çok Katmanlı Dinamik Prompt Oluşturma Motoru (Real-time Assembly)
+   * Chat Oturumu ve İstek Parametrelerini Çözümleme Adaptörü (Context Resolver)
    * 
-   * [KURAL 6 UYUMLULUĞU]:
-   * 1. Katman: Kurumsal Guardrail (Sistem seviyesinde aktif kurallar)
-   * 2. Katman: Rol / Persona (prompt_id ile seçilen veya tenant varsayılan persona)
-   * 3. Katman: Oturuma / Anlık mesaja özel talimat (custom_instructions)
+   * [MİMARİ ROL - Adapter & Bounded Context]:
+   * Asıl 3 katmanlı Prompt Stacking derleme motoru `#modules/prompt` modülündeki `promptService.buildSystemPrompt()`
+   * fonksiyonudur. Bu metod ise bir "Prompt Motoru" DEĞİLDİR; chat modülüne özgü olan:
+   * 1. Anlık HTTP istek parametreleri (`dto.promptId`, `dto.customInstructions`) ile
+   * 2. Veritabanında kayıtlı sohbet oturumu parametreleri (`sessionContext.promptId`, `sessionContext.customInstructions`)
+   * arasındaki öncelik hiyerarşisini (fallback) çözen bir adaptördür.
    * 
-   * Tüm bu katmanlar promptService üzerinden anlık derlenir; statik metin saklanmaz.
+   * [NEDEN CHAT MODÜLÜNDE?]:
+   * `ChatRequestDto` ve `SessionContext` modelleri `chat` modülüne aittir. `prompt` modülünün chat'e
+   * ait veri tiplerine bağımlı olmasını önlemek ve katı modüler monolit sınırlarını korumak (Separation of Concerns)
+   * amacıyla parametre çözümleme burada yapılır ve prompt modülüne yalnızca saf primitive değerler iletilir.
+   * 
+   * @param dto İstemciden gelen anlık chat isteği
+   * @param tenant_id Kiracı izolasyon kimliği
+   * @param sessionContext İsteğe bağlı DB sohbet oturumu bilgileri
+   * @returns Birleştirilmiş nihai sistem prompt metni veya undefined
+   * 
+   * @example
+   * const systemPrompt = await this.resolveSessionPrompt(dto, 'tenant_123', sessionContext);
    */
-  private async assembleSystemPrompt(
+  private async resolveSessionPrompt(
     dto: ChatRequestDto,
     tenant_id: string,
     sessionContext?: SessionContext
@@ -142,7 +155,7 @@ export class ChatService {
     let sessionContext: SessionContext | undefined;
 
     if (dto.conversationId) {
-      const lastUserMessage = dto.messages[dto.messages.length - 1];
+      const lastUserMessage = dto.messages.at(-1);
       sessionContext = await this.processSessionContext(dto.conversationId, tenant_id, lastUserMessage);
     }
 
@@ -153,7 +166,7 @@ export class ChatService {
 
     try {
       const model = getModel(selectedModel);
-      const finalSystemPrompt = await this.assembleSystemPrompt(dto, tenant_id, sessionContext);
+      const finalSystemPrompt = await this.resolveSessionPrompt(dto, tenant_id, sessionContext);
 
       return streamText({
         model,
