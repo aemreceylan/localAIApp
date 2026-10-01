@@ -8,13 +8,13 @@ import type { ChatMessageDto, ChatRequestDto, CreateSessionDto } from '#modules/
 interface SessionContext {
   promptId: string | undefined;
   customInstructions: string | undefined;
-  legacySystemPrompt: string | undefined;
   model: string | undefined;
 }
 
 export class ChatService {
   /**
    * Yeni bir sohbet oturumu oluşturur. Model seçimi zorunludur.
+   * Kural 6: Oturumda statik prompt tutulmaz; persona referansı ve özel talimat saklanır.
    */
   async createSession(tenant_id: string, dto: CreateSessionDto) {
     return await chatRepository.createConversation({
@@ -23,7 +23,6 @@ export class ChatService {
       model: dto.model,
       ...(dto.promptId ? { prompt_id: dto.promptId } : {}),
       ...(dto.customInstructions ? { custom_instructions: dto.customInstructions } : {}),
-      ...(dto.systemPrompt ? { system_prompt: dto.systemPrompt } : {}),
     });
   }
 
@@ -86,13 +85,19 @@ export class ChatService {
     return {
       promptId: session.prompt_id?.toString(),
       customInstructions: session.custom_instructions,
-      legacySystemPrompt: session.system_prompt,
       model: session.model,
     };
   }
 
   /**
    * Çok Katmanlı Dinamik Prompt Oluşturma Motoru (Real-time Assembly)
+   * 
+   * [KURAL 6 UYUMLULUĞU]:
+   * 1. Katman: Kurumsal Guardrail (Sistem seviyesinde aktif kurallar)
+   * 2. Katman: Rol / Persona (prompt_id ile seçilen veya tenant varsayılan persona)
+   * 3. Katman: Oturuma / Anlık mesaja özel talimat (custom_instructions)
+   * 
+   * Tüm bu katmanlar promptService üzerinden anlık derlenir; statik metin saklanmaz.
    */
   private async assembleSystemPrompt(
     dto: ChatRequestDto,
@@ -102,18 +107,10 @@ export class ChatService {
     const promptId = dto.promptId || sessionContext?.promptId;
     const customInstructions = dto.customInstructions || sessionContext?.customInstructions;
 
-    const dynamicSystemPrompt = await promptService.buildSystemPrompt(tenant_id, {
+    return await promptService.buildSystemPrompt(tenant_id, {
       ...(promptId ? { prompt_id: promptId } : {}),
       ...(customInstructions ? { custom_instructions: customInstructions } : {}),
     });
-
-    const directSystemPrompt = dto.systemPrompt || sessionContext?.legacySystemPrompt;
-
-    if (dynamicSystemPrompt && directSystemPrompt) {
-      return `${dynamicSystemPrompt}\n\n=== [EK SİSTEM NOTU] ===\n${directSystemPrompt}`;
-    }
-
-    return dynamicSystemPrompt || directSystemPrompt;
   }
 
   /**

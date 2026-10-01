@@ -4,13 +4,29 @@ import { MessageModel, type IMessage } from '#modules/chat/message.model.js';
 
 export class ChatRepository {
   /**
-   * Yeni bir sohbet oturumu oluşturur.
+   * ============================================================================
+   * TASARIM DESENİ: Repository (Veri Erişim Katmanı)
+   * ============================================================================
+   * Yeni bir sohbet oturumu oluşturur ve veritabanına kaydeder.
+   * 
+   * [KURAL 6 UYUMLULUĞU]:
+   * Oturumda statik sistem promptu saklanmaz; yalnızca model, persona referansı
+   * (`prompt_id`) ve oturuma özel kullanıcı ek talimatı (`custom_instructions`) tutulur.
+   * 
+   * @param {Object} data - Oturum oluşturma parametreleri
+   * @param {string} data.tenant_id - Kiracı kimliği (RLS İzolasyonu)
+   * @param {string} data.model - Zorunlu seçilen LLM adı
+   * @param {string} [data.title] - Sohbet başlığı (varsayılan: 'Yeni Sohbet')
+   * @param {string} [data.prompt_id] - Oturumun bağlı olduğu dinamik persona ID'si
+   * @param {string} [data.custom_instructions] - Oturuma özel kullanıcı ek talimatı
+   * @returns {Promise<IConversation>} Oluşturulan oturum dokümanı
    */
   async createConversation(data: {
     tenant_id: string;
+    model: string;
     title?: string;
-    model?: string;
-    system_prompt?: string;
+    prompt_id?: string;
+    custom_instructions?: string;
   }): Promise<IConversation> {
     return await ConversationModel.create(data);
   }

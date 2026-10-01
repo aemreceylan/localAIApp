@@ -94,7 +94,6 @@ erDiagram
         string model "Kullanilan Model Adi"
         string prompt_id FK "Secili Persona ID"
         string custom_instructions "Oturuma Ozel Ek Talimat"
-        string system_prompt "Dondurulmus metin"
         date created_at "Olusturulma tarihi"
         date updated_at "Guncellenme tarihi"
     }
@@ -201,7 +200,6 @@ Promptlar artık oturum içine gömülü statik metinler değildir. 3 farklı ti
 | `model`               | String        |   Evet   |        -        |                   -                   | Zorunlu seçilen LLM adı (Hardcode yasaktır!)           |
 | `prompt_id`           | ObjectId      |  Hayır   |     `null`      |                 Index                 | Bağlı olunan Persona (`prompts` koleksiyonu referansı) |
 | `custom_instructions` | String (2000) |  Hayır   |     `null`      |                   -                   | Kullanıcının bu oturuma özel eklediği yönergeler       |
-| `system_prompt`       | String        |  Hayır   |     `null`      |                   -                   | İsteğe bağlı geriye dönük uyumluluk alanı              |
 
 ---
 

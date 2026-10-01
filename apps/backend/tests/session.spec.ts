@@ -29,7 +29,7 @@ describe('Sohbet Oturumları API (Chat Sessions API)', () => {
       .send({
         title: 'Mimari İstişare Oturumu',
         model: 'llama3.2:3b',
-        systemPrompt: 'Uzman bir yazılım mimarısın.',
+        customInstructions: 'Uzman bir yazılım mimarı olarak yanıt ver.',
       });
 
     expect(res.status).toBe(201);

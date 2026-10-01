@@ -1,12 +1,28 @@
 import mongoose, { Schema, type Model } from 'mongoose';
 
+/**
+ * ============================================================================
+ * VERİ MODELİ: Conversation (Sohbet Oturumu)
+ * ============================================================================
+ * 
+ * [MİMARİ GEREKÇE & KURAL 6 UYUMLULUĞU]:
+ * Platformumuzda sistem promptları oturum içine statik metin olarak gömülemez.
+ * Bunun yerine oturum;
+ * 1. Hangi LLM modeliyle çalıştığını (`model`),
+ * 2. Hangi Persona'ya bağlı olduğunu (`prompt_id` referansı ile `prompts` koleksiyonu),
+ * 3. Kullanıcının oturuma özel ek talimatlarını (`custom_instructions`)
+ * saklar.
+ * 
+ * Kurumsal guardrail ve persona içerikleri anlık olarak dinamik prompt motoru
+ * (Prompt Stacking Engine) tarafından derlenir; böylece Admin personayı güncellediğinde
+ * tüm oturumlar deploy gerekmeksizin güncel talimatla çalışmaya devam eder.
+ */
 export interface IConversation {
   tenant_id: string;
   title: string;
   model: string;
   prompt_id?: mongoose.Types.ObjectId | string;
   custom_instructions?: string;
-  system_prompt?: string;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -39,18 +55,15 @@ const conversationSchema = new Schema<IConversation>(
       trim: true,
       maxlength: [2000, 'Özel talimatlar 2000 karakterden uzun olamaz.'],
     },
-    system_prompt: {
-      type: String,
-      trim: true,
-    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
   }
 );
 
-// Çoklu kiracı (Tenant) bazlı indeksleme
+// Çoklu kiracı (Tenant) bazlı kronolojik indeksleme (RLS izolasyonu)
 conversationSchema.index({ tenant_id: 1, updated_at: -1 });
 
 export const ConversationModel: Model<IConversation> =
   mongoose.models.Conversation || mongoose.model<IConversation>('Conversation', conversationSchema);
+

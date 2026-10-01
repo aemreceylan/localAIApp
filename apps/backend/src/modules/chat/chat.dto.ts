@@ -64,15 +64,8 @@ export const chatRequestSchema = z.object({
     .max(2000, 'Özel talimatlar 2000 karakterden uzun olamaz.')
     .optional()
     .openapi({
-      description: 'Kullanıcının anlık veya oturuma özel ek talimatı',
+      description: 'Kullanıcının anlık veya oturuma özel ek talimatı (3. Katman)',
       example: 'Her zaman maddeler halinde ve Türkçe özetle.',
-    }),
-  systemPrompt: z
-    .string()
-    .optional()
-    .openapi({
-      description: 'Geriye dönük uyumluluk: Doğrudan metin olarak sistem talimatı.',
-      example: 'Sen kurumsal bir AI asistanısın.',
     }),
 });
 
@@ -96,7 +89,7 @@ export const createSessionSchema = z.object({
     .string()
     .optional()
     .openapi({
-      description: 'Oturuma bağlanacak persona/rol prompt ID (ObjectId). Boş ise varsayılan persona kullanılır.',
+      description: 'Oturuma bağlanacak persona/rol prompt ID (ObjectId). Boş ise tenant varsayılan persona kullanılır.',
       example: '66f7d540e11893c5d808e9a2',
     }),
   customInstructions: z
@@ -104,15 +97,8 @@ export const createSessionSchema = z.object({
     .max(2000, 'Özel talimatlar 2000 karakterden uzun olamaz.')
     .optional()
     .openapi({
-      description: 'Oturuma özel kullanıcı ek talimatı',
+      description: 'Oturuma özel kullanıcı ek talimatı (3. Katman)',
       example: 'Finansal terimleri açıklayarak yanıt ver.',
-    }),
-  systemPrompt: z
-    .string()
-    .optional()
-    .openapi({
-      description: 'Geriye dönük uyumluluk: Doğrudan metin olarak sistem talimatı.',
-      example: 'Finans uzmanı olarak yanıt ver.',
     }),
 });
 
