@@ -77,9 +77,11 @@ Pratik ve güvenli iki ana kayıt mekanizması desteklenecektir. Admin paneli ü
 - **Bilgi Bankası (Knowledge Base) Sorgulama:** Yönetim tarafından sisteme tanımlanmış kurumsal veri havuzlarının seçilerek RAG destekli yanıtlar alınması.
 - **Kaynak Gösterimi (Citations):** Üretilen yanıtların hangi doküman parçalarına dayandığının kullanıcıya gösterilmesi.
 
-### 3.4. Prompt Kütüphanesi ve Şablon Yönetimi
+### 3.4. Prompt Kütüphanesi ve Çok Katmanlı Dinamik Prompt Yönetimi (Prompt Stacking)
 
-- **Şirket ve Kullanıcı Şablonları:** Sık kullanılan komutların (ör. _"Sözleşme Analiz Et"_, _"Kodu Refactor Et"_, _"Özet Çıkar"_) hazır şablonlar halinde saklanabilmesi ve sohbet ekranında hızlıca çağrılabilmesi.
+- **Şirket ve Kullanıcı Şablonları:** Sık kullanılan komutların hazır şablonlar halinde saklanabilmesi ve sohbet ekranında hızlıca çağrılabilmesi.
+- **Çok Katmanlı Dinamik Birleştirme:** Kurumsal güvenlik kuralları (`system_guardrail`), uzmanlık personaları (`persona`) ve oturuma özel kullanıcı talimatlarının (`custom_instructions`) anlık olarak birleştirilmesi.
+- **Gerçek Zamanlı Güncelleme:** Yöneticinin panelden güncellediği güvenlik ve persona promptları, yeni bir deploy gerekmeksizin sonraki ilk mesajda tüm oturumlara anında yansır.
 
 ---
 
@@ -93,6 +95,7 @@ Pratik ve güvenli iki ana kayıt mekanizması desteklenecektir. Admin paneli ü
 
 ### 4.2. LLM Sağlayıcı ve Model Yönetimi
 
+- **Default ve Seçilebilir Model Yetkilendirmesi:** Sistemde hiçbir yerde (kod, DB şeması, env) sabit kodlanmış (hardcoded) varsayılan model bulunmaz. Kullanıcıların seçebileceği modeller listesini ve varsayılan önerilen modeli yalnızca Admin belirler. Model seçilmeden oturum başlatılamaz.
 - Yerel LLM bağlantı adresi ve parametrelerinin tanımlanması (Ollama, vLLM vb.).
 - Bulut LLM API anahtarlarının ve model parametrelerinin yönetimi.
 - **Lokal Model İndirme Yöneticisi:** Admin panelinde, yerel sunucuda çalışan servisler (Ollama vb.) için yeni açık kaynak modellerin doğrudan arayüz üzerinden taranıp tek tıkla sunucuya indirilmesini ve kullanıma hazır hale getirilmesini sağlayan yönetim modülü.
@@ -130,14 +133,16 @@ Platform, kurumların ve kişilerin doğrudan hassas veriler (hukuk sözleşmele
 | - Temel Chat UI & Anlık Yanıt Akışı                                   |
 | - Yerel (Ollama/vLLM) ve Bulut API Bağlantıları                       |
 | - Anlık Doküman Yükleme & Temel RAG (Bilgi Bankası) Sorgulama         |
+| - Canlı OpenAPI 3.0 API Dokümantasyonu (Swagger UI & JSON)            |
 | - Temel Audit Logları (Kim, ne zaman, kaç token harcadı?)             |
 +-----------------------------------------------------------------------+
                                    │
                                    ▼
 +-----------------------------------------------------------------------+
 | SHOULD HAVE (Faz 2 - İlk Güncellemede Eklenmesi Gerekenler)           |
+| - Çok Katmanlı Dinamik Prompt Stacking Motoru (Guardrail & Persona)   |
+| - Admin Model Yönetimi (Hardcoded Model Yasağı & İzinli Modeller)     |
 | - Ana Şablonlardan Özel Rol Türetme & Kullanıcı Bazlı Yetki Ezme      |
-| - Prompt Kütüphanesi ve Şablon Yönetimi                               |
 | - Sohbet Paylaşımı (Shareable Chat Links)                             |
 | - Yan Yana Çoklu Model Karşılaştırma Arayüzü                          |
 | - Arayüzden Lokal Model İndirme Yöneticisi                            |

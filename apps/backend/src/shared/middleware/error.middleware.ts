@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { AppError } from '../errors/index.js';
+import { AppError } from '@/shared/errors/index.js';
+import { env } from '@/config/env.config.js';
 
 export const globalErrorHandler = (
   err: Error,
@@ -22,7 +23,7 @@ export const globalErrorHandler = (
   // Beklenmeyen / Yakalanmamış Sistem Hataları (500)
   console.error('[UNHANDLED_ERROR]', err);
 
-  const isProduction = process.env.NODE_ENV === 'production';
+  const isProduction = env.NODE_ENV === 'production';
 
   res.status(500).json({
     success: false,

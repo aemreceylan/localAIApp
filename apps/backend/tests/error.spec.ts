@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import express, { type Request, type Response, type NextFunction } from 'express';
-import app from '../src/app.js';
+import app from '@/app.js';
 import {
   AppError,
   DomainError,
@@ -9,8 +9,8 @@ import {
   ValidationError,
   UnauthorizedTenantError,
   LLMProviderError,
-} from '../src/shared/errors/index.js';
-import { globalErrorHandler } from '../src/shared/middleware/index.js';
+} from '@/shared/errors/index.js';
+import { globalErrorHandler } from '@/shared/middleware/index.js';
 
 describe('Hata Yönetimi (Error Classes & Hierarchy)', () => {
   it('AppError sınıfları doğru statusCode ve code değerlerine sahip olmalıdır', () => {

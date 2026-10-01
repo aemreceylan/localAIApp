@@ -2,7 +2,7 @@
 
 **Proje Adı:** Kurumsal LLM & Veri Yönetim Platformu (_Enterprise AI Platform_)
 
-**İlişkili Doküman:** PRD v2.1.0
+**İlişkili Dokümanlar:** PRD v2.1.0, [Veritabanı ve İş Akış Şemaları (ERD)](human/data_and_business_workflows.md), [OpenAPI 3.0 Dokümanı](openapi.json)
 
 **Sürüm:** v1.2.0
 
@@ -57,6 +57,7 @@ src/
 │   ├── auth/           # Kimlik doğrulama, kullanıcılar ve rol yönetimi
 │   ├── tenant/         # Tenant ve organizasyon yönetimi
 │   ├── chat/           # LLM Sohbet oturumları ve streaming
+│   ├── prompt/         # Çok katmanlı dinamik prompt & persona yönetim motoru
 │   ├── rag/            # Doküman ingestion, embedding ve Qdrant vektör araması
 │   └── ai/             # Yerel model indirme ve yönetim modülü
 ├── shared/             # Ortak altyapı, middleware'ler, RLS, base class'lar
@@ -104,6 +105,10 @@ src/modules/<module-name>/
 
 4. **Döngüsel Bağımlılık Yasağı (No Circular Dependencies):**
    - Modüller arasında bağımlılık döngüsü (`Auth -> Tenant -> Auth`) kesinlikle yasaktır. Ortak bağımlılıklar `shared/` katmanına veya bağımsız bir kontrata taşınmalıdır.
+
+5. **TypeScript Path Aliases (`@/*`) Zorunluluğu (Refactoring-Resistant Imports):**
+   - Modül içi ve modüller arası tüm dosya erişimlerinde `tsconfig.json` path alias'ları (`@/config/*`, `@/modules/*`, `@/shared/*`, `@/*`) standart olarak kullanılır.
+   - Derin ve kırılgan göreceli yollar (`../../`, `../../../`) yasaklanmıştır. Bu kural, dosya veya modül yapısı güncellendiğinde import yollarının topluca bozulmasını önler. Derleme aşamasında `tsc && node scripts/resolve-aliases.js` çalıştırılarak native Node ESM ortamında sıfır çalışma zamanı ek yükü ile modül çözünürlüğü garanti edilir.
 
 ## 4. ÇOKLU KİRACILIK (MULTI-TENANCY) VE VERİ İZOLASYON STRATEJİSİ
 
@@ -386,3 +391,52 @@ Bu Software Architecture Document (SAD v1.2), **Kurumsal LLM & Veri Yönetim Pla
 2. `docker-compose up -d` ile altyapı servislerinin (MongoDB, Qdrant, Redis) ayağa kaldırılması.
 
 3. `shared/database` altındaki Mongoose Global Tenant Plugin'in ve ilk modül olan `auth` modülünün kodlanmaya başlanması.
+
+---
+
+## 12. ADMİN MODEL YÖNETİMİ VE HARDCODED MODEL YASAĞI (MODEL SELECTION ARCHITECTURE)
+
+Kurumsal platformda hiçbir veritabanı şemasında (Mongoose/MongoDB), TypeScript DTO katmanında veya ortam değişkenlerinde (`.env`) varsayılan bir model adı (örn. `llama3.2:3b`, `gpt-4o`) sabit kodlanamaz (hardcoded default yasaktır).
+
+1. **Zorunlu Seçim (Mandatory Selection):**
+   - Sohbet oturumu açılırken (`POST /api/chat/sessions`) veya oturumsuz anlık sohbet başlatılırken (`POST /api/chat`) model parametresi kullanıcı/istemci tarafından açıkça iletilmek zorundadır. Eksik olması durumunda sistem `422 Unprocessable Entity (VALIDATION_ERROR)` fırlatır.
+2. **Admin Yetkisi ve İzinli Modeller (Allowed Models Registry):**
+   - Hangi modellerin (yerel Ollama modelleri, vLLM, OpenAI vb.) kiracılar ve son kullanıcılar tarafından seçilebileceğini, varsayılan önerilen modeli yalnızca sistem yöneticisi (Tenant Admin / System Admin) dinamik yönetim paneli üzerinden belirler.
+3. **Model Validasyonu:**
+   - İstemciden gelen model adı, AI sağlayıcı katmanına iletilmeden önce admin tarafından yetkilendirilmiş aktif modeller listesiyle doğrulanır.
+
+---
+
+## 13. ÇOK BOYUTLU DİNAMİK PROMPT MOTORU (PROMPT STACKING & REAL-TIME ASSEMBLY)
+
+Sistem promptları (`system_prompt`), tek bir metin alanı olarak `Conversation` koleksiyonuna gömülü (embedded) statik bir yapıda tutulamaz. Kurumsal güvenlik, mevzuat ve uzmanlık rolleri dinamik ve gerçek zamanlı derleme motoru (`Prompt Stacking Engine`) ile yönetilir.
+
+### 13.1. Çok Katmanlı Hiyerarşi (Prompt Layers)
+Her LLM isteği anında aşağıdaki 3 katman sıralı birleştirilerek nihai sistem talimatı derlenir:
+1. **Katman 1 - Kurumsal Güvenlik & İlke Kuralları (`system_guardrail`):**
+   - Tenant bazlı, `priority` sırasına göre MongoDB'den anlık sorgulanır.
+   - Örnek: KVKK kuralları, finansal veri gizliliği, şirket içi etik ilkeleri.
+   - Son kullanıcı veya sohbet oturumu tarafından devre dışı bırakılamaz.
+2. **Katman 2 - Uzmanlık Rolü / Persona (`persona`):**
+   - Sohbet oturumunun `prompt_id` ile bağlandığı veya tenant için yönetici tarafından varsayılan (`isDefault: true`) olarak atanmış rol talimatı.
+   - Örnek: "Kıdemli Vergi Hukukçusu", "Python Kod İnceleme Uzmanı".
+3. **Katman 3 - Oturuma Özel Ek Talimatlar (`custom_instructions`):**
+   - Kullanıcının ilgili oturuma özel eklediği isteğe bağlı direktifler (örn. "Her zaman maddeler halinde özetle").
+
+### 13.2. Gerçek Zamanlı Güncelleme (Zero-Latency Policy Update)
+Yönetici bir guardrail veya persona promptunu güncellediği anda (`PUT /api/prompts/:id`), yeni bir deploy gerekmeksizin sistemdeki tüm aktif veya yeni sohbet oturumlarında atılan **bir sonraki mesaj anında güncel prompt metniyle çalışır**.
+
+---
+
+## 14. CANLI API DOKÜMANTASYONU VE OPENAPI 3.0 SPESİFİKASYONU
+
+Platformun tüm harici ve dahili REST API uç noktaları, sözleşmeye dayalı (contract-first / code-first) tip güvenli OpenAPI 3.0 standardına göre belgelenir.
+
+### 14.1. Zod & OpenAPI Entegrasyonu
+- İstek gövdeleri, path/query parametreleri ve API yanıtları Zod şemaları (`@asteasolutions/zod-to-openapi`) ile modül DTO'ları (`.dto.ts`) içinde tanımlanır.
+- Validasyon ve dokümantasyon aynı şemadan türetildiği için kod ve döküman arasında asenkronluk veya uyumsuzluk oluşamaz.
+
+### 14.2. Canlı Dağıtım Kanalları
+1. **Swagger UI Web Arayüzü (`GET /api/docs`):** Geliştiricilerin ve entegratörlerin API'leri tarayıcı üzerinden interaktif olarak test edebildiği kullanıcı dostu arayüz.
+2. **Ham OpenAPI JSON Çıktısı (`GET /api/docs.json`):** Dış istemcilerin, SDK oluşturucuların (openapi-generator) ve test araçlarının tüketebileceği standart JSON formatı.
+3. **Statik Master Doküman (`documents/openapi.json`):** Sunucu başladığında veya testler koşturulduğunda projenin master dokümantasyon havuzuna otomatik olarak yazılan ve Git sürüm kontrolünde tutulan canlı referans dosyası.

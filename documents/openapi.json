@@ -1,0 +1,1082 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "NexusAI Gateway & Knowledge Base API",
+    "version": "1.0.0",
+    "description": "Kurumsal LLM Orkestrasyonu, Yerel Modeller (Ollama), Bulut Modeller ve RAG Ağ Geçidi API Dokümantasyonu",
+    "contact": {
+      "name": "NexusAI Platform Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Mevcut Backend Sunucusu"
+    }
+  ],
+  "components": {
+    "parameters": {
+      "TenantIdHeader": {
+        "name": "x-tenant-id",
+        "in": "header",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "default": "default-tenant"
+        },
+        "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+        "example": "default-tenant"
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "enum": [
+              false
+            ],
+            "example": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "example": "NOT_FOUND"
+              },
+              "message": {
+                "type": "string",
+                "example": "Kaynak bulunamadı."
+              },
+              "details": {
+                "nullable": true
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ]
+          }
+        },
+        "required": [
+          "success",
+          "error"
+        ]
+      },
+      "ChatMessage": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ],
+            "description": "Mesajı gönderen aktörün rolü",
+            "example": "user"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Mesaj içeriği metni",
+            "example": "Merhaba! Kurumsal LLM mimarisi hakkında bilgi verir misin?"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "ChatRequest": {
+        "type": "object",
+        "properties": {
+          "conversationId": {
+            "type": "string",
+            "description": "Mesajın bağlanacağı kayıtlı oturum ID (ObjectId). Boş ise oturumsuz anlık sohbet çalışır.",
+            "example": "66f7d540e11893c5d808e9a2"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant",
+                    "system"
+                  ],
+                  "description": "Mesajı gönderen aktörün rolü",
+                  "example": "user"
+                },
+                "content": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Mesaj içeriği metni",
+                  "example": "Merhaba! Kurumsal LLM mimarisi hakkında bilgi verir misin?"
+                }
+              },
+              "required": [
+                "role",
+                "content"
+              ]
+            },
+            "minItems": 1,
+            "description": "Oturuma ait mesaj geçmişi listesi"
+          },
+          "model": {
+            "type": "string",
+            "description": "Kullanılacak model adı. Oturum ID belirtilmediyse istek gövdesinde verilmesi zorunludur.",
+            "example": "llama3.2:3b"
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2,
+            "description": "Modelin yanıt üretirken sergileyeceği yaratıcılık katsayısı (0.0 - 2.0).",
+            "example": 0.7
+          },
+          "promptId": {
+            "type": "string",
+            "description": "Kullanılacak persona/rol prompt ID. Belirtilmezse tenant varsayılan persona kullanılır.",
+            "example": "66f7d540e11893c5d808e9a2"
+          },
+          "customInstructions": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Kullanıcının anlık veya oturuma özel ek talimatı",
+            "example": "Her zaman maddeler halinde ve Türkçe özetle."
+          },
+          "systemPrompt": {
+            "type": "string",
+            "description": "Geriye dönük uyumluluk: Doğrudan metin olarak sistem talimatı.",
+            "example": "Sen kurumsal bir AI asistanısın."
+          }
+        },
+        "required": [
+          "messages"
+        ]
+      },
+      "CreateSessionRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Sohbet oturumunun başlığı",
+            "example": "Finans Raporu Analizi"
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Oturum için seçilen model adı (Zorunlu)",
+            "example": "llama3.2:3b"
+          },
+          "promptId": {
+            "type": "string",
+            "description": "Oturuma bağlanacak persona/rol prompt ID (ObjectId). Boş ise varsayılan persona kullanılır.",
+            "example": "66f7d540e11893c5d808e9a2"
+          },
+          "customInstructions": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Oturuma özel kullanıcı ek talimatı",
+            "example": "Finansal terimleri açıklayarak yanıt ver."
+          },
+          "systemPrompt": {
+            "type": "string",
+            "description": "Geriye dönük uyumluluk: Doğrudan metin olarak sistem talimatı.",
+            "example": "Finans uzmanı olarak yanıt ver."
+          }
+        },
+        "required": [
+          "model"
+        ]
+      },
+      "CreatePromptRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150,
+            "description": "Prompt veya persona adı",
+            "example": "Hukuk ve Sözleşme Danışmanı"
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9-]+$",
+            "description": "Benzersiz kimlik adı (URL ve kod erişimi için)",
+            "example": "legal-advisor"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "system_guardrail",
+              "persona",
+              "custom"
+            ],
+            "description": "Prompt tipi: system_guardrail (Zorunlu Güvenlik Kuralı), persona (Uzman Rolü), custom (Özel Şablon)",
+            "example": "persona"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Modele verilecek sistem talimat metni",
+            "example": "Sen deneyimli bir kurumsal hukuk danışmanısın. Sözleşmeleri risk ve mevzuat açısından incele."
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true,
+            "description": "Promptun aktif olup olmadığı",
+            "example": true
+          },
+          "isDefault": {
+            "type": "boolean",
+            "default": false,
+            "description": "Yeni açılan sohbetlerde varsayılan persona olup olmadığı",
+            "example": false
+          },
+          "priority": {
+            "type": "number",
+            "default": 0,
+            "description": "Promptun birleştirilme önceliği (Küçük sayılar önce eklenir)",
+            "example": 10
+          }
+        },
+        "required": [
+          "title",
+          "slug",
+          "type",
+          "content"
+        ]
+      },
+      "UpdatePromptRequest": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150,
+            "description": "Prompt veya persona adı",
+            "example": "Hukuk ve Sözleşme Danışmanı"
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z0-9-]+$",
+            "description": "Benzersiz kimlik adı (URL ve kod erişimi için)",
+            "example": "legal-advisor"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "system_guardrail",
+              "persona",
+              "custom"
+            ],
+            "description": "Prompt tipi: system_guardrail (Zorunlu Güvenlik Kuralı), persona (Uzman Rolü), custom (Özel Şablon)",
+            "example": "persona"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Modele verilecek sistem talimat metni",
+            "example": "Sen deneyimli bir kurumsal hukuk danışmanısın. Sözleşmeleri risk ve mevzuat açısından incele."
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true,
+            "description": "Promptun aktif olup olmadığı",
+            "example": true
+          },
+          "isDefault": {
+            "type": "boolean",
+            "default": false,
+            "description": "Yeni açılan sohbetlerde varsayılan persona olup olmadığı",
+            "example": false
+          },
+          "priority": {
+            "type": "number",
+            "default": 0,
+            "description": "Promptun birleştirilme önceliği (Küçük sayılar önce eklenir)",
+            "example": 10
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Sistem"
+        ],
+        "summary": "Sistem Sağlık Kontrolü",
+        "description": "API sunucusunun aktif çalışma durumunu ve çalışma süresini döndürür.",
+        "responses": {
+          "200": {
+            "description": "Sunucu sağlıklı ve istekleri kabul ediyor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ],
+                      "example": "ok"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "example": "2026-09-29T10:00:00.000Z"
+                    },
+                    "uptime": {
+                      "type": "number",
+                      "example": 120.45
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "timestamp",
+                    "uptime"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat": {
+      "post": {
+        "tags": [
+          "Sohbet & LLM"
+        ],
+        "summary": "Canlı LLM Sohbet Akışı (Streaming & Persistence)",
+        "description": "Kullanıcı mesaj geçmişini alır. Eğer conversationId belirtilmişse mesajları MongoDB oturumuna kaydeder ve Ollama üzerinden anlık token akışı (Data Stream) başlatır.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          }
+        ],
+        "requestBody": {
+          "description": "Sohbet isteği parametreleri",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "conversationId": {
+                    "type": "string",
+                    "description": "Mesajın bağlanacağı kayıtlı oturum ID (ObjectId). Boş ise oturumsuz anlık sohbet çalışır.",
+                    "example": "66f7d540e11893c5d808e9a2"
+                  },
+                  "messages": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "user",
+                            "assistant",
+                            "system"
+                          ],
+                          "description": "Mesajı gönderen aktörün rolü",
+                          "example": "user"
+                        },
+                        "content": {
+                          "type": "string",
+                          "minLength": 1,
+                          "description": "Mesaj içeriği metni",
+                          "example": "Merhaba! Kurumsal LLM mimarisi hakkında bilgi verir misin?"
+                        }
+                      },
+                      "required": [
+                        "role",
+                        "content"
+                      ]
+                    },
+                    "minItems": 1,
+                    "description": "Oturuma ait mesaj geçmişi listesi"
+                  },
+                  "model": {
+                    "type": "string",
+                    "description": "Kullanılacak model adı. Oturum ID belirtilmediyse istek gövdesinde verilmesi zorunludur.",
+                    "example": "llama3.2:3b"
+                  },
+                  "temperature": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2,
+                    "description": "Modelin yanıt üretirken sergileyeceği yaratıcılık katsayısı (0.0 - 2.0).",
+                    "example": 0.7
+                  },
+                  "promptId": {
+                    "type": "string",
+                    "description": "Kullanılacak persona/rol prompt ID. Belirtilmezse tenant varsayılan persona kullanılır.",
+                    "example": "66f7d540e11893c5d808e9a2"
+                  },
+                  "customInstructions": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Kullanıcının anlık veya oturuma özel ek talimatı",
+                    "example": "Her zaman maddeler halinde ve Türkçe özetle."
+                  },
+                  "systemPrompt": {
+                    "type": "string",
+                    "description": "Geriye dönük uyumluluk: Doğrudan metin olarak sistem talimatı.",
+                    "example": "Sen kurumsal bir AI asistanısın."
+                  }
+                },
+                "required": [
+                  "messages"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Canlı veri akışı (Vercel AI SDK Data Stream protocol)",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "description": "İstemciye ardışık parçalar (chunks) halinde iletilen token akışı."
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "İstek gövdesi doğrulama hatası (Validation Error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Model servis sağlayıcısı (Ollama) bağlantı hatası",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/sessions": {
+      "post": {
+        "tags": [
+          "Sohbet Oturumları (Sessions)"
+        ],
+        "summary": "Yeni Sohbet Oturumu Oluştur",
+        "description": "Tenant için yeni bir konuşma başlığı ve modeliyle oturum (thread) kaydı oluşturur.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          }
+        ],
+        "requestBody": {
+          "description": "Oturum oluşturma parametreleri",
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Sohbet oturumunun başlığı",
+                    "example": "Finans Raporu Analizi"
+                  },
+                  "model": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Oturum için seçilen model adı (Zorunlu)",
+                    "example": "llama3.2:3b"
+                  },
+                  "promptId": {
+                    "type": "string",
+                    "description": "Oturuma bağlanacak persona/rol prompt ID (ObjectId). Boş ise varsayılan persona kullanılır.",
+                    "example": "66f7d540e11893c5d808e9a2"
+                  },
+                  "customInstructions": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "Oturuma özel kullanıcı ek talimatı",
+                    "example": "Finansal terimleri açıklayarak yanıt ver."
+                  },
+                  "systemPrompt": {
+                    "type": "string",
+                    "description": "Geriye dönük uyumluluk: Doğrudan metin olarak sistem talimatı.",
+                    "example": "Finans uzmanı olarak yanıt ver."
+                  }
+                },
+                "required": [
+                  "model"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Oturum başarıyla oluşturuldu."
+          },
+          "422": {
+            "description": "Geçersiz parametreler",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Sohbet Oturumları (Sessions)"
+        ],
+        "summary": "Sohbet Oturumlarını Listele",
+        "description": "Aktif kiracıya (tenant) ait tüm geçmiş oturumları en yeniden eskiye listeler.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Oturum listesi"
+          }
+        }
+      }
+    },
+    "/api/chat/sessions/{id}": {
+      "get": {
+        "tags": [
+          "Sohbet Oturumları (Sessions)"
+        ],
+        "summary": "Tekil Sohbet Oturumu Detayı",
+        "description": "Belirtilen ID değerine sahip oturumun detaylarını getirir.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Oturum ID (MongoDB ObjectId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Oturum detayı"
+          },
+          "404": {
+            "description": "Oturum bulunamadı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Sohbet Oturumları (Sessions)"
+        ],
+        "summary": "Sohbet Oturumunu Sil",
+        "description": "Oturumu ve bağlı tüm mesajları kalıcı olarak siler.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Oturum ID (MongoDB ObjectId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Oturum başarıyla silindi."
+          },
+          "404": {
+            "description": "Oturum bulunamadı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/chat/sessions/{id}/messages": {
+      "get": {
+        "tags": [
+          "Sohbet Oturumları (Sessions)"
+        ],
+        "summary": "Oturum Mesaj Geçmişini Getir",
+        "description": "Belirtilen oturum ID için tüm kullanıcı ve asistan mesajlarını kronolojik sırada getirir.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Oturum ID (MongoDB ObjectId)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mesaj geçmişi listesi"
+          },
+          "404": {
+            "description": "Oturum bulunamadı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prompts": {
+      "post": {
+        "tags": [
+          "Prompt Yönetimi (Dinamik Prompt Stacking)"
+        ],
+        "summary": "Yeni Prompt / Persona / Guardrail Oluştur",
+        "description": "Sisteme yeni bir kurumsal guardrail kuralı, uzmanlık personasi veya özel prompt şablonu ekler.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          }
+        ],
+        "requestBody": {
+          "description": "Prompt oluşturma verisi",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150,
+                    "description": "Prompt veya persona adı",
+                    "example": "Hukuk ve Sözleşme Danışmanı"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z0-9-]+$",
+                    "description": "Benzersiz kimlik adı (URL ve kod erişimi için)",
+                    "example": "legal-advisor"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "system_guardrail",
+                      "persona",
+                      "custom"
+                    ],
+                    "description": "Prompt tipi: system_guardrail (Zorunlu Güvenlik Kuralı), persona (Uzman Rolü), custom (Özel Şablon)",
+                    "example": "persona"
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Modele verilecek sistem talimat metni",
+                    "example": "Sen deneyimli bir kurumsal hukuk danışmanısın. Sözleşmeleri risk ve mevzuat açısından incele."
+                  },
+                  "isActive": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Promptun aktif olup olmadığı",
+                    "example": true
+                  },
+                  "isDefault": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Yeni açılan sohbetlerde varsayılan persona olup olmadığı",
+                    "example": false
+                  },
+                  "priority": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Promptun birleştirilme önceliği (Küçük sayılar önce eklenir)",
+                    "example": 10
+                  }
+                },
+                "required": [
+                  "title",
+                  "slug",
+                  "type",
+                  "content"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Prompt başarıyla oluşturuldu."
+          },
+          "422": {
+            "description": "Geçersiz parametreler veya doğrulama hatası",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Prompt Yönetimi (Dinamik Prompt Stacking)"
+        ],
+        "summary": "Promptları Listele",
+        "description": "Kiracıya (tenant) ait promptları filtreleyerek listeler.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "system_guardrail",
+                "persona",
+                "custom"
+              ]
+            },
+            "description": "Prompt tipi filtresi"
+          },
+          {
+            "name": "isActive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Aktiflik durumu filtresi"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prompt listesi"
+          }
+        }
+      }
+    },
+    "/api/prompts/{id}": {
+      "get": {
+        "tags": [
+          "Prompt Yönetimi (Dinamik Prompt Stacking)"
+        ],
+        "summary": "Tekil Prompt Detayı",
+        "description": "Belirtilen ID değerine sahip promptun detaylarını getirir.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Prompt ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prompt detayı"
+          },
+          "404": {
+            "description": "Prompt bulunamadı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Prompt Yönetimi (Dinamik Prompt Stacking)"
+        ],
+        "summary": "Prompt Güncelle",
+        "description": "Var olan bir promptun metnini, aktiflik durumunu veya önceliğini günceller.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Prompt ID"
+          }
+        ],
+        "requestBody": {
+          "description": "Güncellenecek prompt alanları",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 150,
+                    "description": "Prompt veya persona adı",
+                    "example": "Hukuk ve Sözleşme Danışmanı"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "^[a-z0-9-]+$",
+                    "description": "Benzersiz kimlik adı (URL ve kod erişimi için)",
+                    "example": "legal-advisor"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "system_guardrail",
+                      "persona",
+                      "custom"
+                    ],
+                    "description": "Prompt tipi: system_guardrail (Zorunlu Güvenlik Kuralı), persona (Uzman Rolü), custom (Özel Şablon)",
+                    "example": "persona"
+                  },
+                  "content": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Modele verilecek sistem talimat metni",
+                    "example": "Sen deneyimli bir kurumsal hukuk danışmanısın. Sözleşmeleri risk ve mevzuat açısından incele."
+                  },
+                  "isActive": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Promptun aktif olup olmadığı",
+                    "example": true
+                  },
+                  "isDefault": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Yeni açılan sohbetlerde varsayılan persona olup olmadığı",
+                    "example": false
+                  },
+                  "priority": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Promptun birleştirilme önceliği (Küçük sayılar önce eklenir)",
+                    "example": 10
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Prompt başarıyla güncellendi."
+          },
+          "404": {
+            "description": "Prompt bulunamadı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Prompt Yönetimi (Dinamik Prompt Stacking)"
+        ],
+        "summary": "Prompt Sil",
+        "description": "Belirtilen promptu kalıcı olarak siler.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Prompt ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prompt başarıyla silindi."
+          },
+          "404": {
+            "description": "Prompt bulunamadı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

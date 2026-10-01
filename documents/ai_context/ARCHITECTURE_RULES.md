@@ -28,6 +28,14 @@ Klasik katmanlı Clean Architecture yerine, sistem **iş alanlarına (Bounded Co
 1. **Native ESM Zorunluluğu:** `apps/backend/package.json` içerisinde `"type": "module"` tanımlıdır. Tüm `import` / `export` ifadeleri standart ES Module syntax'ı ile yazılmalıdır (`require`/`module.exports` kullanımı kesinlikle yasaktır).
 2. **Barrel Export (Public Facade):** Modüller dışa açacakları tüm servis, dto ve event tiplerini kendi `index.ts` dosyalarından `export` eder. Modül dışındaki kodlar doğrudan iç dosyalara (`.model.ts`, `.repository.ts` vb.) erişemez.
 3. **Explicit Extension / Module Resolution:** TypeScript konfigürasyonunda `moduleResolution: "NodeNext"` (veya `Bundler`) kullanılarak modern Node.js modül çözünürlük standartlarına tam uyum sağlanır.
+4. **TypeScript Path Aliases (`@/*`) Zorunluluğu:**
+   - Kod tabanında derin veya kırılgan göreceli yollar (`../../`, `../../../`) yerine daima `tsconfig.json` içinde tanımlanmış path alias'lar kullanılır:
+     - `@/config/*` → `./src/config/*`
+     - `@/modules/*` → `./src/modules/*`
+     - `@/shared/*` → `./src/shared/*`
+     - `@/*` → `./src/*`
+   - **Gerekçe:** Dosya veya klasör düzeni güncellendiğinde tüm dosyaların import yollarının tek tek güncellenmesi zorunluluğunu ortadan kaldırır; refactor süreçlerini güvenli ve hızlı kılar.
+   - **Build & Runtime:** Geliştirme aşamasında `tsx` ve testlerde `vitest` tsconfig alias'larını dinamik çözer. IDE ve dil sunucusunun (VS Code / TS Server) hem `src/`, hem `tests/`, hem de `scripts/` altındaki tüm dosyalarda `@/*` alias'larını tanıması için ana `tsconfig.json` bu dizinleri kapsar. Üretim (production) derlemesinde ise `npm run build` (`tsc -p tsconfig.build.json && node scripts/resolve-aliases.js`) çalıştırılarak yalnızca `src/` klasörü `dist/` içine derlenir ve `@/` yolları native Node ESM göreceli yollarına dönüştürülür.
 
 ### Klasör Yapısı
 
@@ -38,6 +46,7 @@ src/
 │   ├── auth/           # Kimlik doğrulama, kullanıcılar ve rol yönetimi
 │   ├── tenant/         # Tenant ve organizasyon yönetimi
 │   ├── chat/           # LLM Sohbet oturumları ve streaming
+│   ├── prompt/         # Çok katmanlı dinamik prompt & persona yönetim motoru
 │   ├── rag/            # Doküman ingestion, embedding ve Qdrant vektör araması
 │   └── ai/             # Yerel model indirme ve yönetim modülü
 ├── shared/             # Ortak altyapı, middleware'ler, RLS, base class'lar
@@ -182,3 +191,51 @@ Admin panelinden `ollama pull` tetiklendiğinde:
 1. **Disk Kontrolü:** Doluluğu %85 üzerindeyse indirme engellenir.
 2. **Progress Stream:** Ollama API çıktısı dinlenir → BullMQ/Redis üzerinden Admin UI'a canlı ilerleme aktarılır.
 3. **Cancel Token:** İptal edilen indirmelerde abort controller ile yetim dosya oluşumu engellenir.
+
+---
+
+## 8. Admin Model Yönetimi & Dinamik Model Kataloğu
+
+1. **Hardcoded Model Yasağı:** Backend kodlarında veya Mongoose şemalarında herhangi bir model adı (örn. `llama3.2:3b`, `gpt-4o`) sabit varsayılan (hardcoded default) olarak yer alamaz.
+2. **Admin Yetkisi:** Hangi modellerin aktif olacağı (`allowed_models`) ve yeni oturumlarda varsayılanın ne olacağı (`default_model`) yalnızca Yönetici (Admin) tarafından Tenant/Sistem ayarları üzerinden belirlenir.
+3. **Zorunlu Seçim:** Kullanıcı bir oturum açarken veya anlık sohbet başlatırken admin tarafından izin verilen modeller arasından bir seçim yapmak zorundadır. Model seçimi yapılmamış istekler doğrudan `422 ValidationError` ile reddedilir.
+
+---
+
+## 9. Çok Katmanlı Dinamik Sistem Prompt Mimarisi (Prompt Stacking & Realtime Assembly)
+
+Kurumsal mevzuat, güvenlik ilkeleri ve uzmanlık rolleri dinamik ve kritik olduğundan, sistem prompt'ları konuşma oturumları içine statik metin olarak dondurulamaz (snapshot alınmaz).
+
+1. **Bağımsız Prompt Modülü (`src/modules/prompt`):** Tüm kurumsal roller ve güvenlik kuralları bağımsız bir Mongoose koleksiyonunda (`PromptModel`) saklanır.
+2. **Anlık Birleştirme (Realtime Assembly):** LLM'e her istek atıldığında (veya stream başlatıldığında), o anki en güncel prompt'lar veritabanından dinamik olarak çekilir ve 3 katmanlı hiyerarşiyle üst üste bindirilir (stacking):
+   - **1. Katman (Kurumsal Güvenlik & Guardrails):** Tenant için tanımlı zorunlu güvenlik kuralları (Veri sızdırmazlığı, üslup standartları).
+   - **2. Katman (Rol & Persona):** Oturumun bağlı olduğu uzmanlık şablonu (Örn: Hukuk Müşaviri, Kod Mimarı).
+   - **3. Katman (Kullanıcı Özel Talimatı):** Kullanıcının o sohbete özel eklediği opsiyonel `custom_instructions`.
+3. **Anlık Etki:** Yönetici admin panelinden bir persona veya guardrail prompt'unu güncellediği anda, devam eden veya yeni açılan tüm konuşmalar bir sonraki mesajda otomatik olarak yeni kurallara tabi olur.
+
+---
+
+## 10. Canlı API Dokümantasyonu & OpenAPI 3.0 Standardı
+
+Sistemdeki tüm REST API uç noktaları, DTO şemaları ve modelleri kod seviyesinde tip güvenli OpenAPI ile dökümante edilmelidir.
+
+1. **Zod ile Şema Tanımı:** İstek gövdesi (Request Body), rota parametreleri ve yanıt şemaları `@asteasolutions/zod-to-openapi` kütüphanesi kullanılarak `.dto.ts` içinde tanımlanır.
+2. **Merkezi Kayıt (`src/config/openapi.config.ts`):** Yeni uç noktalar ve DTO'lar merkezi OpenAPI Registry'ye kaydedilir.
+3. **Çift Yönlü Erişim:**
+   - **İnteraktif Web UI:** Tarayıcı üzerinden `/api/docs` (Swagger UI) ve `/api/docs.json` adresinden canlı test edilebilir.
+   - **Statik Master Doküman:** API sunucusu her ayağa kalktığında ve testler koşturulduğunda güncel spesifikasyon otomatik olarak `documents/openapi.json` dosyasına yazılır.
+4. **Güncelleme Kuralı:** Yeni bir modül veya uç nokta eklendiğinde OpenAPI tanımının yapılması zorunludur. Dokümantasyonsuz hiçbir uç nokta canlıya alınamaz.
+
+---
+
+## 11. AI Model Sağlayıcı Mimarisi & SOLID Registry (`src/modules/ai/`)
+
+Model entegrasyonları tek bir sağlayıcıya (örn. yalnızca Ollama) bağımlı kalamaz. Kod tabanı SOLID prensiplerine, özellikle **Open/Closed (Gelişime açık, değişime kapalı)** ve **Dependency Inversion** ilkelerine tam uyumlu olarak yönetilir:
+
+1. **`IAiModelProvider` Standart Arayüzü:** Tüm model sağlayıcıları (`Ollama`, `OpenAI`, `Anthropic`, `vLLM` vb.) `supports(modelId)` ve `getModel(modelName, options)` metotlarını içeren bu arayüzü uygular.
+2. **Merkezi Sağlayıcı Sicili (`AiProviderRegistry`):** Sağlayıcı adaptörleri merkezi registry'ye kaydedilir (`registerProvider()`). Yeni bir sağlayıcı eklenirken var olan kodlar veya `getModel()` gövdesi değiştirilmez (OCP).
+3. **Model Çözümleme Kuralları (`resolveModel`):**
+   - Açık Sağlayıcı Belirteci: `provider/model` formatı (örn: `openai/gpt-4o`, `ollama/llama3.2:3b`) veya seçenek nesnesi (`{ model, provider }`).
+   - Otomatik Eşleşme: `supports()` metodu ile model adını üstlenen sağlayıcı.
+   - Fallback Sağlayıcı: Sağlayıcı belirtilmemiş yerel modeller için kayıtlı varsayılan sağlayıcı (Ollama).
+   - Bilinmeyen veya kayıtlı olmayan sağlayıcı talep edildiğinde sistem sessizce hata yutmaz; `422 ValidationError` fırlatır.
