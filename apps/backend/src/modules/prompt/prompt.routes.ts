@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { promptController } from '@/modules/prompt/prompt.controller.js';
+import { promptController } from '#modules/prompt/prompt.controller.js';
 import {
   createPromptSchema,
   updatePromptSchema,
   promptQuerySchema,
-} from '@/modules/prompt/prompt.dto.js';
-import { validateRequest } from '@/shared/middleware/index.js';
-import { idParamSchema } from '@/shared/validation/index.js';
+} from '#modules/prompt/prompt.dto.js';
+import { validateRequest } from '#shared/middleware/index.js';
+import { idParamSchema } from '#shared/validation/index.js';
 
 const router = Router();
 

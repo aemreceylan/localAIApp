@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
-import { tenantIdSchema } from '@/shared/validation/index.js';
-import { ValidationError } from '@/shared/errors/index.js';
+import { tenantIdSchema } from '#shared/validation/index.js';
+import { ValidationError } from '#shared/errors/index.js';
 
 /**
  * Gelen HTTP isteklerindeki `x-tenant-id` başlığını denetler.

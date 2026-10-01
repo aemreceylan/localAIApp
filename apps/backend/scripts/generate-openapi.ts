@@ -1,4 +1,4 @@
-import { saveOpenApiDocument } from '@/config/openapi.config.js';
+import { saveOpenApiDocument } from '#config/openapi.config.js';
 
 console.log('[OpenAPI] Doküman üretiliyor ve diske kaydediliyor...');
 const savedPath = saveOpenApiDocument();

@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { promptService } from '@/modules/prompt/prompt.service.js';
+import { promptService } from '#modules/prompt/prompt.service.js';
 
 export class PromptController {
   private getTenantId(req: Request): string {

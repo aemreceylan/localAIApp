@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { ZodSchema } from 'zod';
-import { ValidationError } from '@/shared/errors/index.js';
+import { ValidationError } from '#shared/errors/index.js';
 
 export interface RequestValidationSchema {
   body?: ZodSchema;

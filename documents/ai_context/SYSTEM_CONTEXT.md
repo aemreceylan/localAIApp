@@ -64,8 +64,10 @@ localAIApp/
    - MongoDB koleksiyonları (`Tenant`, `User`, `Prompt`, `Conversation`, `Message`, `Document`), Qdrant vektör payload şeması, Dinamik Prompt Stacking akışı ve RAG Ingestion/Retrieval pipeline'ı Mermaid ERD ve sequence diyagramları ile [data_and_business_workflows.md](../human/data_and_business_workflows.md) belgesinde standartlaştırılmıştır.
 11. **SonarQube Destekli Kod Kalitesi & Güvenlik Denetimi:**
    - Geliştirme süreçlerinde SonarQube MCP entegrasyonu aktif olarak kullanılır; kodlar "Clean as You Code (CaYC)" prensibi, varsayılan "Sonar way" kalite kapısı, sıfır kritik güvenlik zafiyeti (OWASP Top 10, Security Hotspots) ve düşük bilişsel karmaşıklık hedefleriyle geliştirilir.
-12. **TypeScript Path Aliases & Modül İçe Aktarım Standardı:**
-   - Kod tabanında kırılgan ve derin göreceli import'lar (`../../`) yerine `tsconfig.json` path alias'ları (`@/config/*`, `@/modules/*`, `@/shared/*`, `@/*`) zorunlu kılınmıştır. Dosya düzeni veya dizin hiyerarşisi güncellendiğinde tüm import yollarının kırılmasını önler. Derleme sürecinde `tsc && node scripts/resolve-aliases.js` ile native Node ESM uyumluluğu sağlanır.
+12. **Standart Node.js Subpath Imports (#*) & Modül İçe Aktarım Standardı:**
+   - Kod tabanında kırılgan ve derin göreceli import'lar (`../../`) yerine ECMAScript & Node.js standart subpath import tanımlayıcıları (`#config/*`, `#modules/*`, `#shared/*`, `#*`) zorunlu kılınmıştır. `package.json` altındaki `"imports"` haritası ve `tsconfig.json` paths eşlemesi sayesinde harici bir dönüştürme betiğine ihtiyaç kalmadan hem geliştirme (`tsx`/`vitest`), hem IDE, hem de üretimde (native Node ESM) sıfır ek yük ile modül çözünürlüğü sağlanır.
+13. **Katı Ortam Değişkeni Yönetimi (Strict Zero-Default & Fail-Fast Environment Validation):**
+   - Kod tabanında (özellikle `src/config/env.config.ts`) hiçbir ortam değişkenine varsayılan değer (`.default(...)`) verilmez; tüm parametreler (`NODE_ENV`, `HOST`, `PORT`, `CORS_ORIGIN`, `OLLAMA_BASE_URL`, `MONGODB_URI`) doğrudan `.env` dosyasından veya sistem ortamından Zod ile doğrulanır. Eksik veya geçersiz bir değişken tespit edildiğinde fail-fast prensibiyle detaylı hata çıktısını içeren bir istisna fırlatılır (`throw new Error(...)`) ve süreç kontrollü biçimde sonlandırılır. Kural 5 uyarınca ortam değişkenlerinde `DEFAULT_MODEL` gibi sabit model tanımları yer alamaz.
 
 
 

@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import app from '@/app.js';
-import { saveOpenApiDocument } from '@/config/openapi.config.js';
+import app from '#app.js';
+import { saveOpenApiDocument } from '#config/openapi.config.js';
 
 describe('OpenAPI & Swagger Dokümantasyon Testleri', () => {
   it('GET /api/docs.json geçerli OpenAPI 3.0 şeması döndürmelidir', async () => {

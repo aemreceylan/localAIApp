@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import app from '@/app.js';
-import { env } from '@/config/env.config.js';
+import app from '#app.js';
+import { env } from '#config/env.config.js';
 
 describe('Güvenlik ve Middleware Testleri (Security & Headers)', () => {
   it('Helmet güvenlik başlıkları yanıta eklenmelidir', async () => {

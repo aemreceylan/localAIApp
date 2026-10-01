@@ -1,8 +1,8 @@
 import { createOllama } from 'ollama-ai-provider';
 import type { LanguageModelV1 } from 'ai';
-import type { IAiModelProvider, ModelResolutionOptions } from '@/modules/ai/ai.types.js';
-import { env } from '@/config/env.config.js';
-import { ValidationError } from '@/shared/errors/index.js';
+import type { IAiModelProvider, ModelResolutionOptions } from '#modules/ai/ai.types.js';
+import { env } from '#config/env.config.js';
+import { ValidationError } from '#shared/errors/index.js';
 
 /**
  * SOLID - Single Responsibility & Liskov Substitution:

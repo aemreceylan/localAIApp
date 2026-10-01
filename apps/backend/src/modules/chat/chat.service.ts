@@ -1,9 +1,9 @@
 import { streamText } from 'ai';
-import { getModel } from '@/modules/ai/index.js';
-import { LLMProviderError, NotFoundError, ValidationError } from '@/shared/errors/index.js';
-import { chatRepository } from '@/modules/chat/chat.repository.js';
-import { promptService } from '@/modules/prompt/index.js';
-import type { ChatMessageDto, ChatRequestDto, CreateSessionDto } from '@/modules/chat/chat.dto.js';
+import { getModel } from '#modules/ai/index.js';
+import { LLMProviderError, NotFoundError, ValidationError } from '#shared/errors/index.js';
+import { chatRepository } from '#modules/chat/chat.repository.js';
+import { promptService } from '#modules/prompt/index.js';
+import type { ChatMessageDto, ChatRequestDto, CreateSessionDto } from '#modules/chat/chat.dto.js';
 
 interface SessionContext {
   promptId: string | undefined;

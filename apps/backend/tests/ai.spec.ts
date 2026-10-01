@@ -6,8 +6,8 @@ import {
   aiProviderRegistry,
   type IAiModelProvider,
   type ModelResolutionOptions,
-} from '@/modules/ai/index.js';
-import { ValidationError } from '@/shared/errors/index.js';
+} from '#modules/ai/index.js';
+import { ValidationError } from '#shared/errors/index.js';
 
 describe('AI Provider Katmanı (SOLID Gateway & Registry)', () => {
   it('ollamaProvider tanımlı ve createOllama fonksiyonu olmalıdır (Geriye dönük uyumluluk)', () => {

@@ -1,6 +1,6 @@
-import { promptRepository } from '@/modules/prompt/prompt.repository.js';
-import type { CreatePromptDto, UpdatePromptDto } from '@/modules/prompt/prompt.dto.js';
-import { NotFoundError, DomainError } from '@/shared/errors/index.js';
+import { promptRepository } from '#modules/prompt/prompt.repository.js';
+import type { CreatePromptDto, UpdatePromptDto } from '#modules/prompt/prompt.dto.js';
+import { NotFoundError, DomainError } from '#shared/errors/index.js';
 
 export class PromptService {
   async createPrompt(tenant_id: string, dto: CreatePromptDto) {

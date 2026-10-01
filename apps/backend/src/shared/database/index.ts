@@ -1,1 +1,1 @@
-export * from '@/shared/database/connection.js';
+export * from '#shared/database/connection.js';

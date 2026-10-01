@@ -1,7 +1,7 @@
 import type { LanguageModelV1 } from 'ai';
-import type { ModelIdentifier, ModelResolutionOptions } from '@/modules/ai/ai.types.js';
-import { AiProviderRegistry } from '@/modules/ai/ai.registry.js';
-import { OllamaModelProvider } from '@/modules/ai/providers/ollama.provider.js';
+import type { ModelIdentifier, ModelResolutionOptions } from '#modules/ai/ai.types.js';
+import { AiProviderRegistry } from '#modules/ai/ai.registry.js';
+import { OllamaModelProvider } from '#modules/ai/providers/ollama.provider.js';
 
 // Varsayılan Ollama Sağlayıcı Adaptörü
 export const defaultOllamaProvider = new OllamaModelProvider();

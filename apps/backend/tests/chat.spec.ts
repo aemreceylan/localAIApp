@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-import app from '@/app.js';
+import app from '#app.js';
 
 describe('Chat API (POST /api/chat)', () => {
   it('Boş gövde (body) gönderildiğinde 422 VALIDATION_ERROR dönmelidir', async () => {

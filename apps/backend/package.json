@@ -8,11 +8,18 @@
   "main": "app.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc -p tsconfig.build.json && node scripts/resolve-aliases.js",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "docs:generate": "tsx scripts/generate-openapi.ts"
+  },
+  "imports": {
+    "#*": {
+      "types": "./src/*",
+      "development": "./src/*",
+      "default": "./dist/*"
+    }
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

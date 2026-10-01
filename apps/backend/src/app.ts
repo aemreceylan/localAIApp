@@ -2,15 +2,15 @@ import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import swaggerUi from 'swagger-ui-express';
-import { env } from '@/config/env.config.js';
-import { generateOpenApiDocument, saveOpenApiDocument } from '@/config/openapi.config.js';
-import { chatRoutes } from '@/modules/chat/index.js';
-import { promptRoutes } from '@/modules/prompt/index.js';
+import { env } from '#config/env.config.js';
+import { generateOpenApiDocument, saveOpenApiDocument } from '#config/openapi.config.js';
+import { chatRoutes } from '#modules/chat/index.js';
+import { promptRoutes } from '#modules/prompt/index.js';
 import {
   notFoundHandler,
   globalErrorHandler,
   tenantMiddleware,
-} from '@/shared/middleware/index.js';
+} from '#shared/middleware/index.js';
 
 const app = express();
 

@@ -1,6 +1,6 @@
-import app from "@/app.js";
-import { env } from "@/config/env.config.js";
-import { connectDatabase, disconnectDatabase } from "@/shared/database/index.js";
+import app from "#app.js";
+import { env } from "#config/env.config.js";
+import { connectDatabase, disconnectDatabase } from "#shared/database/index.js";
 
 const PORT = env.PORT;
 

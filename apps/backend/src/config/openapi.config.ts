@@ -7,16 +7,16 @@ import {
   extendZodWithOpenApi,
 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
-import { env } from '@/config/env.config.js';
+import { env } from '#config/env.config.js';
 import {
   chatMessageSchema,
   chatRequestSchema,
   createSessionSchema,
-} from '@/modules/chat/chat.dto.js';
+} from '#modules/chat/chat.dto.js';
 import {
   createPromptSchema,
   updatePromptSchema,
-} from '@/modules/prompt/prompt.dto.js';
+} from '#modules/prompt/prompt.dto.js';
 
 // Zod'u OpenAPI desteğiyle genişlet
 extendZodWithOpenApi(z);

@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import app from '@/app.js';
-import { connectDatabase, disconnectDatabase } from '@/shared/database/index.js';
-import { PromptModel } from '@/modules/prompt/prompt.model.js';
-import { promptService } from '@/modules/prompt/prompt.service.js';
-import { ConversationModel } from '@/modules/chat/conversation.model.js';
+import app from '#app.js';
+import { connectDatabase, disconnectDatabase } from '#shared/database/index.js';
+import { PromptModel } from '#modules/prompt/prompt.model.js';
+import { promptService } from '#modules/prompt/prompt.service.js';
+import { ConversationModel } from '#modules/chat/conversation.model.js';
 
 const TEST_TENANT = 'test-tenant-prompt';
 const OTHER_TENANT = 'other-tenant-prompt';

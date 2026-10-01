@@ -28,14 +28,18 @@ Klasik katmanlı Clean Architecture yerine, sistem **iş alanlarına (Bounded Co
 1. **Native ESM Zorunluluğu:** `apps/backend/package.json` içerisinde `"type": "module"` tanımlıdır. Tüm `import` / `export` ifadeleri standart ES Module syntax'ı ile yazılmalıdır (`require`/`module.exports` kullanımı kesinlikle yasaktır).
 2. **Barrel Export (Public Facade):** Modüller dışa açacakları tüm servis, dto ve event tiplerini kendi `index.ts` dosyalarından `export` eder. Modül dışındaki kodlar doğrudan iç dosyalara (`.model.ts`, `.repository.ts` vb.) erişemez.
 3. **Explicit Extension / Module Resolution:** TypeScript konfigürasyonunda `moduleResolution: "NodeNext"` (veya `Bundler`) kullanılarak modern Node.js modül çözünürlük standartlarına tam uyum sağlanır.
-4. **TypeScript Path Aliases (`@/*`) Zorunluluğu:**
-   - Kod tabanında derin veya kırılgan göreceli yollar (`../../`, `../../../`) yerine daima `tsconfig.json` içinde tanımlanmış path alias'lar kullanılır:
-     - `@/config/*` → `./src/config/*`
-     - `@/modules/*` → `./src/modules/*`
-     - `@/shared/*` → `./src/shared/*`
-     - `@/*` → `./src/*`
+4. **Standart Node.js Subpath Imports (`#*`) Zorunluluğu:**
+   - Kod tabanında derin veya kırılgan göreceli yollar (`../../`, `../../../`) yerine daima Node.js ve ECMAScript standart subpath import tanımlayıcıları kullanılır:
+     - `#config/*` → `./src/config/*`
+     - `#modules/*` → `./src/modules/*`
+     - `#shared/*` → `./src/shared/*`
+     - `#*` → `./src/*`
    - **Gerekçe:** Dosya veya klasör düzeni güncellendiğinde tüm dosyaların import yollarının tek tek güncellenmesi zorunluluğunu ortadan kaldırır; refactor süreçlerini güvenli ve hızlı kılar.
-   - **Build & Runtime:** Geliştirme aşamasında `tsx` ve testlerde `vitest` tsconfig alias'larını dinamik çözer. IDE ve dil sunucusunun (VS Code / TS Server) hem `src/`, hem `tests/`, hem de `scripts/` altındaki tüm dosyalarda `@/*` alias'larını tanıması için ana `tsconfig.json` bu dizinleri kapsar. Üretim (production) derlemesinde ise `npm run build` (`tsc -p tsconfig.build.json && node scripts/resolve-aliases.js`) çalıştırılarak yalnızca `src/` klasörü `dist/` içine derlenir ve `@/` yolları native Node ESM göreceli yollarına dönüştürülür.
+   - **Build & Runtime:** `package.json` altındaki `"imports"` nesnesi (`"#*": { "types": "./src/*", "development": "./src/*", "default": "./dist/*" }`) ve `tsconfig.json` altındaki `"paths"` eşlemesi sayesinde hem geliştirme (`tsx`/`vitest`), hem IDE (TS Server), hem de üretim (native Node ESM) ortamında harici regex/resolve betiklerine (`resolve-aliases.js`) ihtiyaç duyulmadan sıfır ek yük ile yerel çözümleme sağlanır. Üretim derlemesinde doğrudan `tsc -p tsconfig.build.json` çalıştırılır.
+5. **Katı Ortam Değişkeni Yönetimi (Strict Zero-Default & Fail-Fast Validation):**
+   - Kod tabanında (özellikle `src/config/env.config.ts`) hiçbir ortam değişkenine varsayılan değer (`.default(...)`) verilemez; tüm parametreler (`NODE_ENV`, `HOST`, `PORT`, `CORS_ORIGIN`, `OLLAMA_BASE_URL`, `MONGODB_URI`) doğrudan `.env` veya sistem ortamından Zod ile doğrulanmalıdır.
+   - Uygulama başlatılırken herhangi bir eksiklik veya tip uyuşmazlığı tespit edilirse, fail-fast prensibiyle detaylı hata listesini içeren bir istisna fırlatılarak (`throw new Error(...)`) süreç kontrollü olarak sonlandırılır; konfigürasyon modülü içinde doğrudan `process.exit()` çağrısı yapılmaz.
+   - Kural 5 gereği ortam değişkenlerinde `DEFAULT_MODEL` gibi hardcoded model tanımlamaları yer alamaz.
 
 ### Klasör Yapısı
 
@@ -123,21 +127,52 @@ Multi-Tenancy altyapısı `shared/database` altında merkezi olarak yönetilir v
 
 ---
 
-## 4. Hata Yönetimi Hiyerarşisi
+## 4. Hata Yönetimi & Dayanıklılık Mimarisi
 
-Hata sınıfları `shared/errors/` dizininde tanımlanır:
+Sistemde iki kademeli bir hata yaşam döngüsü (Two-Tier Error Lifecycle) uygulanır:
+
+### 4.1. İki Kademeli Hata Yaşam Döngüsü (Two-Tier Error Lifecycle)
+
+| Yaşam Evresi | Kapsam & Tetikleyici | Hata Ele Alma Yolu | Çıktı & Davranış |
+| :--- | :--- | :--- | :--- |
+| **1. Boot-Time (Başlatma & Ön Denetim)** | `.env` doğrulaması (`env.config.ts`), MongoDB bağlantısı (`connectDatabase`) | Konfigürasyon modülü detaylı `Error` fırlatır (`throw new Error(...)`). `server.ts` içerisindeki `bootstrap().catch()` bloğu hatayı yakalar. | Terminal/loglara `❌ [alan]: hata` dökümü basılır ve süreç `process.exit(1)` ile durdurulur. HTTP yanıtı verilmez, modül içinde doğrudan `process.exit` çağrısı yapılmaz. |
+| **2. Run-Time (HTTP İstek & İş Mantığı)** | Controller, Service, Zod DTO doğrulama, LLM servis çağrıları | İş kurallarına göre `AppError` türevi sınıflar fırlatılır. `globalErrorHandler` (`shared/middleware/error.middleware.ts`) yakalar. | İstemciye standart HTTP statü kodu ve JSON Hata Zarfı (Envelope) döner. Üretim ortamında `stack` trace gizlenir. |
+
+### 4.2. Hata Sınıfları Hiyerarşisi (`shared/errors/`)
+
+Tüm operasyonel iş ve domain hataları `AppError` soyut temel sınıfından türer:
 
 ```
-AppError (Ana Hata)
-├── DomainError              → İş kuralı ihlalleri (400)
-├── UnauthorizedTenantError  → Yetkisiz tenant erişimi (403)
-├── LLMProviderError         → Dış LLM servis hataları (502/503)
-├── ValidationError          → DTO/Zod doğrulama hataları (422)
-└── NotFoundError            → Kaynak bulunamadı (404)
+AppError (Soyut Ana Hata - statusCode, code, isOperational, details)
+├── DomainError              → İş kuralı ihlalleri (HTTP 400 - DOMAIN_ERROR)
+├── UnauthorizedTenantError  → Çok kiracılı izolasyon ihlali (HTTP 403 - UNAUTHORIZED_TENANT)
+├── NotFoundError            → İstenen kaynak bulunamadı (HTTP 404 - NOT_FOUND)
+├── ValidationError          → Zod / DTO şema doğrulama hataları (HTTP 422 - VALIDATION_ERROR)
+└── LLMProviderError         → Dış LLM / Ollama iletişim ve servis hataları (HTTP 502 - LLM_PROVIDER_ERROR)
 ```
 
-- Express `GlobalErrorHandler` middleware'i (`shared/middleware/error.middleware.ts`) tüm yakalanmayan hataları yakalar.
-- Üretim ortamında stack trace **asla** istemciye döndürülmez.
+### 4.3. Standart HTTP Hata Yanıt Zarfı (Envelope Contract)
+
+İstemcilere dönülen tüm hata yanıtları tutarlı bir sözleşmeye uyar:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Geçersiz istek verileri.",
+    "details": [
+      {
+        "field": "body.model",
+        "message": "Model seçimi zorunludur."
+      }
+    ]
+  }
+}
+```
+
+- **Operasyonel Olmayan / Beklenmeyen Hatalar (500):**  
+  `AppError` dışındaki beklenmeyen istisnalar `INTERNAL_SERVER_ERROR` kodu ve `Sunucu tarafında beklenmeyen bir hata oluştu.` mesajıyla yakalanır. `env.NODE_ENV === 'production'` modunda `stack` trace istemciye **asla** iletilmez.
 
 ---
 

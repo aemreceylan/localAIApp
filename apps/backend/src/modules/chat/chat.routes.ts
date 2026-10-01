@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { chatController } from '@/modules/chat/chat.controller.js';
-import { chatRequestSchema, createSessionSchema } from '@/modules/chat/chat.dto.js';
-import { validateRequest } from '@/shared/middleware/index.js';
-import { idParamSchema } from '@/shared/validation/index.js';
+import { chatController } from '#modules/chat/chat.controller.js';
+import { chatRequestSchema, createSessionSchema } from '#modules/chat/chat.dto.js';
+import { validateRequest } from '#shared/middleware/index.js';
+import { idParamSchema } from '#shared/validation/index.js';
 
 const router = Router();
 

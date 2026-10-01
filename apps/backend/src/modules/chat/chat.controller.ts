@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { chatService } from '@/modules/chat/chat.service.js';
+import { chatService } from '#modules/chat/chat.service.js';
 
 export class ChatController {
   private getTenantId(req: Request): string {

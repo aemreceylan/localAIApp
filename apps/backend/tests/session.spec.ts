@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import app from '@/app.js';
-import { connectDatabase, disconnectDatabase } from '@/shared/database/index.js';
-import { ConversationModel } from '@/modules/chat/conversation.model.js';
-import { MessageModel } from '@/modules/chat/message.model.js';
+import app from '#app.js';
+import { connectDatabase, disconnectDatabase } from '#shared/database/index.js';
+import { ConversationModel } from '#modules/chat/conversation.model.js';
+import { MessageModel } from '#modules/chat/message.model.js';
 
 const TEST_TENANT = 'test-tenant-session';
 

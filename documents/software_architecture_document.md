@@ -106,9 +106,9 @@ src/modules/<module-name>/
 4. **Döngüsel Bağımlılık Yasağı (No Circular Dependencies):**
    - Modüller arasında bağımlılık döngüsü (`Auth -> Tenant -> Auth`) kesinlikle yasaktır. Ortak bağımlılıklar `shared/` katmanına veya bağımsız bir kontrata taşınmalıdır.
 
-5. **TypeScript Path Aliases (`@/*`) Zorunluluğu (Refactoring-Resistant Imports):**
-   - Modül içi ve modüller arası tüm dosya erişimlerinde `tsconfig.json` path alias'ları (`@/config/*`, `@/modules/*`, `@/shared/*`, `@/*`) standart olarak kullanılır.
-   - Derin ve kırılgan göreceli yollar (`../../`, `../../../`) yasaklanmıştır. Bu kural, dosya veya modül yapısı güncellendiğinde import yollarının topluca bozulmasını önler. Derleme aşamasında `tsc && node scripts/resolve-aliases.js` çalıştırılarak native Node ESM ortamında sıfır çalışma zamanı ek yükü ile modül çözünürlüğü garanti edilir.
+5. **Standart Node.js Subpath Imports (`#*`) Zorunluluğu (Refactoring-Resistant Imports):**
+   - Modül içi ve modüller arası tüm dosya erişimlerinde Node.js ve ECMAScript standart subpath import tanımlayıcıları (`#config/*`, `#modules/*`, `#shared/*`, `#*`) standart olarak kullanılır.
+   - Derin ve kırılgan göreceli yollar (`../../`, `../../../`) yasaklanmıştır. Bu kural, dosya veya modül yapısı güncellendiğinde import yollarının topluca bozulmasını önler. `package.json` altındaki `"imports"` nesnesi ve `tsconfig.json` paths haritası sayesinde harici regex dönüştürme betiklerine gerek kalmadan hem geliştirme (`tsx`/`vitest`), hem IDE, hem de üretimde (native Node ESM) sıfır çalışma zamanı ek yükü ile modül çözünürlüğü garanti edilir.
 
 ## 4. ÇOKLU KİRACILIK (MULTI-TENANCY) VE VERİ İZOLASYON STRATEJİSİ
 
@@ -246,18 +246,36 @@ Kullanıcıların yüklediği yüksek boyutlu dokümanların işlenmesi ana sunu
 
 ## 7. DAYANIKLILIK (RESILIENCE) VE SİBER GÜVENLİK MİMARİSİ
 
-### 7.1. Hata Yönetimi (`shared/errors`)
+### 7.1. Hata Yönetimi & İki Kademeli Yaşam Döngüsü (`shared/errors`)
 
-- Uygulama genelinde özel hata sınıfları hiyerarşisi kullanılır:
-  - `AppError` (Ana Hata Sınıfı)
+Platform genelinde iki kademeli ve fail-safe hata mimarisi uygulanır:
 
-  - `DomainError` (İş kuralı ihlalleri)
+1. **Boot-Time (Başlatma Evresi) Hata Yönetimi:**  
+   - Ortam değişkenleri (`env.config.ts`), MongoDB bağlantısı vb. kritik ön koşullarda eksiklik veya tip uyumsuzluğu durumunda modüller zengin içerikli `Error` fırlatır (`throw new Error(...)`).  
+   - `server.ts` içerisindeki `bootstrap().catch()` bloğu hatayı konsola detaylı biçimde basarak süreci `process.exit(1)` ile durdurur. Modüller içerisinde doğrudan `process.exit()` çağrısı yapılması yasaktır.
 
-  - `UnauthorizedTenantError` (Yetkisiz kiracı erişimi denemesi)
+2. **Run-Time (İstek Evresi) Hata Hiyerarşisi:**  
+   Uygulama genelinde özel `AppError` hiyerarşisi kullanılır:
+   - `AppError` (Soyut Ana Hata Sınıfı — `statusCode`, `code`, `isOperational`, `details`)
+   - `DomainError` (HTTP 400 — İş kuralı ihlalleri)
+   - `UnauthorizedTenantError` (HTTP 403 — Yetkisiz kiracı izolasyon ihlali)
+   - `NotFoundError` (HTTP 404 — Kaynak bulunamadı)
+   - `ValidationError` (HTTP 422 — Zod / DTO şema doğrulama hataları)
+   - `LLMProviderError` (HTTP 502 — Dış servis veya model sağlayıcı hataları)
 
-  - `LLMProviderError` (Dış servis hataları)
-
-- Express `GlobalErrorHandler` middleware'i tüm yakalanmayan hataları formatlar. Üretim ortamında (Production) asla hassas stack trace veya DB iç yapısı dışarıya sızdırılmaz.
+3. **Global Error Handler & Standart JSON Zarfı:**  
+   Express `GlobalErrorHandler` middleware'i (`shared/middleware/error.middleware.ts`) yakalanmayan tüm hataları yakalar ve istemciye aşağıdaki formatta döner:
+   ```json
+   {
+     "success": false,
+     "error": {
+       "code": "VALIDATION_ERROR",
+       "message": "Geçersiz istek verileri.",
+       "details": [...]
+     }
+   }
+   ```
+   Üretim ortamında (`NODE_ENV === 'production'`) asla hassas stack trace veya DB iç yapısı dışarıya sızdırılmaz.
 
 ### 7.2. Yeniden Deneme (Retry) & Circuit Breaker
 

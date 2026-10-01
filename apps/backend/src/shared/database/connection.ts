@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { env } from '@/config/env.config.js';
+import { env } from '#config/env.config.js';
 
 /**
  * MongoDB veritabanı bağlantısını başlatır.

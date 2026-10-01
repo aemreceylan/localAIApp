@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { PromptModel, type IPrompt, type PromptType } from '@/modules/prompt/prompt.model.js';
+import { PromptModel, type IPrompt, type PromptType } from '#modules/prompt/prompt.model.js';
 
 export class PromptRepository {
   async createPrompt(data: {

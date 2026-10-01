@@ -44,10 +44,7 @@
     "importHelpers": true,
 
     "paths": {
-      "@/config/*": ["./src/config/*"],
-      "@/modules/*": ["./src/modules/*"],
-      "@/shared/*": ["./src/shared/*"],
-      "@/*": ["./src/*"]
+      "#*": ["./src/*"]
     }
   },
   "include": ["src/**/*", "tests/**/*", "scripts/**/*"],

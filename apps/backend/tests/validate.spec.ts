@@ -6,8 +6,8 @@ import {
   validateRequest,
   tenantMiddleware,
   globalErrorHandler,
-} from '@/shared/middleware/index.js';
-import { idParamSchema } from '@/shared/validation/index.js';
+} from '#shared/middleware/index.js';
+import { idParamSchema } from '#shared/validation/index.js';
 
 describe('Generic İstek Doğrulama Middleware (validateRequest & tenantMiddleware)', () => {
   const createTestApp = () => {

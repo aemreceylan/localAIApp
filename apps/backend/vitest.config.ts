@@ -5,11 +5,12 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    watch: false,
     include: ['src/**/*.spec.ts', 'tests/**/*.spec.ts'],
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      { find: /^#(.*)$/, replacement: path.resolve(__dirname, 'src/$1') },
+    ],
   },
 });

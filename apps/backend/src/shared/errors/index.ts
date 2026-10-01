@@ -1,1 +1,1 @@
-export * from '@/shared/errors/app.error.js';
+export * from '#shared/errors/app.error.js';

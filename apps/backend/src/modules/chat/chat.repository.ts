@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
-import { ConversationModel, type IConversation } from '@/modules/chat/conversation.model.js';
-import { MessageModel, type IMessage } from '@/modules/chat/message.model.js';
+import { ConversationModel, type IConversation } from '#modules/chat/conversation.model.js';
+import { MessageModel, type IMessage } from '#modules/chat/message.model.js';
 
 export class ChatRepository {
   /**

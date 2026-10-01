@@ -1,6 +1,6 @@
 import type { LanguageModelV1 } from 'ai';
-import type { IAiModelProvider, ModelIdentifier, ModelResolutionOptions } from '@/modules/ai/ai.types.js';
-import { ValidationError } from '@/shared/errors/index.js';
+import type { IAiModelProvider, ModelIdentifier, ModelResolutionOptions } from '#modules/ai/ai.types.js';
+import { ValidationError } from '#shared/errors/index.js';
 
 /**
  * SOLID - Open/Closed & Single Responsibility:
