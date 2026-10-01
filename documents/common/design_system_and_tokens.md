@@ -1,6 +1,10 @@
 # "Nexus Precision" Tasarım Sistemi ve Stil Belirteçleri (Tokens)
 
-Bu doküman, Kurumsal LLM Platformunun görsel stil kurallarını, CSS Değişkenlerini (Custom Properties), tipografi skalasını ve Tailwind konfigürasyonunu tanımlar.
+> **DOKÜMAN TİPİ:** Ortak UI Tasarım Sistemi (Tüm Frontend: `admin-interface` ve `user-interface`)  
+> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (*NexusAI Gateway & Knowledge Base*)  
+> **Referans Prototip:** [stitch_design_preview.html](../stitch_design_preview.html)
+
+Bu doküman, Kurumsal LLM Platformunun görsel stil kurallarını, CSS Değişkenlerini (Custom Properties), tipografi skalasını ve Tailwind konfigürasyonunu tanımlar. Hem Kullanıcı Arayüzü (`user-interface`) hem de Yönetici Arayüzü (`admin-interface`) aynı temel tasarım token'larını ve renk paletlerini paylaşır.
 
 ---
 

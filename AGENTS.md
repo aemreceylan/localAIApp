@@ -2,7 +2,8 @@
 
 > **DİKKAT (TÜM AI AJANLARI İÇİN):**  
 > Bu dosya, projede çalışacak tüm yapay zeka modelleri ve kodlama asistanları (Antigravity, Gemini, Claude, Cursor vb.) için tek ve merkezi referans kılavuzudur.  
-> Herhangi bir kod yazmadan veya mimari değişiklik yapmadan önce aşağıdaki kurallara ve `documents/ai_context/` altındaki belgelere harfiyen uyunuz.
+> Proje, **1 Ortak Çatı + 3 Bağımsız Alt Proje** (`backend`, `admin-interface`, `user-interface`) içeren bir Monorepo mimarisindedir.  
+> Herhangi bir kod yazmadan veya mimari değişiklik yapmadan önce aşağıdaki kurallara ve ilgili alt projenin `documents/ai_context/` altındaki kurallarına harfiyen uyunuz.
 
 ---
 
@@ -11,40 +12,38 @@
 - **Proje Adı:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)
 - **Dağıtım Modeli:** Self-Hosted / On-Premises (Müşteri veya kurum sunucularında yerel kurulum)
 - **Ana Hedef:** Kurumların yerel LLM'leri (Ollama, vLLM) ve bulut modellerini (OpenAI, Anthropic) tek bir gateway üzerinden yönetmesi, RAG destekli bilgi bankası sorgulaması yapması ve esnek RBAC ile yetkilendirmesi.
+- **Alt Projeler:**
+  1. `apps/backend`: Node.js, Express, Modüler Monolit, RAG, Qdrant, BullMQ, Vercel AI SDK.
+  2. `apps/admin-interface`: React, TypeScript, Tailwind, Model/Tenant/Kullanıcı Yönetim Paneli.
+  3. `apps/user-interface`: React, TypeScript, Tailwind, Sohbet, SSE Streaming, RAG Çekmecesi, Kıyaslama.
 
 ---
 
 ## 2. Bilgi Bankası (Knowledge Base) Navigasyonu
 
-Projenin kapsamlı dökümantasyonu `documents/` dizininde iki ana kategoride tutulmaktadır:
+### A. Ortak & Sistem Belgeleri (Tüm Proje)
+- [documents/ai_context/SYSTEM_CONTEXT.md](documents/ai_context/SYSTEM_CONTEXT.md): Monorepo haritası ve anlık durum raporu.
+- [documents/ai_context/COMMON_GUIDELINES.md](documents/ai_context/COMMON_GUIDELINES.md): AI çalışma prensipleri, 5-adım anti-loop, test & SonarQube standartları.
+- [documents/common/prd.md](documents/common/prd.md): Ürün Gereksinimleri Belgesi (PRD v2.1.0).
+- [documents/common/design_system_and_tokens.md](documents/common/design_system_and_tokens.md): "Nexus Precision" Tasarım Sistemi ve token'lar.
+- [documents/common/data_and_business_workflows.md](documents/common/data_and_business_workflows.md): MongoDB ERD, Qdrant şeması ve Sequence diyagramları.
+- [documents/openapi.json](documents/openapi.json): Canlı OpenAPI 3.0 REST API spesifikasyonu.
+- [documents/stitch_design_preview.html](documents/stitch_design_preview.html): Canlı interaktif tasarım prototipi.
 
-### A. AI Oturumları İçin Optimize Edilmiş Belgeler (`documents/ai_context/`)
+### B. Alt Proje Özel Belgeleri (Agent Traffic Controller)
 
-1. [SYSTEM_CONTEXT.md](documents/ai_context/SYSTEM_CONTEXT.md):  
-   Mimari yapı, teknoloji yığını, dizin kuralları ve anlık proje durumu.
-2. [UI_FRONTEND_CONVENTIONS.md](documents/ai_context/UI_FRONTEND_CONVENTIONS.md):  
-   React, Tailwind CSS, Sıfır/Minimum Dış Bağımlılık (Zero-Dependency) prensipleri, tema ve renk mimarisi.
-3. [ARCHITECTURE_RULES.md](documents/ai_context/ARCHITECTURE_RULES.md):  
-   Backend Modüler Monolit (Modular Monolith) mimarisi, Bounded Contexts, Row-Level Security (RLS) Multi-Tenancy kuralları, Dinamik Prompt Stacking ve Qdrant entegrasyonu.
-4. [DEVELOPMENT_GUIDELINES.md](documents/ai_context/DEVELOPMENT_GUIDELINES.md):  
-   AI çalışma prensipleri, token tasarrufu & 5-adım anti-loop kuralı, test stratejisi ve proaktif dökümantasyon yaşam döngüsü.
-
-### B. İnsan Okumasına Yönelik Belgeler (`documents/human/` ve Kök Dizin)
-
-1. [prd.md](documents/kurumsal_llm_veri_y_netim_platformu_prd.md): Ürün Gereksinimleri Belgesi (PRD v2.1.0)
-2. [software_architecture.md](documents/software_architecture_document.md): Yazılım Mimarisi & Modüler Monolit Spesifikasyonu (SAD v1.2.0)
-3. [data_and_business_workflows.md](documents/human/data_and_business_workflows.md): Veritabanı Mimarisi, ERD ve İş Mantığı Çalışma Şemaları (Mermaid).
-4. [ui_ux_specification.md](documents/human/ui_ux_specification.md): Onaylanan UI/UX standartları ve ekran akışları.
-5. [design_system_and_tokens.md](documents/human/design_system_and_tokens.md): "Nexus Precision" Tasarım Sistemi ve renk token'ları.
-6. [stitch_design_preview.html](documents/stitch_design_preview.html): Canlı interaktif tasarım prototipi.
-7. [openapi.json](documents/openapi.json): Canlı OpenAPI 3.0 REST API Spesifikasyonu ve Şemaları (Swagger UI `/api/docs` ile eşzamanlı).
+| Çalıştığınız Alt Proje | Zorunlu AI Kural Dosyası | Detaylı Mimari & Şartname Dosyaları |
+| :--- | :--- | :--- |
+| **`apps/backend`** | [documents/ai_context/BACKEND_RULES.md](documents/ai_context/BACKEND_RULES.md) | [documents/backend/architecture.md](documents/backend/architecture.md) |
+| **`apps/admin-interface`** | [documents/ai_context/ADMIN_INTERFACE_RULES.md](documents/ai_context/ADMIN_INTERFACE_RULES.md) | [documents/admin-interface/architecture_and_screens.md](documents/admin-interface/architecture_and_screens.md)<br/>[documents/admin-interface/model_and_tenant_management.md](documents/admin-interface/model_and_tenant_management.md)<br/>[documents/admin-interface/admin_ui_conventions.md](documents/admin-interface/admin_ui_conventions.md) |
+| **`apps/user-interface`** | [documents/ai_context/USER_INTERFACE_RULES.md](documents/ai_context/USER_INTERFACE_RULES.md) | [documents/user-interface/architecture_and_chat_flows.md](documents/user-interface/architecture_and_chat_flows.md)<br/>[documents/user-interface/rag_drawer_and_prompt_ui.md](documents/user-interface/rag_drawer_and_prompt_ui.md)<br/>[documents/user-interface/user_ui_conventions.md](documents/user-interface/user_ui_conventions.md) |
 
 ---
 
 ## 3. Asla İhlal Edilmeyecek Kritik Kurallar (Non-Negotiable Constraints)
 
 1. **Minimum Dış Bağımlılık (Zero/Low Dependency):**  
-   React arayüzlerinde gereksiz npm paketleri (ağır Radix, MUI, AntD, AG-Grid vb.) YASAKTIR.  
+   React arayüzlerinde (`admin-interface` ve `user-interface`) gereksiz npm paketleri (ağır Radix, MUI, AntD, AG-Grid vb.) YASAKTIR.  
    Modal, Drawer, Dropdown, Collapsible, Tabs ve Table bileşenleri projenin kendi kaynak kodunda saf React + Tailwind ile yazılacaktır.
 2. **Tema ve Renk Mimarisi:**
    - Sistem teması (`prefers-color-scheme`) varsayılandır.
@@ -61,7 +60,7 @@ Projenin kapsamlı dökümantasyonu `documents/` dizininde iki ana kategoride tu
 7. **Canlı OpenAPI Dokümantasyonu:**  
    Tüm REST API uç noktaları Zod DTO şemaları ile tip güvenli OpenAPI spesifikasyonuna bağlanmalı ve `documents/openapi.json` daima güncel tutulmalıdır.
 8. **Veritabanı Şemaları & İş Akışları Dokümantasyonu (Living ERD & Workflows):**  
-   Veritabanı koleksiyonlarında (MongoDB Mongoose şemaları), Qdrant vektör payload yapılarında veya temel iş akışlarında (Prompt Stacking, RAG pipeline vb.) yapılan her değişiklik, anında `documents/human/data_and_business_workflows.md` dosyasındaki Mermaid ERD ve sequence diyagramlarına yansıtılmalıdır. Dokümantasyonu güncellenmemiş şema ve akış değişiklikleri tamamlanmış sayılamaz.
+   Veritabanı koleksiyonlarında (MongoDB Mongoose şemaları), Qdrant vektör payload yapılarında veya temel iş akışlarında (Prompt Stacking, RAG pipeline vb.) yapılan her değişiklik, anında `documents/common/data_and_business_workflows.md` dosyasındaki Mermaid ERD ve sequence diyagramlarına yansıtılmalıdır. Dokümantasyonu güncellenmemiş şema ve akış değişiklikleri tamamlanmış sayılamaz.
 9. **SonarQube Kalite ve Güvenlik Standartları (Clean Code & Security Gate Compliance):**  
    Tüm kod geliştirmelerinde SonarQube MCP entegrasyonu ve kalite standartları (Clean Code taksonomisi, Security Hotspots, OWASP uyumluluğu, sıfır kritik güvenlik açığı/vulnerability, düşük bilişsel karmaşıklık ve sıfır code smell) dikkate alınır. Geliştirilen her parça SonarQube kurallarına tam uyumlu olarak yazılır ve onaylanmış kalite kapısı (Quality Gate: Sonar way) standartları korunur.
 10. **Standart Node.js Subpath Imports (#*) Mimarisi (Native ESM Specifier):**  
@@ -82,7 +81,7 @@ Projenin kapsamlı dökümantasyonu `documents/` dizininde iki ana kategoride tu
 5. **Mantık Odaklı ve Pragmatik Test Yaklaşımı:**  
    Mimari test edilebilir tasarlanır; çekirdek domain mantığı, yetkilendirme ve çok kiracılı veri izolasyonu (Multi-Tenancy) test edilir. Ancak en küçük UI veya önemsiz detay için anlamsız testler yazarak proje hantallaştırılmaz.
 6. **Çift Odaklı ve Yaşayan Dökümantasyon Kültürü:**  
-   Dökümantasyon her zaman güncel tutulur. İnsanlar için detaylı ve görsel (`documents/human/` — özellikle `data_and_business_workflows.md`), AI'lar için net ve amaca yönelik (`documents/ai_context/`) belgeler güncellenir veya gerekirse yenileri oluşturulur.
+   Dökümantasyon her zaman güncel tutulur. İnsanlar için detaylı ve görsel (`documents/common/`, `documents/backend/`, `documents/admin-interface/`, `documents/user-interface/`), AI'lar için net ve amaca yönelik (`documents/ai_context/`) belgeler güncellenir veya gerekirse yenileri oluşturulur.
 7. **Adım Adım, Parça Parça ve İstişareli Geliştirme (Iterative Collaborative Engineering):**  
-   Büyük kod blokları veya çoklu katmanlar asla tek seferde ve tek taraflı varsayımlarla yazılamaz. Her geliştirme adımı öncesinde kullanıcı ile mimari yöntem, kapsam ve uygulanacak parçalar istişare edilir; kullanıcının teyidi ve onayı alındıktan sonra adım adım, parça parça kodlanır ve doğrulanır.
-   _(Ayrıntılı yönergeler için: [DEVELOPMENT_GUIDELINES.md](documents/ai_context/DEVELOPMENT_GUIDELINES.md))_
+   Büyük kod blokları veya çoklu katmanlar asla tek seferde ve tek taraflı varsayımlarla yazılamaz. Her geliştirme adımı öncesinde kullanıcı ile mimari yöntem, kapsam ve uygulanacak parçalar istişare edilir; kullanıcının teyidi ve onayı alındıktan sonra adım adım, parça parça kodlanır ve doğrulanır.  
+   _(Ayrıntılı yönergeler için: [COMMON_GUIDELINES.md](documents/ai_context/COMMON_GUIDELINES.md))_

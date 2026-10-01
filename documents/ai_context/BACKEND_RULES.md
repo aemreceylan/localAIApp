@@ -1,6 +1,7 @@
-# ARCHITECTURE_RULES.md — AI Agent Backend & Güvenlik Kuralları
+# BACKEND_RULES.md — AI Agent Backend & Güvenlik Kuralları
 
 > **HEDEF KİTLE:** Yapay Zeka Kodlama Ajanları (AI Agents)  
+> **KAPSAM:** Alt Proje `apps/backend`  
 > **AMAÇ:** Backend kodu yazarken uyulması zorunlu olan Modüler Monolit (Modular Monolith) mimari kuralları, modüller arası sınır ve iletişim kuralları, Multi-Tenancy izolasyonu ve güvenlik kalıpları.
 
 ---
@@ -27,7 +28,7 @@ Klasik katmanlı Clean Architecture yerine, sistem **iş alanlarına (Bounded Co
 
 1. **Native ESM Zorunluluğu:** `apps/backend/package.json` içerisinde `"type": "module"` tanımlıdır. Tüm `import` / `export` ifadeleri standart ES Module syntax'ı ile yazılmalıdır (`require`/`module.exports` kullanımı kesinlikle yasaktır).
 2. **Barrel Export (Public Facade):** Modüller dışa açacakları tüm servis, dto ve event tiplerini kendi `index.ts` dosyalarından `export` eder. Modül dışındaki kodlar doğrudan iç dosyalara (`.model.ts`, `.repository.ts` vb.) erişemez.
-3. **Explicit Extension / Module Resolution:** TypeScript konfigürasyonunda `moduleResolution: "NodeNext"` (veya `Bundler`) kullanılarak modern Node.js modül çözünürlük standartlarına tam uyum sağlanır.
+3. **Explicit Extension / Module Resolution:** TypeScript konfigürasyonunda `moduleResolution: "NodeNext"` kullanılarak modern Node.js modül çözünürlük standartlarına tam uyum sağlanır.
 4. **Standart Node.js Subpath Imports (`#*`) Zorunluluğu:**
    - Kod tabanında derin veya kırılgan göreceli yollar (`../../`, `../../../`) yerine daima Node.js ve ECMAScript standart subpath import tanımlayıcıları kullanılır:
      - `#config/*` → `./src/config/*`
@@ -35,13 +36,13 @@ Klasik katmanlı Clean Architecture yerine, sistem **iş alanlarına (Bounded Co
      - `#shared/*` → `./src/shared/*`
      - `#*` → `./src/*`
    - **Gerekçe:** Dosya veya klasör düzeni güncellendiğinde tüm dosyaların import yollarının tek tek güncellenmesi zorunluluğunu ortadan kaldırır; refactor süreçlerini güvenli ve hızlı kılar.
-   - **Build & Runtime:** `package.json` altındaki `"imports"` nesnesi (`"#*": { "types": "./src/*", "development": "./src/*", "default": "./dist/*" }`) ve `tsconfig.json` altındaki `"paths"` eşlemesi sayesinde hem geliştirme (`tsx`/`vitest`), hem IDE (TS Server), hem de üretim (native Node ESM) ortamında harici regex/resolve betiklerine (`resolve-aliases.js`) ihtiyaç duyulmadan sıfır ek yük ile yerel çözümleme sağlanır. Üretim derlemesinde doğrudan `tsc -p tsconfig.build.json` çalıştırılır.
+   - **Build & Runtime:** `package.json` altındaki `"imports"` nesnesi ve `tsconfig.json` altındaki `"paths"` eşlemesi sayesinde hem geliştirme (`tsx`/`vitest`), hem IDE, hem de üretimde (native Node ESM) sıfır ek yük ile yerel çözümleme sağlanır. Üretim derlemesinde doğrudan `tsc -p tsconfig.build.json` çalıştırılır.
 5. **Katı Ortam Değişkeni Yönetimi (Strict Zero-Default & Fail-Fast Validation):**
    - Kod tabanında (özellikle `src/config/env.config.ts`) hiçbir ortam değişkenine varsayılan değer (`.default(...)`) verilemez; tüm parametreler (`NODE_ENV`, `HOST`, `PORT`, `CORS_ORIGIN`, `OLLAMA_BASE_URL`, `MONGODB_URI`) doğrudan `.env` veya sistem ortamından Zod ile doğrulanmalıdır.
    - Uygulama başlatılırken herhangi bir eksiklik veya tip uyuşmazlığı tespit edilirse, fail-fast prensibiyle detaylı hata listesini içeren bir istisna fırlatılarak (`throw new Error(...)`) süreç kontrollü olarak sonlandırılır; konfigürasyon modülü içinde doğrudan `process.exit()` çağrısı yapılmaz.
    - Kural 5 gereği ortam değişkenlerinde `DEFAULT_MODEL` gibi hardcoded model tanımlamaları yer alamaz.
 
-### Klasör Yapısı
+### Klasör Yapısı (`apps/backend/src/`)
 
 ```
 src/
@@ -84,16 +85,13 @@ src/modules/<module-name>/
 1. **Katı Veri İzolasyonu (No Cross-Database Queries):**
    - Bir modül, başka bir modülün Mongoose modelini (`.model.ts`) veya repository'sini **asla doğrudan import edip sorgulayamaz**.
    - _Örnek:_ `chat` modülü, doğrudan `UserModel.find()` çağıramaz. Kullanıcı bilgisine ihtiyaç varsa `auth` modülünün public servis/facade arayüzü (`authService.getUserById()`) kullanılmalıdır.
-
 2. **Kamuya Açık Arayüz (Public API / Barrel Export):**
    - Modüller arası tüm erişim yalnızca ilgili modülün `index.ts` dosyası üzerinden dışa aktarılan (exported) servis veya interface'ler vasıtasıyla yapılır.
    - Modülün içindeki private dosyalar (`.model.ts`, `.repository.ts`, iç helper'lar) başka modüller tarafından doğrudan `import` edilemez.
-
 3. **Gevşek Bağlılık (Event-Driven Communication):**
-   - Modüller arası asenkron etkileşimlerde (örneğin: Yeni tenant oluştuğunda varsayılan RAG klasörlerinin hazırlanması) Node.js `EventEmitter` veya `shared/events` kullanılır.
-
+   - Modüller arası asenkron etkileşimlerde Node.js `EventEmitter` veya `shared/events` kullanılır.
 4. **Döngüsel Bağımlılık Yasağı (No Circular Dependencies):**
-   - Modüller arasında bağımlılık döngüsü (`Auth -> Tenant -> Auth`) kesinlikle yasaktır. Ortak bağımlılıklar `shared/` katmanına veya bağımsız bir kontrata taşınmalıdır.
+   - Modüller arasında bağımlılık döngüsü (`Auth -> Tenant -> Auth`) kesinlikle yasaktır.
 
 ---
 
@@ -107,7 +105,6 @@ Multi-Tenancy altyapısı `shared/database` altında merkezi olarak yönetilir v
 2. **Query Hook'ları:** `pre('find')`, `pre('findOne')`, `pre('count')`, `pre('aggregate')` middleware'lerinde tenant filtresi enjekte edilir.
 3. **Filtre Mantığı:**
    ```typescript
-   // Otomatik enjekte edilen filtre:
    {
      $or: [{ tenant_id: currentTenantId }, { is_global: true }];
    }
@@ -140,8 +137,6 @@ Sistemde iki kademeli bir hata yaşam döngüsü (Two-Tier Error Lifecycle) uygu
 
 ### 4.2. Hata Sınıfları Hiyerarşisi (`shared/errors/`)
 
-Tüm operasyonel iş ve domain hataları `AppError` soyut temel sınıfından türer:
-
 ```
 AppError (Soyut Ana Hata - statusCode, code, isOperational, details)
 ├── DomainError              → İş kuralı ihlalleri (HTTP 400 - DOMAIN_ERROR)
@@ -152,8 +147,6 @@ AppError (Soyut Ana Hata - statusCode, code, isOperational, details)
 ```
 
 ### 4.3. Standart HTTP Hata Yanıt Zarfı (Envelope Contract)
-
-İstemcilere dönülen tüm hata yanıtları tutarlı bir sözleşmeye uyar:
 
 ```json
 {
@@ -171,106 +164,65 @@ AppError (Soyut Ana Hata - statusCode, code, isOperational, details)
 }
 ```
 
-- **Operasyonel Olmayan / Beklenmeyen Hatalar (500):**  
-  `AppError` dışındaki beklenmeyen istisnalar `INTERNAL_SERVER_ERROR` kodu ve `Sunucu tarafında beklenmeyen bir hata oluştu.` mesajıyla yakalanır. `env.NODE_ENV === 'production'` modunda `stack` trace istemciye **asla** iletilmez.
-
 ---
 
 ## 5. Güvenlik Kuralları
 
-### Rate Limiting (`shared/middleware/rate-limiter.ts`)
-
-- IP bazlı: Dakikada maks. 100 istek.
-- Kullanıcı bazlı: Dakikada maks. 20 chat isteği.
-- Redis tabanlı `rate-limiter-flexible` ile uygulanır.
-
-### Payload Sınırları
-
-- JSON body: `express.json({ limit: '2mb' })`.
-- Dosya yükleme: Multer ile maks. 20MB ve MIME-Type kontrolü.
-
-### Security Headers
-
-- `helmet` middleware ile X-Frame-Options, CSP, HSTS zorunlu.
-- CORS: Yalnızca izin verilen domain'ler.
-
-### LLM Dayanıklılık (`src/modules/chat` ve `src/modules/rag`)
-
-- **Retry:** Dış LLM isteklerinde Exponential Backoff (3 deneme).
-- **Circuit Breaker:** Ardışık 5 hatada devre kesilir, 30 saniye beklenir.
+- **Rate Limiting (`shared/middleware/rate-limiter.ts`):** IP bazlı dakikada maks. 100 istek; kullanıcı bazlı dakikada maks. 20 chat isteği (`rate-limiter-flexible` & Redis).
+- **Payload Sınırları:** JSON body `express.json({ limit: '2mb' })`; Multer ile maks. 20MB.
+- **Security Headers:** `helmet` zorunlu, katı CORS.
+- **LLM Dayanıklılık:** Exponential Backoff (3 deneme) ve Circuit Breaker (5 hatada 30 sn kesinti).
 
 ---
 
 ## 6. BullMQ İş Kuyruğu Kuralları (`src/modules/rag`)
 
-### RAG Doküman İşleme Akışı
-
-1. Kullanıcı doküman yükler → Express API (`rag.controller`) dosyayı kaydeder ve DB'de `PENDING` durumunda kayıt oluşturur.
-2. BullMQ'ya iş eklenir → Worker (`rag.worker.ts`) metin çıkarır, parçalar (chunk), Vercel AI SDK ile embedding üretir, Qdrant'a `tenant_id` payload'ı ile kaydeder.
-3. İş tamamlanınca DB durumu `COMPLETED` olarak güncellenir ve UI'a SSE ile bildirilir.
-
-### Performans Kuralları
-
-- Worker eşzamanlılık sınırı: `concurrency: 2` veya `3` (sunucu kapasitesine göre).
-- Kuyruk hız sınırı: Dakikada maks. 50 embedding işi (`limiter: { max: 50, duration: 60000 }`).
-- Tamamlanan işler: 1 saat veya son 100 iş saklanır (`removeOnComplete`).
-- Başarısız işler: Analiz için 24 saat saklanır (`removeOnFail`).
-- Dosya boyutuna göre önceliklendirme: Küçük dosyalar kuyruğun önüne alınır.
+1. Kullanıcı doküman yükler → Express API (`rag.controller`) dosyayı kaydeder ve DB'de `PENDING` kaydı açar.
+2. BullMQ'ya iş eklenir → Worker (`rag.worker.ts`) metin çıkarır, parçalar, Vercel AI SDK ile embed eder, Qdrant'a `tenant_id` payload'ı ile kaydeder.
+3. İş tamamlanınca DB durumu `COMPLETED` olur ve UI'a SSE ile bildirilir.
+- Concurrency: 2 veya 3.
+- Limiter: Dakikada maks. 50 iş.
+- Otomatik temizlik: `removeOnComplete`, `removeOnFail`.
 
 ---
 
-## 7. Yerel Model İndirme (`src/modules/ollama`)
+## 7. Yerel Model İndirme (`src/modules/ai`)
 
-Admin panelinden `ollama pull` tetiklendiğinde:
-
-1. **Disk Kontrolü:** Doluluğu %85 üzerindeyse indirme engellenir.
-2. **Progress Stream:** Ollama API çıktısı dinlenir → BullMQ/Redis üzerinden Admin UI'a canlı ilerleme aktarılır.
-3. **Cancel Token:** İptal edilen indirmelerde abort controller ile yetim dosya oluşumu engellenir.
+1. **Disk Kontrolü:** Doluluk %85 üzerindeyse engellenir.
+2. **Progress Stream:** Ollama stream çıktısı dinlenir, BullMQ/Redis üzerinden aktarılır.
+3. **Cancel Token:** Abort controller ile yetim dosya engellenir.
 
 ---
 
 ## 8. Admin Model Yönetimi & Dinamik Model Kataloğu
 
-1. **Hardcoded Model Yasağı:** Backend kodlarında veya Mongoose şemalarında herhangi bir model adı (örn. `llama3.2:3b`, `gpt-4o`) sabit varsayılan (hardcoded default) olarak yer alamaz.
-2. **Admin Yetkisi:** Hangi modellerin aktif olacağı (`allowed_models`) ve yeni oturumlarda varsayılanın ne olacağı (`default_model`) yalnızca Yönetici (Admin) tarafından Tenant/Sistem ayarları üzerinden belirlenir.
-3. **Zorunlu Seçim:** Kullanıcı bir oturum açarken veya anlık sohbet başlatırken admin tarafından izin verilen modeller arasından bir seçim yapmak zorundadır. Model seçimi yapılmamış istekler doğrudan `422 ValidationError` ile reddedilir.
+1. **Hardcoded Model Yasağı:** Kodda veya şemalarda sabit model adı (`llama3.2:3b`, `gpt-4o`) yer alamaz.
+2. **Admin Yetkisi:** İzinli modeller (`allowed_models`) ve önerilen model (`default_model`) yalnızca admin tarafından belirlenir.
+3. **Zorunlu Seçim:** Model parametresi eksik olan istekler `422 ValidationError` alır.
 
 ---
 
-## 9. Çok Katmanlı Dinamik Sistem Prompt Mimarisi (Prompt Stacking & Realtime Assembly)
+## 9. Çok Katmanlı Dinamik Sistem Prompt Mimarisi (Prompt Stacking)
 
-Kurumsal mevzuat, güvenlik ilkeleri ve uzmanlık rolleri dinamik ve kritik olduğundan, sistem prompt'ları konuşma oturumları içine statik metin olarak dondurulamaz (snapshot alınmaz).
-
-1. **Bağımsız Prompt Modülü (`src/modules/prompt`):** Tüm kurumsal roller ve güvenlik kuralları bağımsız bir Mongoose koleksiyonunda (`PromptModel`) saklanır.
-2. **Anlık Birleştirme (Realtime Assembly):** LLM'e her istek atıldığında (veya stream başlatıldığında), o anki en güncel prompt'lar veritabanından dinamik olarak çekilir ve 3 katmanlı hiyerarşiyle üst üste bindirilir (stacking):
-   - **1. Katman (Kurumsal Güvenlik & Guardrails):** Tenant için tanımlı zorunlu güvenlik kuralları (Veri sızdırmazlığı, üslup standartları).
-   - **2. Katman (Rol & Persona):** Oturumun bağlı olduğu uzmanlık şablonu (Örn: Hukuk Müşaviri, Kod Mimarı).
-   - **3. Katman (Kullanıcı Özel Talimatı):** Kullanıcının o sohbete özel eklediği opsiyonel `custom_instructions`.
-3. **Anlık Etki:** Yönetici admin panelinden bir persona veya guardrail prompt'unu güncellediği anda, devam eden veya yeni açılan tüm konuşmalar bir sonraki mesajda otomatik olarak yeni kurallara tabi olur.
+1. **Bağımsız Prompt Modülü (`src/modules/prompt`):** Bağımsız Mongoose koleksiyonunda (`PromptModel`) saklanır.
+2. **Anlık Birleştirme (Realtime Assembly):**
+   - 1. Katman: Kurumsal Güvenlik & Guardrails (`system_guardrail`)
+   - 2. Katman: Rol & Persona (`persona`)
+   - 3. Katman: Kullanıcı Özel Talimatı (`custom_instructions`)
+3. **Anlık Etki:** Yönetici güncellediğinde sonraki ilk mesajda yeni kurallar devreye girer.
 
 ---
 
 ## 10. Canlı API Dokümantasyonu & OpenAPI 3.0 Standardı
 
-Sistemdeki tüm REST API uç noktaları, DTO şemaları ve modelleri kod seviyesinde tip güvenli OpenAPI ile dökümante edilmelidir.
-
-1. **Zod ile Şema Tanımı:** İstek gövdesi (Request Body), rota parametreleri ve yanıt şemaları `@asteasolutions/zod-to-openapi` kütüphanesi kullanılarak `.dto.ts` içinde tanımlanır.
-2. **Merkezi Kayıt (`src/config/openapi.config.ts`):** Yeni uç noktalar ve DTO'lar merkezi OpenAPI Registry'ye kaydedilir.
-3. **Çift Yönlü Erişim:**
-   - **İnteraktif Web UI:** Tarayıcı üzerinden `/api/docs` (Swagger UI) ve `/api/docs.json` adresinden canlı test edilebilir.
-   - **Statik Master Doküman:** API sunucusu her ayağa kalktığında ve testler koşturulduğunda güncel spesifikasyon otomatik olarak `documents/openapi.json` dosyasına yazılır.
-4. **Güncelleme Kuralı:** Yeni bir modül veya uç nokta eklendiğinde OpenAPI tanımının yapılması zorunludur. Dokümantasyonsuz hiçbir uç nokta canlıya alınamaz.
+1. **Zod ile Şema Tanımı:** İstek/yanıt şemaları `.dto.ts` içinde `@asteasolutions/zod-to-openapi` ile yazılır.
+2. **Merkezi Kayıt:** `src/config/openapi.config.ts` dosyasına kaydedilir.
+3. **Çift Yönlü Erişim:** Web UI (`/api/docs`) ve master dosya (`documents/openapi.json`).
 
 ---
 
 ## 11. AI Model Sağlayıcı Mimarisi & SOLID Registry (`src/modules/ai/`)
 
-Model entegrasyonları tek bir sağlayıcıya (örn. yalnızca Ollama) bağımlı kalamaz. Kod tabanı SOLID prensiplerine, özellikle **Open/Closed (Gelişime açık, değişime kapalı)** ve **Dependency Inversion** ilkelerine tam uyumlu olarak yönetilir:
-
-1. **`IAiModelProvider` Standart Arayüzü:** Tüm model sağlayıcıları (`Ollama`, `OpenAI`, `Anthropic`, `vLLM` vb.) `supports(modelId)` ve `getModel(modelName, options)` metotlarını içeren bu arayüzü uygular.
-2. **Merkezi Sağlayıcı Sicili (`AiProviderRegistry`):** Sağlayıcı adaptörleri merkezi registry'ye kaydedilir (`registerProvider()`). Yeni bir sağlayıcı eklenirken var olan kodlar veya `getModel()` gövdesi değiştirilmez (OCP).
-3. **Model Çözümleme Kuralları (`resolveModel`):**
-   - Açık Sağlayıcı Belirteci: `provider/model` formatı (örn: `openai/gpt-4o`, `ollama/llama3.2:3b`) veya seçenek nesnesi (`{ model, provider }`).
-   - Otomatik Eşleşme: `supports()` metodu ile model adını üstlenen sağlayıcı.
-   - Fallback Sağlayıcı: Sağlayıcı belirtilmemiş yerel modeller için kayıtlı varsayılan sağlayıcı (Ollama).
-   - Bilinmeyen veya kayıtlı olmayan sağlayıcı talep edildiğinde sistem sessizce hata yutmaz; `422 ValidationError` fırlatır.
+1. **`IAiModelProvider` Standart Arayüzü:** `supports(modelId)` ve `getModel(modelName, options)`.
+2. **Merkezi Sicil (`AiProviderRegistry`):** Açık/Kapalı (OCP) prensibiyle yeni sağlayıcılar eklenir.
+3. **Model Çözümleme (`resolveModel`):** Açık sağlayıcı belirteci (`provider/model`), dinamik eşleşme veya fallback. Bilinmeyen sağlayıcıda `422 ValidationError`.

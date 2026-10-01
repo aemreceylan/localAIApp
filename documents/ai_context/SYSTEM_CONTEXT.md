@@ -1,74 +1,79 @@
-# SYSTEM_CONTEXT.md — AI Knowledge Base & Project State
+# SYSTEM_CONTEXT.md — AI Knowledge Base & Multi-App Monorepo State
 
 > **HEDEF KİTLE:** Yapay Zeka Kodlama Ajanları (AI Agents)  
-> **AMAC:** Oturum başladığında projeyi anında tanımak, mimari kararları kavramak ve tekrarlayan soruları önlemek.
+> **AMAC:** Oturum başladığında tüm monorepo ekosistemini anında tanımak, 3 alt projenin (`backend`, `admin-interface`, `user-interface`) ayrımını kavramak ve tekrarlayan soruları önlemek.
 
 ---
 
-## 1. Proje Özeti
-- **Platform:** Kurumsal LLM & Veri Yönetim Platformu (NexusAI Gateway & Knowledge Base).
-- **Hedef:** Self-hosted / On-prem sunucularda çalışan, uzaktan erişilebilir, yerel (Ollama, vLLM) ve bulut LLM'leri orkestre eden RAG platformu.
-- **Aktif Faz:** UI/UX Mimarisi, Tasarım Sistemi ve Frontend İskelet Kurulumu (Faz 1 / MVP).
+## 1. Proje Kimliği ve Ekosistem Özeti
+
+- **Platform:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_).
+- **Dağıtım Modeli:** Self-hosted / On-prem sunucularda çalışan, uzaktan erişilebilir, yerel (Ollama, vLLM) ve bulut LLM'leri orkestre eden kurumsal RAG platformu.
+- **Mimari Tip:** 1 Ortak Çatı + 3 Bağımsız Alt Proje içeren Monorepo yapısı.
 
 ---
 
-## 2. Monorepo Dizin Haritası
+## 2. Monorepo Dizin ve Alt Proje Haritası
 
 ```
 localAIApp/
-├── AGENTS.md                                  # AI Ajanları giriş noktası
-├── apps/
-│   ├── user-interface/                        # React + TypeScript + Tailwind (Kullanıcı Chat & RAG)
-│   ├── admin-interface/                       # React + TypeScript + Tailwind (Yönetici Paneli & Modeller)
-│   └── backend/                               # Node.js + Express + TypeScript (Modüler Monolit / Modular Monolith)
-├── documents/
-│   ├── README.md                              # Master Bilgi Bankası Kataloğu
-│   ├── openapi.json                           # Otomatik üretilen OpenAPI 3.0 API Dokümanı (JSON)
-│   ├── stitch_design_preview.html             # Canlı Onaylanmış Tasarım Prototipi
-│   ├── human/                                 # İnsan okumasına yönelik şartnameler & SAD/PRD
-│   └── ai_context/                            # AI oturumları için optimize edilmiş kurallar
+├── AGENTS.md                                  # AI Ajanları Merkezi Trafik Yönlendiricisi
+│
+├── apps/                                      # 📦 ÜÇ BAĞIMSIZ ALT PROJE
+│   ├── backend/                               # Node.js + Express + TypeScript (Modüler Monolit)
+│   ├── admin-interface/                       # React + TypeScript + Tailwind (Yönetici Paneli)
+│   └── user-interface/                        # React + TypeScript + Tailwind (Kullanıcı Chat & RAG)
+│
+└── documents/                                 # 📚 BİLGİ BANKASI VE ŞARTNAMELER
+    ├── README.md                              # Ana Dökümantasyon Portalı
+    ├── openapi.json                           # Canlı API Sözleşmesi (Backend üretir, UI'lar tüketir)
+    ├── stitch_design_preview.html             # Canlı Onaylanmış Tasarım Prototipi
+    │
+    ├── common/                                # 🌐 TÜM PROJE İÇİN ORTAK DÖKÜMANLAR
+    │   ├── prd.md                             # Ürün Vizyonu, Roller & PRD v2.1.0
+    │   ├── design_system_and_tokens.md        # "Nexus Precision" Tasarım Sistemi & CSS Token'ları
+    │   └── data_and_business_workflows.md     # Bütünleşik MongoDB ERD, Qdrant Şeması & Akışlar
+    │
+    ├── backend/                               # ⚙️ BACKEND ÖZEL DÖKÜMANTASYONU
+    │   └── architecture.md                    # SAD v1.2.0, Modüler Monolit, RLS, Prompt Engine, RAG
+    │
+    ├── admin-interface/                       # 🛡️ ADMIN INTERFACE ÖZEL DÖKÜMANTASYONU
+    │   ├── architecture_and_screens.md        # Admin Paneli Mimarisi & Sayfa Hiyerarşisi
+    │   ├── model_and_tenant_management.md     # Model Tanımlama, Lokal İndirme, RBAC
+    │   └── admin_ui_conventions.md            # Saf React Tablolar, Modallar, Admin State
+    │
+    ├── user-interface/                        # 💬 USER INTERFACE ÖZEL DÖKÜMANTASYONU
+    │   ├── architecture_and_chat_flows.md     # Chat Mimarisi, Streaming, Side-by-Side Arena
+    │   ├── rag_drawer_and_prompt_ui.md        # Sağ RAG Çekmecesi, Dipnotlar, Persona UI
+    │   └── user_ui_conventions.md             # Chat Bileşenleri, Yüzen Dock, Markdown
+    │
+    └── ai_context/                            # 🤖 AI AJANLARI HIZLI BAĞLAM KURALLARI
+        ├── SYSTEM_CONTEXT.md                  # Bu genel sistem özeti
+        ├── COMMON_GUIDELINES.md               # Ortak Çalışma & Anti-Loop Prensipleri
+        ├── BACKEND_RULES.md                   # Backend Modüler Monolit & RLS Kuralları
+        ├── ADMIN_INTERFACE_RULES.md           # Admin UI Saf React & RBAC Kuralları
+        └── USER_INTERFACE_RULES.md            # User UI Saf React & Chat Kuralları
 ```
 
 ---
 
-## 3. Onaylanmış Temel Kararlar (Kullanıcı Tarafından Kesinleşti)
+## 3. Alt Projelerin Anlık Durumu
 
-1. **Görsel Dil & Tasarım:**
-   - Onaylanan estetik: "Nexus Precision" (Modern B2B SaaS, temiz grid çizgileri, slate kenarlıklar).
-   - [stitch_design_preview.html](../stitch_design_preview.html) dosyasındaki yerleşim, bileşenler ve etkileşimler referanstır.
-2. **Tema Davranışı:**
-   - Varsayılan: `prefers-color-scheme` sistem teması.
-   - Fallback: Aydınlık (Light) Mod.
-   - Renk Paletleri (Indigo, Emerald, Obsidian, Ocean) doğrudan chat ekranında DEĞİL, Görünüm Ayarları Modalı içinde derinde bulunur.
-3. **Sol Sidebar:**
-   - Hem kullanıcı hem admin arayüzünde daralabilir sol sidebar onaylanmıştır.
-4. **React & Sıfır Bağımlılık (Zero-Dependency):**
-   - Dış paket bağımlılığı en aza indirilecektir.
-   - Radix, HeadlessUI veya harici UI kütüphaneleri kurulmayacaktır; bileşenler saf React + Tailwind ile `components/ui/` içinde yazılacaktır.
-5. **Backend Modüler Monolit (Modular Monolith) Mimarisi:**
-   - İş alanlarına (Bounded Contexts) göre ayrılmış bağımsız modüller (`auth`, `tenant`, `chat`, `prompt`, `rag`, `ai`) ve ortak `shared/` katmanı.
-   - Katı veri izolasyonu (modüller arası doğrudan DB sorgusu yasaktır) ve her modülün kendi public API (`index.ts`) üzerinden haberleşmesi.
-   - Multi-Tenancy: MongoDB ve Qdrant üzerinde `tenant_id` bazlı Row-Level Security (RLS).
-6. **Geliştirici Çalışma Prensipleri & Anti-Loop Protokolü:**
-   - Adım adım, parça parça ve kullanıcı ile istişare ederek ilerleme prensibi, en fazla 5 başarısız denemeden sonra durup kullanıcıya danışılması (anti-loop kuralı), token verimliliği, pragmatik mantık odaklı testler ve yaşayan çift odaklı (insan/AI) dökümantasyon kuralları ([DEVELOPMENT_GUIDELINES.md](DEVELOPMENT_GUIDELINES.md)) onaylanmıştır.
-7. **Admin Model Yönetimi:**
-   - Şema veya kod seviyesinde varsayılan model sabitlenemez.
-   - İzin verilen modeller ve varsayılan model seçimi Admin yetkisindedir; kullanıcı oturum açarken veya anlık sohbette model seçmek zorundadır.
-8. **Çok Katmanlı Dinamik Prompt Mimarisi (Prompt Stacking):**
-   - Prompt'lar `Conversation` içinde statik dondurulmaz; ayrı bir `src/modules/prompt` modülünde yönetilir.
-   - Her mesaj gönderiminde kurumsal guardrail, seçilen persona ve kullanıcı ek talimatı anlık olarak birleştirilir; prompt güncellemeleri anında tüm aktif sohbetlere yansır.
-9. **Canlı OpenAPI 3.0 Dokümantasyonu & Swagger UI:**
-   - Zod şemaları (`@asteasolutions/zod-to-openapi`) üzerinden otomatik üretilen tip güvenli REST API spesifikasyonu.
-   - Web üzerinden `/api/docs` (Swagger UI) ve `/api/docs.json` adresinden interaktif sunulur; ayrıca master döküman olarak `documents/openapi.json` dosyasına otomatik kaydedilir.
-10. **Bütünleşik Veritabanı Mimarisi & İş Akış Şemaları (Data & Business Workflows):**
-   - MongoDB koleksiyonları (`Tenant`, `User`, `Prompt`, `Conversation`, `Message`, `Document`), Qdrant vektör payload şeması, Dinamik Prompt Stacking akışı ve RAG Ingestion/Retrieval pipeline'ı Mermaid ERD ve sequence diyagramları ile [data_and_business_workflows.md](../human/data_and_business_workflows.md) belgesinde standartlaştırılmıştır.
-11. **SonarQube Destekli Kod Kalitesi & Güvenlik Denetimi:**
-   - Geliştirme süreçlerinde SonarQube MCP entegrasyonu aktif olarak kullanılır; kodlar "Clean as You Code (CaYC)" prensibi, varsayılan "Sonar way" kalite kapısı, sıfır kritik güvenlik zafiyeti (OWASP Top 10, Security Hotspots) ve düşük bilişsel karmaşıklık hedefleriyle geliştirilir.
-12. **Standart Node.js Subpath Imports (#*) & Modül İçe Aktarım Standardı:**
-   - Kod tabanında kırılgan ve derin göreceli import'lar (`../../`) yerine ECMAScript & Node.js standart subpath import tanımlayıcıları (`#config/*`, `#modules/*`, `#shared/*`, `#*`) zorunlu kılınmıştır. `package.json` altındaki `"imports"` haritası ve `tsconfig.json` paths eşlemesi sayesinde harici bir dönüştürme betiğine ihtiyaç kalmadan hem geliştirme (`tsx`/`vitest`), hem IDE, hem de üretimde (native Node ESM) sıfır ek yük ile modül çözünürlüğü sağlanır.
-13. **Katı Ortam Değişkeni Yönetimi (Strict Zero-Default & Fail-Fast Environment Validation):**
-   - Kod tabanında (özellikle `src/config/env.config.ts`) hiçbir ortam değişkenine varsayılan değer (`.default(...)`) verilmez; tüm parametreler (`NODE_ENV`, `HOST`, `PORT`, `CORS_ORIGIN`, `OLLAMA_BASE_URL`, `MONGODB_URI`) doğrudan `.env` dosyasından veya sistem ortamından Zod ile doğrulanır. Eksik veya geçersiz bir değişken tespit edildiğinde fail-fast prensibiyle detaylı hata çıktısını içeren bir istisna fırlatılır (`throw new Error(...)`) ve süreç kontrollü biçimde sonlandırılır. Kural 5 uyarınca ortam değişkenlerinde `DEFAULT_MODEL` gibi sabit model tanımları yer alamaz.
+| Alt Proje | Teknoloji Yığını | Mevcut Durum | Sonraki Odak / Yapılacaklar |
+| :--- | :--- | :--- | :--- |
+| **`backend`** | Node.js (v20+ LTS), Express, Mongoose, Qdrant, BullMQ, Vercel AI SDK, Vitest | Çekirdek mimari, Prompt Stacking, Subpath imports (`#*`), RLS altyapısı ve Zod DTO'lar hazır. SonarQube temizliği yapıldı. | RAG ingestion worker entegrasyonu, Ollama model yönetim API'si. |
+| **`admin-interface`** | React 18+, TypeScript, Tailwind CSS, Vite | Mimari şartname ve ekran hiyerarşisi dökümante edildi; iskelet kurulacak. | Vite projesinin başlatılması, "Nexus Precision" token entegrasyonu, model ve RBAC yönetim sayfaları. |
+| **`user-interface`** | React 18+, TypeScript, Tailwind CSS, Vite | Mimari şartname, chat akışları ve RAG çekmece spesifikasyonu hazır; iskelet kurulacak. | Vite projesinin başlatılması, SSE chat stream kancası, yüzen prompt dock'u ve sağ çekmece. |
 
+---
 
+## 4. Onaylanmış Temel İlkeler (Tüm Monorepo İçin Geçerli)
 
-
+1. **Görsel Dil & Tasarım:** "Nexus Precision" (Modern B2B SaaS, temiz grid çizgileri, slate kenarlıklar). Referans prototip: `documents/stitch_design_preview.html`.
+2. **Tema Davranışı:** Varsayılan `prefers-color-scheme` sistem temasıdır (Fallback: Aydınlık). Renk paletleri Görünüm Ayarları Modalı içinde derindedir.
+3. **Sıfır Dış UI Bağımlılığı (Zero-Dependency):** Her iki frontend (`admin-interface`, `user-interface`) için de Radix, MUI, AntD, AG-Grid vb. kütüphaneler yasaktır. Saf React + Tailwind kullanılacaktır.
+4. **Backend Modüler Monolit (Modular Monolith):** Bounded Contexts, katı veri izolasyonu (cross-DB sorgu yasağı) ve Facade (`index.ts`) iletişimi.
+5. **Admin Model Yönetimi (Kural 5):** Sistemde hiçbir yerde (kod, DB şeması, .env) hardcoded model bulunamaz. Modelleri admin tanımlar; kullanıcı model seçmek zorundadır.
+6. **Dinamik Prompt Stacking:** Kurumsal guardrail, persona ve kullanıcı ek talimatı anlık olarak birleştirilir; prompt güncellemeleri anında tüm aktif oturumlara yansır.
+7. **Standart Subpath Imports (#*):** Backend modül erişimlerinde Node.js native ESM `#modules/*`, `#config/*`, `#shared/*` zorunludur.
+8. **Canlı OpenAPI 3.0 Dokümantasyonu:** Zod DTO'lar ile Swagger UI (`/api/docs`) ve master dosya (`documents/openapi.json`) canlı tutulur.
