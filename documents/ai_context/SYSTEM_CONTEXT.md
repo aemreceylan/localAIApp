@@ -61,9 +61,9 @@ localAIApp/
 
 | Alt Proje | Teknoloji Yığını | Mevcut Durum | Sonraki Odak / Yapılacaklar |
 | :--- | :--- | :--- | :--- |
-| **`backend`** | Node.js (v20+ LTS), Express, Mongoose, Qdrant, BullMQ, Vercel AI SDK, Vitest | Çekirdek mimari, Prompt Stacking, Subpath imports (`#*`), RLS altyapısı ve Zod DTO'lar hazır. SonarQube temizliği yapıldı. | RAG ingestion worker entegrasyonu, Ollama model yönetim API'si. |
+| **`backend`** | Node.js (v20+ LTS), Express, Mongoose, Qdrant, BullMQ, Vercel AI SDK, Vitest | Çekirdek mimari, Prompt Stacking, Subpath imports (`#*`), RLS altyapısı, Zod DTO'lar, Opaque Bearer Token (`sessions`), Super Admin ilk kurulum kapısı (Bootstrap Gatekeeper) ve kullanıcı bazlı sohbet oturum izolasyonu (`user_id`) hazır. | RAG ingestion worker entegrasyonu, Ollama model yönetim API'si. |
 | **`admin-interface`** | React 18+, TypeScript, Tailwind CSS, Vite | Mimari şartname ve ekran hiyerarşisi dökümante edildi; iskelet kurulacak. | Vite projesinin başlatılması, "Nexus Precision" token entegrasyonu, model ve RBAC yönetim sayfaları. |
-| **`user-interface`** | React 18+, TypeScript, Tailwind CSS, Vite | Mimari şartname, chat akışları ve RAG çekmece spesifikasyonu hazır; iskelet kurulacak. | Vite projesinin başlatılması, SSE chat stream kancası, yüzen prompt dock'u ve sağ çekmece. |
+| **`user-interface`** | React 18+, TypeScript, Tailwind CSS, Vite | **Tamamlandı & Canlı:** Vite + React + Tailwind + Native ESM Subpath Imports (`#*`) iskeleti kuruldu. Sıfır dış UI bağımlılığı ile saf bileşenler, katlanabilir/sürüklenebilir Sidebar, canlı SSE streaming, RAG İnceleme Çekmecesi, Super Admin İlk Kurulum Ekranı (`SetupSuperAdminView`), Kurumsal Giriş Ekranı (`LoginView`), `AuthProvider` & `useAuth`, Sidebar gerçek profil & anlık oturum kapatma (Logout), ve kullanıcıya özel geçmiş sohbet oturumları başarıyla tamamlandı ve tarayıcıda doğrulandı. | RAG dosya yükleme (PDF/DOCX) ve model kıyaslama arena entegrasyonu. |
 
 ---
 

@@ -102,6 +102,23 @@ export const createSessionSchema = z.object({
     }),
 });
 
+export const modelInfoSchema = z.object({
+  id: z.string().openapi({ description: 'Model kimliği', example: 'llama3.2:3b' }),
+  name: z.string().openapi({ description: 'Görünen model adı', example: 'Llama 3.2 3B' }),
+  provider: z.string().openapi({ description: 'Sağlayıcı motoru', example: 'ollama' }),
+  isLocal: z.boolean().openapi({ description: 'Yerel sunucuda mı çalışıyor?', example: true }),
+  description: z.string().optional().openapi({ description: 'Model açıklaması', example: 'Hafif yerel model' }),
+  isDefault: z.boolean().optional().openapi({ description: 'Varsayılan model mi?', example: false }),
+});
+
+export const modelListResponseSchema = z.object({
+  success: z.boolean().openapi({ example: true }),
+  data: z.array(modelInfoSchema),
+  defaultModel: z.string().nullable().openapi({ description: 'Varsayılan model ID', example: 'llama3.2:3b' }),
+});
+
 export type ChatMessageDto = z.infer<typeof chatMessageSchema>;
 export type ChatRequestDto = z.infer<typeof chatRequestSchema>;
 export type CreateSessionDto = z.infer<typeof createSessionSchema>;
+export type ModelInfoDto = z.infer<typeof modelInfoSchema>;
+export type ModelListResponseDto = z.infer<typeof modelListResponseSchema>;

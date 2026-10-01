@@ -6,6 +6,7 @@ import { env } from '#config/env.config.js';
 import { generateOpenApiDocument, saveOpenApiDocument } from '#config/openapi.config.js';
 import { chatRoutes } from '#modules/chat/index.js';
 import { promptRoutes } from '#modules/prompt/index.js';
+import { authRoutes, optionalAuth } from '#modules/auth/index.js';
 import {
   notFoundHandler,
   globalErrorHandler,
@@ -58,8 +59,9 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // API Rotaları (Tenant Doğrulama ve İzolasyon Middleware ile korumalı)
-app.use('/api/chat', tenantMiddleware, chatRoutes);
-app.use('/api/prompts', tenantMiddleware, promptRoutes);
+app.use('/api/auth', tenantMiddleware, authRoutes);
+app.use('/api/chat', tenantMiddleware, optionalAuth, chatRoutes);
+app.use('/api/prompts', tenantMiddleware, optionalAuth, promptRoutes);
 
 // 404 & Global Error Handling
 app.use(notFoundHandler);

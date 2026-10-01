@@ -139,6 +139,72 @@ export class AiProviderRegistry {
   }
 
   /**
+   * Kayıtlı sağlayıcıları tarayarak anlık kullanılabilir model listesini döndürür.
+   * 
+   * @returns {Promise<Array<{ id: string; name: string; provider: string; isLocal: boolean; description?: string; isDefault?: boolean }>>}
+   */
+  public async getAvailableModels(): Promise<
+    Array<{
+      id: string;
+      name: string;
+      provider: string;
+      isLocal: boolean;
+      description?: string;
+      isDefault?: boolean;
+    }>
+  > {
+    const results: Array<{
+      id: string;
+      name: string;
+      provider: string;
+      isLocal: boolean;
+      description?: string;
+      isDefault?: boolean;
+    }> = [];
+
+    for (const [providerId, provider] of this.providers.entries()) {
+      if (typeof (provider as any).listInstalledModels === 'function') {
+        const models = await (provider as any).listInstalledModels();
+        for (const m of models) {
+          const modelId = m.id.includes('/') ? m.id : `${providerId}/${m.id}`;
+          results.push({
+            id: modelId,
+            name: m.name,
+            provider: providerId,
+            isLocal: m.isLocal ?? true,
+            description: m.description,
+            isDefault: this.defaultProviderId === providerId,
+          });
+        }
+      }
+    }
+
+    // Yerel Ollama'da model bulunamazsa veya henüz çekilmemişse katalog modelleri:
+    if (results.length === 0) {
+      results.push(
+        {
+          id: 'ollama/llama3.2:3b',
+          name: 'Llama 3.2 3B',
+          provider: 'ollama',
+          isLocal: true,
+          description: 'Hafif yerel model (Ollama)',
+          isDefault: true,
+        },
+        {
+          id: 'ollama/llama3.3:70b',
+          name: 'Llama 3.3 70B',
+          provider: 'ollama',
+          isLocal: true,
+          description: 'Gelişmiş kurumsal açık kaynak model',
+          isDefault: false,
+        }
+      );
+    }
+
+    return results;
+  }
+
+  /**
    * Model tanımlayıcısını çözümler ve Vercel AI SDK uyumlu `LanguageModelV1` örneğini döner.
    * 
    * [Çözümleme Stratejisi]:

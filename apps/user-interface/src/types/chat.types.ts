@@ -1,0 +1,54 @@
+/**
+ * @file chat.types.ts
+ * @description Sohbet akışı, oturumlar, mesajlar ve LLM modellerine ilişkin tip tanımları.
+ */
+
+export type Role = 'user' | 'assistant' | 'system';
+
+export interface ChatMessage {
+  id: string;
+  role: Role;
+  content: string;
+  createdAt: string;
+  model?: string;
+  metrics?: {
+    latencyMs?: number;
+    tokens?: number;
+    speedTokensPerSec?: number;
+    costEstimate?: string;
+  };
+  citations?: string[]; // Referans verilen Citation ID listesi
+}
+
+export interface ChatSession {
+  _id: string;
+  tenant_id: string;
+  title: string;
+  model: string;
+  prompt_id?: string | null;
+  custom_instructions?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LLMModel {
+  id: string;
+  name: string;
+  provider: 'ollama' | 'openai' | 'anthropic' | 'vllm' | string;
+  isLocal: boolean;
+  contextWindow?: number;
+  description?: string;
+  isDefault?: boolean;
+}
+
+export interface PersonaPrompt {
+  _id: string;
+  tenant_id: string;
+  title: string;
+  slug: string;
+  type: 'system_guardrail' | 'persona' | 'custom';
+  content: string;
+  is_active: boolean;
+  is_default: boolean;
+  priority: number;
+}

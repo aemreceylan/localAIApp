@@ -12,11 +12,20 @@ import {
   chatMessageSchema,
   chatRequestSchema,
   createSessionSchema,
+  modelInfoSchema,
+  modelListResponseSchema,
 } from '#modules/chat/chat.dto.js';
 import {
   createPromptSchema,
   updatePromptSchema,
 } from '#modules/prompt/prompt.dto.js';
+import {
+  setupSuperAdminSchema,
+  loginSchema,
+  setupStatusResponseSchema,
+  authResponseSchema,
+  userResponseSchema,
+} from '#modules/auth/auth.dto.js';
 
 // Zod'u OpenAPI desteğiyle genişlet
 extendZodWithOpenApi(z);
@@ -75,12 +84,25 @@ registry.registerPath({
   },
 });
 
-// 2. Chat DTO'larını Registry'ye Kaydet
+// Güvenlik Şeması: Opaque Bearer Token
+registry.registerComponent('securitySchemes', 'bearerAuth', {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'Opaque Token',
+  description: 'Giriş ve ilk kurulum sonrası dönen nx_live_... biçimindeki Opaque Bearer token',
+});
+
+// 2. Chat, Prompt & Auth DTO'larını Registry'ye Kaydet
 registry.register('ChatMessage', chatMessageSchema);
 registry.register('ChatRequest', chatRequestSchema);
 registry.register('CreateSessionRequest', createSessionSchema);
 registry.register('CreatePromptRequest', createPromptSchema);
 registry.register('UpdatePromptRequest', updatePromptSchema);
+registry.register('SetupSuperAdminRequest', setupSuperAdminSchema);
+registry.register('LoginRequest', loginSchema);
+registry.register('SetupStatusResponse', setupStatusResponseSchema);
+registry.register('UserResponse', userResponseSchema);
+registry.register('AuthResponse', authResponseSchema);
 
 // 3. Chat Streaming Endpoint
 registry.registerPath({
@@ -261,6 +283,27 @@ registry.registerPath({
   },
 });
 
+// 8.1. Aktif LLM Modellerini Listeleme
+registry.register('ModelInfo', modelInfoSchema);
+registry.registerPath({
+  method: 'get',
+  path: '/api/chat/models',
+  tags: ['Sohbet & LLM'],
+  summary: 'Kullanılabilir LLM Modellerini Listele',
+  description: 'Sistemde kayıtlı AI sağlayıcılarından (Ollama, vLLM, OpenAI vb.) anlık olarak kullanılabilir dil modellerini ve varsa varsayılan modeli listeler.',
+  parameters: [tenantHeaderParameter],
+  responses: {
+    200: {
+      description: 'Kullanılabilir model listesi',
+      content: {
+        'application/json': {
+          schema: modelListResponseSchema,
+        },
+      },
+    },
+  },
+});
+
 // 9. Prompt Yönetimi (Dinamik Çok Katmanlı Prompt Stacking)
 registry.registerPath({
   method: 'post',
@@ -408,6 +451,152 @@ registry.registerPath({
     },
     404: {
       description: 'Prompt bulunamadı',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
+  },
+});
+
+// 10. Kimlik Doğrulama & Oturum Yönetimi (Opaque Bearer Token & Bootstrap)
+registry.registerPath({
+  method: 'get',
+  path: '/api/auth/setup-status',
+  tags: ['Kimlik Doğrulama & Oturum (Auth)'],
+  summary: 'İlk Kurulum Durumu Kontrolü (Bootstrap)',
+  description: 'Sistemde henüz bir Super Admin kullanıcısının bulunup bulunmadığını kontrol eder. İlk kurulum gerekiyorsa true döner.',
+  responses: {
+    200: {
+      description: 'Kurulum durumu',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: setupStatusResponseSchema,
+          }),
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/auth/setup',
+  tags: ['Kimlik Doğrulama & Oturum (Auth)'],
+  summary: 'İlk Super Admin Kurulumu (Tek Seferlik)',
+  description: 'Sistem ilk açıldığında doğrudan kayıt olabilecek tek kullanıcı olan Super Admin hesabını oluşturur. Super Admin zaten varsa 403 Forbidden döner.',
+  request: {
+    body: {
+      description: 'Super Admin bilgileri ve opsiyonel organizasyon adı',
+      required: true,
+      content: {
+        'application/json': {
+          schema: setupSuperAdminSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Super Admin oluşturuldu ve oturum açıldı.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: authResponseSchema,
+          }),
+        },
+      },
+    },
+    403: {
+      description: 'Sistem kurulumu zaten tamamlanmış (Doğrudan kayıt kilitli)',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/auth/login',
+  tags: ['Kimlik Doğrulama & Oturum (Auth)'],
+  summary: 'Kullanıcı Girişi (Login)',
+  description: 'E-posta ve parola ile giriş yapar, Opaque Bearer Token (`nx_live_...`) üretir.',
+  request: {
+    body: {
+      description: 'Giriş bilgileri',
+      required: true,
+      content: {
+        'application/json': {
+          schema: loginSchema,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Giriş başarılı, oturum oluşturuldu.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: authResponseSchema,
+          }),
+        },
+      },
+    },
+    401: {
+      description: 'Geçersiz e-posta veya parola',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/auth/logout',
+  tags: ['Kimlik Doğrulama & Oturum (Auth)'],
+  summary: 'Oturumu Kapat (Logout)',
+  description: 'Mevcut Opaque Bearer token oturumunu veritabanından kalıcı olarak siler ve anında geçersiz kılar.',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Oturum başarıyla kapatıldı.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.object({ message: z.string() }),
+          }),
+        },
+      },
+    },
+    401: {
+      description: 'Yetkisiz erişim veya geçersiz token',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/auth/me',
+  tags: ['Kimlik Doğrulama & Oturum (Auth)'],
+  summary: 'Aktif Kullanıcı Bilgisi',
+  description: 'Bearer token üzerinden oturum açmış aktif kullanıcının profil ve rol bilgilerini döndürür.',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Kullanıcı profil bilgisi',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: userResponseSchema,
+          }),
+        },
+      },
+    },
+    401: {
+      description: 'Yetkisiz erişim veya geçersiz token',
       content: { 'application/json': { schema: errorResponseSchema } },
     },
   },

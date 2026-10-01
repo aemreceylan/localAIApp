@@ -28,6 +28,14 @@
         "example": "default-tenant"
       }
     },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Opaque Token",
+        "description": "Giriş ve ilk kurulum sonrası dönen nx_live_... biçimindeki Opaque Bearer token"
+      }
+    },
     "schemas": {
       "ErrorResponse": {
         "type": "object",
@@ -298,6 +306,234 @@
             "example": 10
           }
         }
+      },
+      "SetupSuperAdminRequest": {
+        "type": "object",
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 50,
+            "description": "Sistem Yöneticisi Adı",
+            "example": "Ahmet Emre"
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 50,
+            "description": "Sistem Yöneticisi Soyadı",
+            "example": "Ceylan"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Super Admin E-posta Adresi",
+            "example": "admin@nexusai.local"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100,
+            "description": "Super Admin Giriş Parolası",
+            "example": "SuperGucluSifre2026!"
+          },
+          "organizationName": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100,
+            "description": "İlk kurulumda oluşturulacak varsayılan kurum / şirket adı",
+            "example": "NexusAI Kurumsal Çözümler"
+          }
+        },
+        "required": [
+          "firstName",
+          "lastName",
+          "email",
+          "password"
+        ]
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Kayıtlı kullanıcı e-posta adresi",
+            "example": "admin@nexusai.local"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Kullanıcı giriş parolası",
+            "example": "SuperGucluSifre2026!"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ]
+      },
+      "SetupStatusResponse": {
+        "type": "object",
+        "properties": {
+          "isSetupRequired": {
+            "type": "boolean",
+            "description": "Sistemde henüz bir Super Admin bulunup bulunmadığı (true: ilk kurulum açık, false: kilitli)",
+            "example": false
+          }
+        },
+        "required": [
+          "isSetupRequired"
+        ]
+      },
+      "UserResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Kullanıcı ID (ObjectId)"
+          },
+          "email": {
+            "type": "string",
+            "description": "E-posta"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Ad"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Soyad"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "superadmin",
+              "tenant_admin",
+              "user"
+            ],
+            "description": "Kullanıcı Rolü"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Bağlı olunan kiracı ID"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Hesap aktiflik durumu"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "firstName",
+          "lastName",
+          "role",
+          "tenantId",
+          "isActive"
+        ]
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Opaque Bearer Token (Authorization: Bearer <token>)",
+            "example": "nx_live_7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Kullanıcı ID (ObjectId)"
+              },
+              "email": {
+                "type": "string",
+                "description": "E-posta"
+              },
+              "firstName": {
+                "type": "string",
+                "description": "Ad"
+              },
+              "lastName": {
+                "type": "string",
+                "description": "Soyad"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "superadmin",
+                  "tenant_admin",
+                  "user"
+                ],
+                "description": "Kullanıcı Rolü"
+              },
+              "tenantId": {
+                "type": "string",
+                "description": "Bağlı olunan kiracı ID"
+              },
+              "isActive": {
+                "type": "boolean",
+                "description": "Hesap aktiflik durumu"
+              }
+            },
+            "required": [
+              "id",
+              "email",
+              "firstName",
+              "lastName",
+              "role",
+              "tenantId",
+              "isActive"
+            ]
+          }
+        },
+        "required": [
+          "token",
+          "user"
+        ]
+      },
+      "ModelInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Model kimliği",
+            "example": "llama3.2:3b"
+          },
+          "name": {
+            "type": "string",
+            "description": "Görünen model adı",
+            "example": "Llama 3.2 3B"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Sağlayıcı motoru",
+            "example": "ollama"
+          },
+          "isLocal": {
+            "type": "boolean",
+            "description": "Yerel sunucuda mı çalışıyor?",
+            "example": true
+          },
+          "description": {
+            "type": "string",
+            "description": "Model açıklaması",
+            "example": "Hafif yerel model"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Varsayılan model mi?",
+            "example": false
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "isLocal"
+        ]
       }
     }
   },
@@ -711,6 +947,101 @@
         }
       }
     },
+    "/api/chat/models": {
+      "get": {
+        "tags": [
+          "Sohbet & LLM"
+        ],
+        "summary": "Kullanılabilir LLM Modellerini Listele",
+        "description": "Sistemde kayıtlı AI sağlayıcılarından (Ollama, vLLM, OpenAI vb.) anlık olarak kullanılabilir dil modellerini ve varsa varsayılan modeli listeler.",
+        "parameters": [
+          {
+            "name": "x-tenant-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "default-tenant"
+            },
+            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
+            "example": "default-tenant"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kullanılabilir model listesi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Model kimliği",
+                            "example": "llama3.2:3b"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Görünen model adı",
+                            "example": "Llama 3.2 3B"
+                          },
+                          "provider": {
+                            "type": "string",
+                            "description": "Sağlayıcı motoru",
+                            "example": "ollama"
+                          },
+                          "isLocal": {
+                            "type": "boolean",
+                            "description": "Yerel sunucuda mı çalışıyor?",
+                            "example": true
+                          },
+                          "description": {
+                            "type": "string",
+                            "description": "Model açıklaması",
+                            "example": "Hafif yerel model"
+                          },
+                          "isDefault": {
+                            "type": "boolean",
+                            "description": "Varsayılan model mi?",
+                            "example": false
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "provider",
+                          "isLocal"
+                        ]
+                      }
+                    },
+                    "defaultModel": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Varsayılan model ID",
+                      "example": "llama3.2:3b"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data",
+                    "defaultModel"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prompts": {
       "post": {
         "tags": [
@@ -1047,6 +1378,496 @@
           },
           "404": {
             "description": "Prompt bulunamadı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/setup-status": {
+      "get": {
+        "tags": [
+          "Kimlik Doğrulama & Oturum (Auth)"
+        ],
+        "summary": "İlk Kurulum Durumu Kontrolü (Bootstrap)",
+        "description": "Sistemde henüz bir Super Admin kullanıcısının bulunup bulunmadığını kontrol eder. İlk kurulum gerekiyorsa true döner.",
+        "responses": {
+          "200": {
+            "description": "Kurulum durumu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "isSetupRequired": {
+                          "type": "boolean",
+                          "description": "Sistemde henüz bir Super Admin bulunup bulunmadığı (true: ilk kurulum açık, false: kilitli)",
+                          "example": false
+                        }
+                      },
+                      "required": [
+                        "isSetupRequired"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/setup": {
+      "post": {
+        "tags": [
+          "Kimlik Doğrulama & Oturum (Auth)"
+        ],
+        "summary": "İlk Super Admin Kurulumu (Tek Seferlik)",
+        "description": "Sistem ilk açıldığında doğrudan kayıt olabilecek tek kullanıcı olan Super Admin hesabını oluşturur. Super Admin zaten varsa 403 Forbidden döner.",
+        "requestBody": {
+          "description": "Super Admin bilgileri ve opsiyonel organizasyon adı",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 50,
+                    "description": "Sistem Yöneticisi Adı",
+                    "example": "Ahmet Emre"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 50,
+                    "description": "Sistem Yöneticisi Soyadı",
+                    "example": "Ceylan"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Super Admin E-posta Adresi",
+                    "example": "admin@nexusai.local"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 100,
+                    "description": "Super Admin Giriş Parolası",
+                    "example": "SuperGucluSifre2026!"
+                  },
+                  "organizationName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 100,
+                    "description": "İlk kurulumda oluşturulacak varsayılan kurum / şirket adı",
+                    "example": "NexusAI Kurumsal Çözümler"
+                  }
+                },
+                "required": [
+                  "firstName",
+                  "lastName",
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Super Admin oluşturuldu ve oturum açıldı.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string",
+                          "description": "Opaque Bearer Token (Authorization: Bearer <token>)",
+                          "example": "nx_live_7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f"
+                        },
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "Kullanıcı ID (ObjectId)"
+                            },
+                            "email": {
+                              "type": "string",
+                              "description": "E-posta"
+                            },
+                            "firstName": {
+                              "type": "string",
+                              "description": "Ad"
+                            },
+                            "lastName": {
+                              "type": "string",
+                              "description": "Soyad"
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": [
+                                "superadmin",
+                                "tenant_admin",
+                                "user"
+                              ],
+                              "description": "Kullanıcı Rolü"
+                            },
+                            "tenantId": {
+                              "type": "string",
+                              "description": "Bağlı olunan kiracı ID"
+                            },
+                            "isActive": {
+                              "type": "boolean",
+                              "description": "Hesap aktiflik durumu"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "email",
+                            "firstName",
+                            "lastName",
+                            "role",
+                            "tenantId",
+                            "isActive"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "token",
+                        "user"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Sistem kurulumu zaten tamamlanmış (Doğrudan kayıt kilitli)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Kimlik Doğrulama & Oturum (Auth)"
+        ],
+        "summary": "Kullanıcı Girişi (Login)",
+        "description": "E-posta ve parola ile giriş yapar, Opaque Bearer Token (`nx_live_...`) üretir.",
+        "requestBody": {
+          "description": "Giriş bilgileri",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Kayıtlı kullanıcı e-posta adresi",
+                    "example": "admin@nexusai.local"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Kullanıcı giriş parolası",
+                    "example": "SuperGucluSifre2026!"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Giriş başarılı, oturum oluşturuldu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {
+                          "type": "string",
+                          "description": "Opaque Bearer Token (Authorization: Bearer <token>)",
+                          "example": "nx_live_7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f"
+                        },
+                        "user": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "Kullanıcı ID (ObjectId)"
+                            },
+                            "email": {
+                              "type": "string",
+                              "description": "E-posta"
+                            },
+                            "firstName": {
+                              "type": "string",
+                              "description": "Ad"
+                            },
+                            "lastName": {
+                              "type": "string",
+                              "description": "Soyad"
+                            },
+                            "role": {
+                              "type": "string",
+                              "enum": [
+                                "superadmin",
+                                "tenant_admin",
+                                "user"
+                              ],
+                              "description": "Kullanıcı Rolü"
+                            },
+                            "tenantId": {
+                              "type": "string",
+                              "description": "Bağlı olunan kiracı ID"
+                            },
+                            "isActive": {
+                              "type": "boolean",
+                              "description": "Hesap aktiflik durumu"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "email",
+                            "firstName",
+                            "lastName",
+                            "role",
+                            "tenantId",
+                            "isActive"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "token",
+                        "user"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Geçersiz e-posta veya parola",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": [
+          "Kimlik Doğrulama & Oturum (Auth)"
+        ],
+        "summary": "Oturumu Kapat (Logout)",
+        "description": "Mevcut Opaque Bearer token oturumunu veritabanından kalıcı olarak siler ve anında geçersiz kılar.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Oturum başarıyla kapatıldı.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yetkisiz erişim veya geçersiz token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": [
+          "Kimlik Doğrulama & Oturum (Auth)"
+        ],
+        "summary": "Aktif Kullanıcı Bilgisi",
+        "description": "Bearer token üzerinden oturum açmış aktif kullanıcının profil ve rol bilgilerini döndürür.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kullanıcı profil bilgisi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Kullanıcı ID (ObjectId)"
+                        },
+                        "email": {
+                          "type": "string",
+                          "description": "E-posta"
+                        },
+                        "firstName": {
+                          "type": "string",
+                          "description": "Ad"
+                        },
+                        "lastName": {
+                          "type": "string",
+                          "description": "Soyad"
+                        },
+                        "role": {
+                          "type": "string",
+                          "enum": [
+                            "superadmin",
+                            "tenant_admin",
+                            "user"
+                          ],
+                          "description": "Kullanıcı Rolü"
+                        },
+                        "tenantId": {
+                          "type": "string",
+                          "description": "Bağlı olunan kiracı ID"
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                          "description": "Hesap aktiflik durumu"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "firstName",
+                        "lastName",
+                        "role",
+                        "tenantId",
+                        "isActive"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Yetkisiz erişim veya geçersiz token",
             "content": {
               "application/json": {
                 "schema": {

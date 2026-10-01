@@ -1,5 +1,5 @@
 import { streamText } from 'ai';
-import { getModel } from '#modules/ai/index.js';
+import { getModel, aiProviderRegistry } from '#modules/ai/index.js';
 import { LLMProviderError, NotFoundError, ValidationError } from '#shared/errors/index.js';
 import { chatRepository } from '#modules/chat/chat.repository.js';
 import { promptService } from '#modules/prompt/index.js';
@@ -16,9 +16,10 @@ export class ChatService {
    * Yeni bir sohbet oturumu oluşturur. Model seçimi zorunludur.
    * Kural 6: Oturumda statik prompt tutulmaz; persona referansı ve özel talimat saklanır.
    */
-  async createSession(tenant_id: string, dto: CreateSessionDto) {
+  async createSession(tenant_id: string, dto: CreateSessionDto, user_id?: string) {
     return await chatRepository.createConversation({
       tenant_id,
+      ...(user_id ? { user_id } : {}),
       title: dto.title || 'Yeni Sohbet',
       model: dto.model,
       ...(dto.promptId ? { prompt_id: dto.promptId } : {}),
@@ -27,17 +28,17 @@ export class ChatService {
   }
 
   /**
-   * Tenant'a ait oturumları listeler.
+   * Tenant'a (ve opsiyonel kullanıcıya) ait oturumları listeler.
    */
-  async getSessions(tenant_id: string) {
-    return await chatRepository.getConversations(tenant_id);
+  async getSessions(tenant_id: string, user_id?: string) {
+    return await chatRepository.getConversations(tenant_id, user_id);
   }
 
   /**
    * Tekil oturum detayını getirir.
    */
-  async getSessionById(id: string, tenant_id: string) {
-    const session = await chatRepository.getConversationById(id, tenant_id);
+  async getSessionById(id: string, tenant_id: string, user_id?: string) {
+    const session = await chatRepository.getConversationById(id, tenant_id, user_id);
     if (!session) {
       throw new NotFoundError(`Sohbet oturumu bulunamadı: ${id}`);
     }
@@ -61,6 +62,22 @@ export class ChatService {
   async getSessionMessages(conversationId: string, tenant_id: string) {
     await this.getSessionById(conversationId, tenant_id);
     return await chatRepository.getMessagesByConversationId(conversationId, tenant_id);
+  }
+
+  /**
+   * Sistemde ve sağlayıcılarda anlık kullanılabilir olan modelleri listeler.
+   */
+  async getAvailableModels(_tenant_id: string) {
+    const models = await aiProviderRegistry.getAvailableModels();
+    const defaultProviderId = aiProviderRegistry.getDefaultProviderId();
+    const defaultModel = defaultProviderId
+      ? models.find((m) => m.provider === defaultProviderId)?.id || models[0]?.id || null
+      : models[0]?.id || null;
+
+    return {
+      models,
+      defaultModel,
+    };
   }
 
   /**
@@ -159,9 +176,24 @@ export class ChatService {
       sessionContext = await this.processSessionContext(dto.conversationId, tenant_id, lastUserMessage);
     }
 
-    const selectedModel = dto.model || sessionContext?.model;
+    let selectedModel = dto.model || sessionContext?.model;
     if (!selectedModel) {
       throw new ValidationError('Sohbet için bir model belirtilmelidir.');
+    }
+
+    // Model tanımlayıcısı sağlayıcı ön eki ('provider/model') içermiyorsa, mevcut sağlayıcı modelleriyle dinamik eşleştir
+    const rawModelName = selectedModel;
+    if (!rawModelName.includes('/') && !aiProviderRegistry.getDefaultProviderId()) {
+      const available = await aiProviderRegistry.getAvailableModels();
+      const match = available.find(
+        (m) =>
+          m.name.toLowerCase() === rawModelName.toLowerCase() ||
+          m.id.toLowerCase() === rawModelName.toLowerCase() ||
+          m.id.toLowerCase().endsWith(`/${rawModelName.toLowerCase()}`)
+      );
+      if (match) {
+        selectedModel = match.id.includes('/') ? match.id : `${match.provider}/${match.id}`;
+      }
     }
 
     try {

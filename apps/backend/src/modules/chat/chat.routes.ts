@@ -56,4 +56,9 @@ router.delete(
   }
 );
 
+// 7. Aktif LLM Modellerini Listele
+router.get('/models', (req, res, next) => {
+  chatController.getAvailableModels(req, res, next);
+});
+
 export const chatRoutes = router;

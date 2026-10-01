@@ -11,10 +11,11 @@ import { ValidationError } from '#shared/errors/index.js';
 export class OllamaModelProvider implements IAiModelProvider {
   public readonly providerId = 'ollama';
   private readonly providerInstance: ReturnType<typeof createOllama>;
+  private readonly baseURL: string;
 
   constructor(config?: OllamaProviderConfig) {
-    const baseURL = config?.baseURL || env.OLLAMA_BASE_URL;
-    this.providerInstance = createOllama({ baseURL });
+    this.baseURL = config?.baseURL || env.OLLAMA_BASE_URL;
+    this.providerInstance = createOllama({ baseURL: this.baseURL });
   }
 
   /**
@@ -22,6 +23,53 @@ export class OllamaModelProvider implements IAiModelProvider {
    */
   public get rawInstance(): ReturnType<typeof createOllama> {
     return this.providerInstance;
+  }
+
+  /**
+   * Ollama yerel sunucusundaki indirilmiş / kullanılabilir modelleri sorgular.
+   * Sunucu kapalı veya erişilemez olduğunda sistemin çökmemesi için sessizce boş dizi döner.
+   */
+  public async listInstalledModels(): Promise<
+    Array<{ id: string; name: string; isLocal: boolean; description?: string }>
+  > {
+    try {
+      const url = this.baseURL.replace(/\/api\/?$/, '') + '/api/tags';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return [];
+      }
+
+      const data = (await response.json()) as {
+        models?: Array<{
+          name: string;
+          size?: number;
+          details?: { parameter_size?: string; family?: string };
+        }>;
+      };
+
+      if (!Array.isArray(data?.models)) {
+        return [];
+      }
+
+      return data.models.map((m) => {
+        const sizeGb = m.size ? `${(m.size / (1024 * 1024 * 1024)).toFixed(1)} GB` : '';
+        const paramSize = m.details?.parameter_size ? ` (${m.details.parameter_size})` : '';
+        return {
+          id: m.name,
+          name: m.name,
+          isLocal: true,
+          description: `Yerel Ollama Modeli${paramSize} ${sizeGb}`.trim(),
+        };
+      });
+    } catch {
+      // Ollama servisi çalışmıyorsa hata fırlatılmaz, boş döner
+      return [];
+    }
   }
 
   /**

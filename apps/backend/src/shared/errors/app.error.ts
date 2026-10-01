@@ -91,3 +91,29 @@ export class LLMProviderError extends AppError {
     super(message, details, isOperational);
   }
 }
+
+export class UnauthorizedError extends AppError {
+  readonly statusCode = 401;
+  readonly code = 'UNAUTHORIZED';
+
+  constructor(
+    message = 'Bu işlem için kimlik doğrulaması gereklidir.',
+    details?: unknown,
+    isOperational = true
+  ) {
+    super(message, details, isOperational);
+  }
+}
+
+export class ForbiddenError extends AppError {
+  readonly statusCode = 403;
+  readonly code = 'FORBIDDEN';
+
+  constructor(
+    message = 'Bu işlem için yetkiniz bulunmamaktadır.',
+    details?: unknown,
+    isOperational = true
+  ) {
+    super(message, details, isOperational);
+  }
+}

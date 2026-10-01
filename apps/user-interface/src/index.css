@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================================================= */
+/* "Nexus Precision" CSS Değişkenleri (Custom Properties)                    */
+/* 4 Kurumsal Renk Paleti - documents/common/design_system_and_tokens.md     */
+/* ========================================================================= */
+
+/* 1. Varsayılan: Nexus Indigo (Modern AI & Yüksek Teknoloji) */
+:root, [data-palette="indigo"] {
+  --brand-50: #eef2ff;
+  --brand-100: #e0e7ff;
+  --brand-200: #c7d2fe;
+  --brand-500: #6366f1;
+  --brand-600: #4f46e5;
+  --brand-700: #4338ca;
+  --brand-900: #312e81;
+}
+
+/* 2. Emerald Sentinel (Güvenlik, Finans & Mevzuat) */
+[data-palette="emerald"] {
+  --brand-50: #ecfdf5;
+  --brand-100: #d1fae5;
+  --brand-200: #a7f3d0;
+  --brand-500: #10b981;
+  --brand-600: #059669;
+  --brand-700: #047857;
+  --brand-900: #064e3b;
+}
+
+/* 3. Obsidian Minimal (Linear / Vercel Monokrom Minimalizm) */
+[data-palette="obsidian"] {
+  --brand-50: #f4f4f5;
+  --brand-100: #e4e4e7;
+  --brand-200: #d4d4d8;
+  --brand-500: #3f3f46;
+  --brand-600: #27272a;
+  --brand-700: #18181b;
+  --brand-900: #09090b;
+}
+
+/* 4. Cyber Ocean (Derin Mavi & Bulut Altyapısı) */
+[data-palette="ocean"] {
+  --brand-50: #f0f9ff;
+  --brand-100: #e0f2fe;
+  --brand-200: #bae6fd;
+  --brand-500: #0ea5e9;
+  --brand-600: #0284c7;
+  --brand-700: #0369a1;
+  --brand-900: #0c4a6e;
+}
+
+/* ========================================================================= */
+/* Özel Kaydırma Çubuğu (Scrollbar)                                          */
+/* ========================================================================= */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}

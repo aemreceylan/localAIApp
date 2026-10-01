@@ -23,6 +23,7 @@ export class ChatRepository {
    */
   async createConversation(data: {
     tenant_id: string;
+    user_id?: string;
     model: string;
     title?: string;
     prompt_id?: string;
@@ -32,18 +33,30 @@ export class ChatRepository {
   }
 
   /**
-   * Bir tenant'a ait tüm sohbet oturumlarını en yeniden eskiye listeler.
+   * Bir tenant'a (ve opsiyonel olarak kullanıcıya) ait tüm sohbet oturumlarını en yeniden eskiye listeler.
    */
-  async getConversations(tenant_id: string): Promise<IConversation[]> {
-    return await ConversationModel.find({ tenant_id }).sort({ updated_at: -1 }).exec();
+  async getConversations(tenant_id: string, user_id?: string): Promise<IConversation[]> {
+    const filter: Record<string, unknown> = { tenant_id };
+    if (user_id) {
+      filter.user_id = user_id;
+    }
+    return await ConversationModel.find(filter).sort({ updated_at: -1 }).exec();
   }
 
   /**
-   * Belirtilen ID ve tenant'a ait tekil oturumu getirir.
+   * Belirtilen ID, tenant ve opsiyonel kullanıcıya ait tekil oturumu getirir.
    */
-  async getConversationById(id: string, tenant_id: string): Promise<IConversation | null> {
+  async getConversationById(
+    id: string,
+    tenant_id: string,
+    user_id?: string
+  ): Promise<IConversation | null> {
     if (!Types.ObjectId.isValid(id)) return null;
-    return await ConversationModel.findOne({ _id: id, tenant_id }).exec();
+    const filter: Record<string, unknown> = { _id: id, tenant_id };
+    if (user_id) {
+      filter.user_id = user_id;
+    }
+    return await ConversationModel.findOne(filter).exec();
   }
 
   /**

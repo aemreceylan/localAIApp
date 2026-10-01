@@ -6,6 +6,10 @@ export class ChatController {
     return (req.headers['x-tenant-id'] as string) || 'default-tenant';
   }
 
+  private getUserId(req: Request): string | undefined {
+    return (req.user as any)?._id?.toString() || (req.headers['x-user-id'] as string) || undefined;
+  }
+
   /**
    * Canlı LLM sohbet akışını yönetir (opsiyonel oturum kaydı ile).
    */
@@ -27,7 +31,8 @@ export class ChatController {
   async createSession(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const tenantId = this.getTenantId(req);
-      const session = await chatService.createSession(tenantId, req.body);
+      const userId = this.getUserId(req);
+      const session = await chatService.createSession(tenantId, req.body, userId);
 
       res.status(201).json({
         success: true,
@@ -44,7 +49,8 @@ export class ChatController {
   async getSessions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const tenantId = this.getTenantId(req);
-      const sessions = await chatService.getSessions(tenantId);
+      const userId = this.getUserId(req);
+      const sessions = await chatService.getSessions(tenantId, userId);
 
       res.status(200).json({
         success: true,
@@ -61,7 +67,8 @@ export class ChatController {
   async getSessionById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const tenantId = this.getTenantId(req);
-      const session = await chatService.getSessionById(req.params.id as string, tenantId);
+      const userId = this.getUserId(req);
+      const session = await chatService.getSessionById(req.params.id as string, tenantId, userId);
 
       res.status(200).json({
         success: true,
@@ -98,6 +105,24 @@ export class ChatController {
       const result = await chatService.deleteSession(req.params.id as string, tenantId);
 
       res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Sistemde ve sağlayıcılarda anlık kullanılabilir olan modelleri listeler.
+   */
+  async getAvailableModels(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const tenantId = this.getTenantId(req);
+      const result = await chatService.getAvailableModels(tenantId);
+
+      res.status(200).json({
+        success: true,
+        data: result.models,
+        defaultModel: result.defaultModel,
+      });
     } catch (error) {
       next(error);
     }

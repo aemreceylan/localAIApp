@@ -34,6 +34,7 @@ erDiagram
     TENANT ||--o{ DOCUMENT : stores
     TENANT ||--o{ TENANT_MODEL_CONFIG : configures
     USER ||--o{ CONVERSATION : creates
+    USER ||--o{ SESSION : has
     CONVERSATION ||--o{ MESSAGE : contains
     PROMPT ||--o{ CONVERSATION : applies_to
     DOCUMENT ||--o{ QDRANT_VECTOR_CHUNK : chunked_into
@@ -59,6 +60,18 @@ erDiagram
         boolean is_active "Hesap aktiflik durumu"
         date created_at "Olusturulma tarihi"
         date updated_at "Guncellenme tarihi"
+    }
+
+    SESSION {
+        string id PK
+        string token_hash UK "SHA256 Opaque Token Hash"
+        string user_id FK "Kullanici ID"
+        string tenant_id FK "Kiraci ID"
+        string ip_address "Istemci IP Adresi"
+        string user_agent "Tarayici ve Istemci Bilgisi"
+        date expires_at "TTL Otomatik Silinme Tarihi"
+        date last_active_at "Son Aktivite Tarihi"
+        date created_at "Giris Tarihi"
     }
 
     TENANT_MODEL_CONFIG {
@@ -169,6 +182,24 @@ Sistemde oturum açan personeller.
 | `last_name`     | String            |   Evet   |     -      |               -                | Soyadı                                     |
 | `role`          | String            |   Evet   |  `'user'`  |             Index              | `'superadmin'`, `'tenant_admin'`, `'user'` |
 | `is_active`     | Boolean           |   Evet   |   `true`   |             Index              | Hesap aktiflik durumu                      |
+
+---
+
+### 3.2.1. `sessions` (Kullanıcı Oturumları & Opaque Bearer Tokens)
+
+Kullanıcıların aktif oturumlarını ve anlık ban/yetki iptalini yöneten veritabanı oturum koleksiyonu.
+
+| Alan Adı         | Tip               | Zorunlu? | Varsayılan | İndeks                     | Açıklama                                                       |
+| :--------------- | :---------------- | :------: | :--------: | :------------------------- | :------------------------------------------------------------- |
+| `_id`            | ObjectId          |   Evet   |    auto    | PK                         | Oturum benzersiz kimliği                                       |
+| `token_hash`     | String (64 hex)   |   Evet   |     -      | UNIQUE                     | Opaque Bearer Token'ın SHA-256 kriptografik özeti              |
+| `user_id`        | ObjectId          |   Evet   |     -      | Compound (`user_id`, `tenant_id`) | Oturumu açan kullanıcı kimliği                                |
+| `tenant_id`      | String            |   Evet   |     -      | Index                      | Kiracı kimliği                                                 |
+| `ip_address`     | String            |  Hayır   |     -      | -                          | Oturum açılan istemci IP adresi                                |
+| `user_agent`     | String            |  Hayır   |     -      | -                          | İstemci tarayıcı ve platform başlığı                           |
+| `expires_at`     | Date              |   Evet   |   +7 gün   | TTL Index (`expireAfterSeconds: 0`) | Süresi dolan oturumları MongoDB otomatik siler                 |
+| `last_active_at` | Date              |   Evet   |    auto    | -                          | Son HTTP isteği zaman damgası (Anlık aktivite takibi)          |
+| `created_at`     | Date              |   Evet   |    auto    | -                          | Oturum başlangıç zamanı                                        |
 
 ---
 

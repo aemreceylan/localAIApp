@@ -19,6 +19,7 @@ import mongoose, { Schema, type Model } from 'mongoose';
  */
 export interface IConversation {
   tenant_id: string;
+  user_id?: mongoose.Types.ObjectId | string;
   title: string;
   model: string;
   prompt_id?: mongoose.Types.ObjectId | string;
@@ -32,6 +33,12 @@ const conversationSchema = new Schema<IConversation>(
     tenant_id: {
       type: String,
       required: [true, 'tenant_id zorunludur.'],
+      index: true,
+    },
+    user_id: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: false,
       index: true,
     },
     title: {
@@ -61,8 +68,8 @@ const conversationSchema = new Schema<IConversation>(
   }
 );
 
-// Çoklu kiracı (Tenant) bazlı kronolojik indeksleme (RLS izolasyonu)
-conversationSchema.index({ tenant_id: 1, updated_at: -1 });
+// Çoklu kiracı (Tenant) ve kullanıcı bazlı kronolojik indeksleme
+conversationSchema.index({ tenant_id: 1, user_id: 1, updated_at: -1 });
 
 export const ConversationModel: Model<IConversation> =
   mongoose.models.Conversation || mongoose.model<IConversation>('Conversation', conversationSchema);
