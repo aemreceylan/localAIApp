@@ -85,3 +85,6 @@
 7. **Adım Adım, Parça Parça ve İstişareli Geliştirme (Iterative Collaborative Engineering):**  
    Büyük kod blokları veya çoklu katmanlar asla tek seferde ve tek taraflı varsayımlarla yazılamaz. Her geliştirme adımı öncesinde kullanıcı ile mimari yöntem, kapsam ve uygulanacak parçalar istişare edilir; kullanıcının teyidi ve onayı alındıktan sonra adım adım, parça parça kodlanır ve doğrulanır.  
    _(Ayrıntılı yönergeler için: [COMMON_GUIDELINES.md](documents/ai_context/COMMON_GUIDELINES.md))_
+8. **Zengin Kod İçi Yorum ve Tasarım Deseni Dokümantasyonu (Rich In-Code Comments & Design Patterns):**  
+   Kod yazarken açıklayıcı ve öğretici yorum eklemeye azami özen gösterilir. Özellikle Factory, Registry, Adapter, Strategy, Pipeline gibi tasarım desenleri (design patterns) barındıran veya doğası gereği karmaşık/genişletilebilir olan mimari bileşenlerde; sınıfın ve metodların amacı, tasarım deseni rolü, `@param`, `@returns`, `@throws` etiketleri ve pratik kullanım örnekleri (`@example`) içeren kapsamlı JSDoc blokları zorunludur. Kod yalnızca çalışan bir mantık değil, onu okuyan ve genişleten geliştiriciler için yaşayan bir teknik rehber olmalıdır.
+

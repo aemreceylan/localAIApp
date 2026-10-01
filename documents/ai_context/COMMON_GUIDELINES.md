@@ -108,7 +108,24 @@ Dökümantasyon statik bir arşiv değil, projenin anlık gerçeğini yansıtan 
 
 ---
 
-## 8. Dökümantasyon Yaşam Döngüsü ve Güncelleme Tetikleyicileri
+## 8. Zengin Kod İçi Yorum ve Tasarım Deseni Dokümantasyon Standardı (Rich In-Code Documentation & JSDoc Standards)
+
+Kod tabanının sürdürülebilirliği ve devredilebilirliği açısından kod içi yorumlama en yüksek öneme sahiptir:
+
+1. **Öğretici ve Gerekçeli Yorumlama Kültürü:**
+   - Kod yorumları yalnızca "fonksiyon şunu döndürür" gibi bariz şeyleri tekrarlamamalı; **neden bu şekilde tasarlandığını, hangi mimari karara hizmet ettiğini ve gelecekte nasıl genişletilebileceğini** aktarmalıdır.
+2. **Tasarım Deseni (Design Pattern) Dokümantasyonu Zorunluluğu:**
+   - Doğası gereği karmaşık ve genişletilebilir olan yapılar (Factory Method, Abstract Factory, Registry, Adapter, Strategy, Pipeline, Observer/Event vb.) üzerinde çalışılırken kapsamlı JSDoc blokları zorunludur:
+     - **Tasarım Deseni Rolü:** Desenin adı ve ilgili SOLID prensibi (Örn: `SOLID - Factory Method & Open/Closed Principle`).
+     - **Genişletme Rehberi:** Yeni bir sağlayıcı, strateji veya adaptör eklemek isteyen bir geliştiricinin izlemesi gereken adımlar.
+     - **Tip ve Hata Sözleşmesi:** `@param`, `@returns`, `@throws` etiketleri ile beklenen girdi/çıktı ve fırlatılabilecek `AppError` türevleri.
+     - **Çalışan Somut Örnek (`@example`):** Metodun veya sınıfın tipik kullanımını gösteren eksiksiz bir kod örneği.
+3. **Karmaşık İş Mantıkları ve Edge-Case'ler:**
+   - Multi-tenancy filtreleri, prompt birleştirme hiyerarşisi, SSE akış yönetimi veya kuyruk işleme gibi karmaşık iş akışlarında kritik karar noktaları satır içi (inline) yorumlarla detaylandırılmalıdır.
+
+---
+
+## 9. Dökümantasyon Yaşam Döngüsü ve Güncelleme Tetikleyicileri
 
 Her geliştirme sürecinde aşağıdaki kurallar işletilmelidir:
 1. **Mimari / Model Değişikliği:** Yeni bir modül, veritabanı şeması veya servis eklendiğinde/değiştirildiğinde `documents/ai_context/BACKEND_RULES.md`, `documents/common/data_and_business_workflows.md` (Mermaid ERD ve iş akış şemaları) ve `documents/backend/architecture.md` güncellenmelidir.
@@ -117,3 +134,4 @@ Her geliştirme sürecinde aşağıdaki kurallar işletilmelidir:
 4. **Proaktif ve Kendiliğinden Güncelleme İlkesi (Autonomous Living Documentation):**
    - AI ajanı, kodda veya mimaride yapılan değişikliklerin dokümantasyon yansımasını **kullanıcının hatırlatmasına gerek kalmadan kendiliğinden akıl etmeli ve proaktif olarak güncellemelidir.**
    - Bir model, veri şeması veya iş kuralı değiştiğinde ilgili tüm insan ve AI odaklı dökümanlar aynı adımda güncellenmeden o geliştirme tamamlanmış sayılmaz.
+

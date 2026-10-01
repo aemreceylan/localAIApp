@@ -1,6 +1,6 @@
 import { createOllama } from 'ollama-ai-provider';
 import type { LanguageModelV1 } from 'ai';
-import type { IAiModelProvider, ModelResolutionOptions } from '#modules/ai/ai.types.js';
+import type { IAiModelProvider, ModelResolutionOptions, OllamaProviderConfig } from '#modules/ai/ai.types.js';
 import { env } from '#config/env.config.js';
 import { ValidationError } from '#shared/errors/index.js';
 
@@ -12,7 +12,8 @@ export class OllamaModelProvider implements IAiModelProvider {
   public readonly providerId = 'ollama';
   private readonly providerInstance: ReturnType<typeof createOllama>;
 
-  constructor(baseURL: string = env.OLLAMA_BASE_URL) {
+  constructor(config?: OllamaProviderConfig) {
+    const baseURL = config?.baseURL || env.OLLAMA_BASE_URL;
     this.providerInstance = createOllama({ baseURL });
   }
 
@@ -25,14 +26,14 @@ export class OllamaModelProvider implements IAiModelProvider {
 
   /**
    * Model adının Ollama tarafından desteklenip desteklenmediğini kontrol eder.
-   * "ollama/llama3.2", "ollama:llama3.2" veya sağlayıcı ön eki bulunmayan modelleri kabul eder.
+   * "ollama/llama3.2" veya "ollama:llama3.2" gibi açık ollama etiketli modelleri kabul eder.
    */
   public supports(modelIdentifier: string): boolean {
     if (!modelIdentifier) {
       return false;
     }
     const lower = modelIdentifier.toLowerCase().trim();
-    return lower.startsWith('ollama/') || lower.startsWith('ollama:') || !lower.includes('/');
+    return lower.startsWith('ollama/') || lower.startsWith('ollama:');
   }
 
   /**

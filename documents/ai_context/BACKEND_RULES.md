@@ -221,8 +221,21 @@ AppError (Soyut Ana Hata - statusCode, code, isOperational, details)
 
 ---
 
-## 11. AI Model Sağlayıcı Mimarisi & SOLID Registry (`src/modules/ai/`)
+## 11. AI Model Sağlayıcı Mimarisi, Factory Deseni & Dinamik Registry (`src/modules/ai/`)
 
-1. **`IAiModelProvider` Standart Arayüzü:** `supports(modelId)` ve `getModel(modelName, options)`.
-2. **Merkezi Sicil (`AiProviderRegistry`):** Açık/Kapalı (OCP) prensibiyle yeni sağlayıcılar eklenir.
-3. **Model Çözümleme (`resolveModel`):** Açık sağlayıcı belirteci (`provider/model`), dinamik eşleşme veya fallback. Bilinmeyen sağlayıcıda `422 ValidationError`.
+1. **`IAiModelProvider` Standart Arayüzü:** Tüm model motorlarının uygulaması gereken ortak arayüz: `supports(modelId)` ve `getModel(modelName, options)`.
+2. **Genişletilebilir Fabrika Deseni (`AiProviderFactory`):**
+   - Yeni model sağlayıcıları (`ollama`, `openai`, `anthropic`, `vllm` vb.) `aiProviderFactory.createProvider(type, config)` ile üretilir.
+   - OCP gereği yeni bir motor tipi sisteme eklenirken mevcut sınıfları değiştirmeden `registerCreator(type, creatorFn)` ile genişletilebilir.
+3. **Merkezi Sicil (`AiProviderRegistry`):**
+   - Açık/Kapalı (OCP) prensibiyle sağlayıcıları kaydeder.
+   - **Hardcoded Default Yasağı:** Kodda hiçbir sağlayıcı veya model sabit `default` olarak işaretlenemez.
+   - **Admin Dinamik Varsayılanı:** Yalnızca Admin veya tenant yapılandırması tarafından `setDefaultProvider(providerId)` çağrısı ile çalışma zamanında varsayılan atanabilir.
+4. **Model Çözümleme (`resolveModel`):**
+   - Öncelik 1: Açık sağlayıcı belirteci (`provider/model` veya `{ provider, model }`).
+   - Öncelik 2: Modeli doğrudan desteklediğini beyan eden sağlayıcı (`supports`).
+   - Öncelik 3: Admin tarafından tanımlanmış aktif varsayılan sağlayıcı (`defaultProviderId`).
+   - Çözümlenemeyen veya tanımlı olmayan modellerde `422 ValidationError`.
+5. **Zengin Kod İçi Yorum Standardı:**
+   - Factory, Registry ve Adapter gibi soyutlama ve tasarım deseni içeren tüm modül dosyalarında; deseni açıklayan, somut `@example` kod blokları, `@param`, `@returns` ve `@throws` etiketleri içeren detaylı JSDoc zorunludur.
+

@@ -41,3 +41,61 @@ export interface IAiModelProvider {
    */
   getModel(modelName: string, options?: ModelResolutionOptions): LanguageModelV1;
 }
+
+/**
+ * Desteklenen temel AI sağlayıcı türleri
+ */
+export type SupportedAiProviderType =
+  | 'ollama'
+  | 'openai'
+  | 'anthropic'
+  | 'vllm'
+  | (string & {});
+
+/**
+ * Ollama sağlayıcı yapılandırması
+ */
+export interface OllamaProviderConfig {
+  baseURL?: string;
+}
+
+/**
+ * OpenAI sağlayıcı yapılandırması
+ */
+export interface OpenAiProviderConfig {
+  apiKey: string;
+  baseURL?: string;
+  organization?: string;
+}
+
+/**
+ * Anthropic sağlayıcı yapılandırması
+ */
+export interface AnthropicProviderConfig {
+  apiKey: string;
+  baseURL?: string;
+}
+
+/**
+ * vLLM sağlayıcı yapılandırması (OpenAI uyumlu endpoint)
+ */
+export interface VllmProviderConfig {
+  baseURL: string;
+  apiKey?: string;
+}
+
+/**
+ * Ortak sağlayıcı yapılandırma tipi
+ */
+export type AiProviderConfig =
+  | OllamaProviderConfig
+  | OpenAiProviderConfig
+  | AnthropicProviderConfig
+  | VllmProviderConfig
+  | Record<string, unknown>;
+
+/**
+ * Factory sağlayıcı oluşturucu fonksiyon sözleşmesi
+ */
+export type ProviderCreatorFn<TConfig = unknown> = (config?: TConfig) => IAiModelProvider;
+
