@@ -38,8 +38,8 @@ export function useResizable({
     if (storageKey && typeof window !== 'undefined') {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
-        const parsed = parseInt(saved, 10);
-        if (!isNaN(parsed) && parsed >= minWidth && parsed <= maxWidth) {
+        const parsed = Number.parseInt(saved, 10);
+        if (!Number.isNaN(parsed) && parsed >= minWidth && parsed <= maxWidth) {
           return parsed;
         }
       }
@@ -95,9 +95,8 @@ export function useResizable({
         if (rawWidth < collapseThreshold) {
           onCollapse(true);
           return;
-        } else {
-          onCollapse(false);
         }
+        onCollapse(false);
       }
 
       const clamped = Math.max(minWidth, Math.min(maxWidth, rawWidth));

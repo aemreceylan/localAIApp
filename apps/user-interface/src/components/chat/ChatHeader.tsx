@@ -27,6 +27,13 @@ export interface ChatHeaderProps {
   ragCount?: number;
 }
 
+function resolveModelDisplayName(modelId: string, isLoading: boolean): string {
+  if (modelId) {
+    return modelId.includes('/') ? modelId.split('/')[1] : modelId;
+  }
+  return isLoading ? 'Modeller Yükleniyor...' : 'Model Seçiniz';
+}
+
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isSidebarCollapsed,
   onExpandSidebar,
@@ -45,13 +52,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     (m) => m.id === selectedModel || m.name === selectedModel
   ) || {
     id: selectedModel,
-    name: selectedModel
-      ? selectedModel.includes('/')
-        ? selectedModel.split('/')[1]
-        : selectedModel
-      : isModelsLoading
-      ? 'Modeller Yükleniyor...'
-      : 'Model Seçiniz',
+    name: resolveModelDisplayName(selectedModel, isModelsLoading),
     provider: 'ollama' as const,
     isLocal: true,
   };

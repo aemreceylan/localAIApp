@@ -46,14 +46,21 @@ export const RAGDrawer: React.FC<RAGDrawerProps> = ({
       style={{ width }}
     >
       {/* RAG INSPECTOR BOYUT AYARLAMA TUTAMACI (SOL KENAR) */}
-      <div
+      <button
+        type="button"
         id="inspectorResizer"
+        aria-label="RAG paneli genişlik ayarlayıcı"
         onMouseDown={onResizerMouseDown}
-        className="absolute -left-1.5 top-0 bottom-0 w-3 cursor-col-resize select-none z-40 flex items-center justify-center group hover:bg-brand-500/20 active:bg-brand-500/40 transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+          }
+        }}
+        className="absolute -left-1.5 top-0 bottom-0 w-3 cursor-col-resize select-none z-40 flex items-center justify-center group hover:bg-brand-500/20 active:bg-brand-500/40 transition-colors p-0 border-0 bg-transparent"
         title="Sürükleyerek RAG paneli genişliğini ayarlayın (Genişledikçe Sohbetin Üzerine Geçer)"
       >
-        <div className="w-1 h-8 bg-slate-300 dark:bg-slate-700 rounded-full group-hover:bg-brand-500 group-hover:h-14 transition-all shadow-sm"></div>
-      </div>
+        <span className="w-1 h-8 bg-slate-300 dark:bg-slate-700 rounded-full group-hover:bg-brand-500 group-hover:h-14 transition-all shadow-sm block"></span>
+      </button>
 
       {/* Başlık Çubuğu */}
       <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">

@@ -160,7 +160,7 @@ function renderContentWithFormatting(
   if (!rawText) return null;
 
   // Kod bloklarını tespit et (```lang ... ```)
-  const codeBlockRegex = /```([a-zA-Z0-9_\-\.]*)\n([\s\S]*?)```/g;
+  const codeBlockRegex = /```([a-zA-Z0-9_\-.]*)\n([\s\S]*?)```/g;
   const parts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;

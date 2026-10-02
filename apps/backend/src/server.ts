@@ -1,6 +1,7 @@
 import app from "#app.js";
 import { env } from "#config/env.config.js";
 import { connectDatabase, disconnectDatabase } from "#shared/database/index.js";
+import { devInspectorHub } from "#shared/utils/index.js";
 
 const PORT = env.PORT;
 
@@ -14,10 +15,19 @@ async function bootstrap() {
       console.log(`[Backend API] Sunucu ${PORT} portunda başarıyla başlatıldı.`);
       console.log(`[Environment] MOD: ${env.NODE_ENV}`);
       console.log(`[Docs] Swagger UI: http://${env.HOST}:${env.PORT}/api/docs`);
+
+      // Geliştirme ortamında ayrı konsolda çalışan Dev Traffic Inspector'ı hazırla
+      if (env.NODE_ENV !== 'production') {
+        devInspectorHub.start();
+      }
     });
 
     const gracefulShutdown = async (signal: string) => {
       console.log(`\n⚠️ ${signal} sinyali alındı. Sunucu güvenli bir şekilde kapatılıyor...`);
+
+      if (env.NODE_ENV !== 'production') {
+        devInspectorHub.stop();
+      }
 
       server.close(async () => {
         console.log("🛑 [Backend API] Tüm aktif HTTP bağlantıları sonlandırıldı.");

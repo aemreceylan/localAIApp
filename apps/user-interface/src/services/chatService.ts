@@ -77,6 +77,60 @@ async function extractErrorMessage(response: Response): Promise<string> {
 }
 
 /**
+ * Sohbet streaming isteği için gerekli başlıkları (tenant ve auth token) üretir.
+ */
+function getChatHeaders(): Record<string, string> {
+  const tenantId =
+    typeof window !== 'undefined' && window.localStorage
+      ? window.localStorage.getItem('nexus_tenant_id') || 'default-tenant'
+      : 'default-tenant';
+  const token =
+    typeof window !== 'undefined' && window.localStorage
+      ? window.localStorage.getItem('nexus_token')
+      : null;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-tenant-id': tenantId,
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+/**
+ * ReadableStream akışını okuyup token bazlı ayrıştırır.
+ */
+async function readResponseStream(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  onChunk: (token: string) => void
+): Promise<string> {
+  const decoder = new TextDecoder('utf-8');
+  let fullResponseText = '';
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      const token = extractTokenFromLine(line);
+      if (token) {
+        fullResponseText += token;
+        onChunk(token);
+      }
+    }
+  }
+
+  return fullResponseText;
+}
+
+/**
  * Backend /api/chat uç noktasına canlı streaming isteği atar.
  * Vercel AI SDK Data Stream protokolünü (0:"token") çözümleyerek onChunk geri çağrısına iletir.
  */
@@ -85,28 +139,12 @@ export async function streamChat(
   callbacks: StreamCallbacks,
   abortSignal?: AbortSignal
 ): Promise<void> {
-  const tenantId =
-    (typeof window !== 'undefined' && window.localStorage !== undefined
-      ? window.localStorage.getItem('nexus_tenant_id')
-      : null) || 'default-tenant';
-  const token =
-    typeof window !== 'undefined' && window.localStorage !== undefined
-      ? window.localStorage.getItem('nexus_token')
-      : null;
   const startTime = Date.now();
 
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'x-tenant-id': tenantId,
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const response = await fetch('/api/chat', {
       method: 'POST',
-      headers,
+      headers: getChatHeaders(),
       body: JSON.stringify(payload),
       signal: abortSignal,
     });
@@ -120,27 +158,7 @@ export async function streamChat(
       throw new Error('Yanıtta okunabilir akış (ReadableStream) bulunamadı.');
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let fullResponseText = '';
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // Tamamlanmamış son satırı sakla
-
-      for (const line of lines) {
-        const token = extractTokenFromLine(line);
-        if (token) {
-          fullResponseText += token;
-          callbacks.onChunk(token);
-        }
-      }
-    }
+    const fullResponseText = await readResponseStream(response.body.getReader(), callbacks.onChunk);
 
     const latencyMs = Date.now() - startTime;
     callbacks.onFinish?.(fullResponseText, {

@@ -120,10 +120,11 @@ export function SetupSuperAdminView() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="setup-firstname" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Ad <span className="text-red-500">*</span>
               </label>
               <input
+                id="setup-firstname"
                 type="text"
                 required
                 value={firstName}
@@ -133,10 +134,11 @@ export function SetupSuperAdminView() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+              <label htmlFor="setup-lastname" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                 Soyad <span className="text-red-500">*</span>
               </label>
               <input
+                id="setup-lastname"
                 type="text"
                 required
                 value={lastName}
@@ -148,10 +150,11 @@ export function SetupSuperAdminView() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label htmlFor="setup-email" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Kurumsal E-posta <span className="text-red-500">*</span>
             </label>
             <input
+              id="setup-email"
               type="email"
               required
               value={email}
@@ -162,10 +165,11 @@ export function SetupSuperAdminView() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label htmlFor="setup-orgname" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Kurum / Şirket Adı
             </label>
             <input
+              id="setup-orgname"
               type="text"
               value={organizationName}
               onChange={(e) => setOrganizationName(e.target.value)}
@@ -175,11 +179,12 @@ export function SetupSuperAdminView() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label htmlFor="setup-password" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Güvenli Parola <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <input
+                id="setup-password"
                 type={showPassword ? 'text' : 'password'}
                 required
                 minLength={8}

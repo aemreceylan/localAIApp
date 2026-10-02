@@ -11,6 +11,7 @@ import {
   notFoundHandler,
   globalErrorHandler,
   tenantMiddleware,
+  devLoggerMiddleware,
 } from '#shared/middleware/index.js';
 
 const app = express();
@@ -36,6 +37,11 @@ app.use(
 );
 
 app.use(express.json({ limit: '2mb' }));
+
+// Geliştirme ortamında istek/yanıt loglaması (sadece development)
+if (process.env['NODE_ENV'] !== 'production') {
+  app.use(devLoggerMiddleware);
+}
 
 // OpenAPI / Swagger Dokümantasyonu (Hem web üzerinden sunulur hem de diske kaydedilir)
 const openApiDoc = generateOpenApiDocument();

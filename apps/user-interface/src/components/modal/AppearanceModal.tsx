@@ -44,9 +44,9 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
       <div className="space-y-6">
         {/* 1. BÖLÜM: TEMA TERCİHİ */}
         <div>
-          <label className="block text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2.5">
+          <span className="block text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider mb-2.5">
             Tema Modu
-          </label>
+          </span>
           <div className="grid grid-cols-3 gap-2.5">
             {/* Sistem */}
             <button
@@ -113,18 +113,19 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
         {/* 2. BÖLÜM: RENK PALETİ TERCİHİ */}
         <div>
           <div className="flex items-center justify-between mb-2.5">
-            <label className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
+            <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
               Kurumsal Renk Paleti
-            </label>
+            </span>
             <span className="text-[10px] text-slate-400 font-mono">Seçim anında uygulanır</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {PALETTE_OPTIONS.map((item) => (
-              <div
+              <button
+                type="button"
                 key={item.id}
                 onClick={() => setPalette(item.id)}
-                className={`p-3 rounded-xl border-2 cursor-pointer transition-all flex items-start gap-3 bg-white dark:bg-slate-800/80 ${
+                className={`p-3 rounded-xl border-2 text-left cursor-pointer transition-all flex items-start gap-3 bg-white dark:bg-slate-800/80 ${
                   palette === item.id
                     ? 'border-brand-500 bg-brand-50/40 dark:bg-brand-900/20'
                     : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'
@@ -141,7 +142,7 @@ export const AppearanceModal: React.FC<AppearanceModalProps> = ({ isOpen, onClos
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5 truncate">{item.description}</div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         </div>

@@ -49,7 +49,7 @@ export function useTheme(): UseThemeReturn {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
     const applyTheme = () => {
-      let activeIsDark = false;
+      let activeIsDark: boolean;
       if (mode === 'dark') {
         activeIsDark = true;
       } else if (mode === 'light') {
@@ -76,7 +76,7 @@ export function useTheme(): UseThemeReturn {
 
   // Renk paletini DOM'a öznitelik olarak yansıtma
   useEffect(() => {
-    document.documentElement.setAttribute('data-palette', palette);
+    document.documentElement.dataset.palette = palette;
   }, [palette]);
 
   const setMode = useCallback((newMode: ThemeMode) => {

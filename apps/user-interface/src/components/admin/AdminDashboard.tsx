@@ -21,8 +21,8 @@ export const AdminDashboard: React.FC = () => {
         </div>
         <div className="flex items-center gap-3 text-xs">
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Uptime: %99.98
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Uptime: %99.98</span>
           </span>
           <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 font-mono">
             NVIDIA A100 GPU: %42 Yük

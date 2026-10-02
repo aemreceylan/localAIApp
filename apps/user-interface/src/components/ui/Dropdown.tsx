@@ -23,6 +23,16 @@ export interface DropdownProps {
   className?: string;
 }
 
+const getItemVariantClass = (item: DropdownItem): string => {
+  if (item.disabled) {
+    return 'opacity-40 cursor-not-allowed';
+  }
+  if (item.isDanger) {
+    return 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40';
+  }
+  return 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800';
+};
+
 export const Dropdown: React.FC<DropdownProps> = ({
   trigger,
   items,
@@ -58,9 +68,15 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
   return (
     <div ref={containerRef} className={`relative inline-block text-left ${className}`}>
-      <div onClick={() => setIsOpen((prev) => !prev)} className="cursor-pointer">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        className="cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-brand-500/40 rounded-lg"
+      >
         {trigger}
-      </div>
+      </button>
 
       {isOpen && (
         <div
@@ -79,13 +95,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
                 }
               }}
               disabled={item.disabled}
-              className={`w-full flex items-center justify-between px-3.5 py-2 text-left transition-colors select-none ${
-                item.disabled
-                  ? 'opacity-40 cursor-not-allowed'
-                  : item.isDanger
-                  ? 'text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40'
-                  : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
-              }`}
+              className={`w-full flex items-center justify-between px-3.5 py-2 text-left transition-colors select-none ${getItemVariantClass(item)}`}
               role="menuitem"
             >
               <span className="flex items-center gap-2 truncate">

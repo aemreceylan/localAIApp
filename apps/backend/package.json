@@ -12,7 +12,8 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "docs:generate": "tsx scripts/generate-openapi.ts"
+    "docs:generate": "tsx scripts/generate-openapi.ts",
+    "dev:inspector": "tsx scripts/dev-inspector.ts"
   },
   "imports": {
     "#*": {

@@ -95,10 +95,11 @@ export function LoginView() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+            <label htmlFor="login-email" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
               Kurumsal E-posta
             </label>
             <input
+              id="login-email"
               type="email"
               required
               autoFocus
@@ -111,12 +112,13 @@ export function LoginView() {
 
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Parola
               </label>
             </div>
             <div className="relative">
               <input
+                id="login-password"
                 type={showPassword ? 'text' : 'password'}
                 required
                 value={password}

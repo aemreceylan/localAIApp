@@ -31,10 +31,12 @@ export interface ChatSession {
   updated_at: string;
 }
 
+export type ModelProvider = 'ollama' | 'openai' | 'anthropic' | 'vllm' | (string & {});
+
 export interface LLMModel {
   id: string;
   name: string;
-  provider: 'ollama' | 'openai' | 'anthropic' | 'vllm' | string;
+  provider: ModelProvider;
   isLocal: boolean;
   contextWindow?: number;
   description?: string;

@@ -52,17 +52,25 @@ export const Modal: React.FC<ModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 transition-all duration-200"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      role="dialog"
+    <dialog
+      open
       aria-modal="true"
+      className="fixed inset-0 z-50 m-0 p-4 max-w-none max-h-none w-full h-full bg-slate-900/60 backdrop-blur-sm flex items-center justify-center border-0 transition-all duration-200"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
     >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Pencereyi kapat"
+        onClick={onClose}
+        className="fixed inset-0 w-full h-full bg-transparent border-0 cursor-default"
+      />
       <div
         ref={contentRef}
-        className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full shadow-2xl overflow-hidden transition-all duration-200 ${maxWidthMap[maxWidth]}`}
+        className={`relative z-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full shadow-2xl overflow-hidden transition-all duration-200 ${maxWidthMap[maxWidth]}`}
       >
         {/* Modal Başlık Alanı */}
         {(title || icon) && (
@@ -85,6 +93,7 @@ export const Modal: React.FC<ModalProps> = ({
               </div>
             </div>
             <button
+              type="button"
               onClick={onClose}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               aria-label="Kapat"
@@ -106,6 +115,6 @@ export const Modal: React.FC<ModalProps> = ({
           </div>
         )}
       </div>
-    </div>
+    </dialog>
   );
 };

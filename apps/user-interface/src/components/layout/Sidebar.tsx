@@ -25,6 +25,12 @@ export interface SidebarProps {
   onDeleteSession?: (id: string) => void;
 }
 
+function getUserRoleLabel(role?: string): string {
+  if (role === 'superadmin') return 'Super Admin';
+  if (role === 'tenant_admin') return 'Kurum Yöneticisi';
+  return 'Kullanıcı';
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
@@ -172,21 +178,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         return (
                           <div
                             key={session._id}
-                            className={`group w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium text-left transition-colors cursor-pointer ${
+                            className={`group w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium text-left transition-colors ${
                               isActive
                                 ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 border border-brand-200/60 dark:border-brand-800/60'
                                 : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                             }`}
-                            onClick={() => onSelectSession?.(session._id)}
                           >
-                            <span className="truncate flex items-center gap-2 min-w-0 flex-1">
+                            <button
+                              type="button"
+                              onClick={() => onSelectSession?.(session._id)}
+                              className="truncate flex items-center gap-2 min-w-0 flex-1 text-left bg-transparent border-0 p-0 focus:outline-none cursor-pointer"
+                            >
                               <span
                                 className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                   isActive ? 'bg-brand-600' : 'bg-slate-400'
                                 }`}
                               ></span>
                               <span className="truncate">{session.title || 'Başlıksız Sohbet'}</span>
-                            </span>
+                            </button>
 
                             <div className="flex items-center gap-1 shrink-0 ml-1.5">
                               {session.model && (
@@ -197,10 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                               {onDeleteSession && (
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDeleteSession(session._id);
-                                  }}
+                                  onClick={() => onDeleteSession(session._id)}
                                   className="opacity-0 group-hover:opacity-100 p-1 hover:text-rose-600 rounded transition-opacity"
                                   title="Sohbeti Sil"
                                 >
@@ -230,13 +236,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {user ? `${user.firstName} ${user.lastName}` : 'Kurumsal Kullanıcı'}
                   </div>
                   <div className="text-[10px] text-slate-400 truncate flex items-center gap-1">
-                    <span>
-                      {user?.role === 'superadmin'
-                        ? 'Super Admin'
-                        : user?.role === 'tenant_admin'
-                        ? 'Kurum Yöneticisi'
-                        : 'Kullanıcı'}
-                    </span>
+                    <span>{getUserRoleLabel(user?.role)}</span>
                   </div>
                 </div>
               </div>
@@ -396,20 +396,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* SÜRÜKLENEBİLİR YENİDEN BOYUTLANDIRMA TUTAMACI (RESIZER) */}
       {!isCollapsed && (
-        <div
+        <button
+          type="button"
           id="sidebarResizer"
+          aria-label="Kenar çubuğu genişlik ayarlayıcı"
           onMouseDown={onResizerMouseDown}
-          className={`w-2 cursor-col-resize select-none shrink-0 z-30 flex items-center justify-center relative transition-colors -ml-1 group ${
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+              e.preventDefault();
+            }
+          }}
+          className={`w-2 cursor-col-resize select-none shrink-0 z-30 flex items-center justify-center relative transition-colors -ml-1 group p-0 border-0 bg-transparent ${
             isDragging ? 'bg-brand-500/30' : 'hover:bg-brand-500/20 active:bg-brand-500/40'
           }`}
           title="Sürükleyerek sol menü genişliğini ayarlayın"
         >
-          <div
-            className={`w-0.5 rounded-full transition-all ${
+          <span
+            className={`w-0.5 rounded-full transition-all block ${
               isDragging ? 'bg-brand-600 h-16 shadow-sm' : 'bg-slate-300 dark:bg-slate-700 h-7 group-hover:bg-brand-500 group-hover:h-12'
             }`}
-          ></div>
-        </div>
+          ></span>
+        </button>
       )}
     </>
   );
