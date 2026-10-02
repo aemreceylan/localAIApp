@@ -22,7 +22,7 @@ export interface ChatMessage {
 
 export interface ChatSession {
   _id: string;
-  tenant_id: string;
+  tenant_id?: string;
   title: string;
   model: string;
   prompt_id?: string | null;
@@ -45,7 +45,8 @@ export interface LLMModel {
 
 export interface PersonaPrompt {
   _id: string;
-  tenant_id: string;
+  tenant_id?: string;
+  allowed_roles?: string[];
   title: string;
   slug: string;
   type: 'system_guardrail' | 'persona' | 'custom';

@@ -3,7 +3,7 @@
  * @description Kimlik doğrulama, kullanıcılar ve oturumlar için veri erişim katmanı.
  */
 
-import { UserModel, type IUser } from '#modules/auth/user.model.js';
+import { UserModel, type IUser, type SystemRole } from '#modules/auth/user.model.js';
 import { SessionModel, type ISession } from '#modules/auth/session.model.js';
 
 export class AuthRepository {
@@ -11,8 +11,15 @@ export class AuthRepository {
    * Sistemde en az bir super admin kullanıcısı olup olmadığını denetler.
    */
   async hasSuperAdmin(): Promise<boolean> {
-    const exists = await UserModel.exists({ role: 'superadmin' });
+    const exists = await UserModel.exists({ system_role: 'superadmin' });
     return Boolean(exists);
+  }
+
+  /**
+   * Sistemdeki mevcut Super Admin kullanıcısını getirir.
+   */
+  async findSuperAdmin(): Promise<IUser | null> {
+    return await UserModel.findOne({ system_role: 'superadmin' });
   }
 
   /**
@@ -30,26 +37,73 @@ export class AuthRepository {
   }
 
   /**
+   * Tüm kullanıcıları listeler.
+   */
+  async findAllUsers(): Promise<IUser[]> {
+    return await UserModel.find().sort({ created_at: -1 });
+  }
+
+  /**
    * Yeni kullanıcı oluşturur.
    */
   async createUser(data: {
-    tenant_id: string;
     email: string;
     password_hash: string;
     first_name: string;
     last_name: string;
-    role: 'superadmin' | 'tenant_admin' | 'user';
+    system_role?: SystemRole;
+    roles?: string[];
     is_active?: boolean;
   }): Promise<IUser> {
     return await UserModel.create({
-      tenant_id: data.tenant_id,
       email: data.email.toLowerCase().trim(),
       password_hash: data.password_hash,
       first_name: data.first_name.trim(),
       last_name: data.last_name.trim(),
-      role: data.role,
+      system_role: data.system_role ?? 'user',
+      roles: data.roles ?? [],
       is_active: data.is_active ?? true,
     });
+  }
+
+  /**
+   * Kullanıcı alanlarını günceller.
+   */
+  async updateUser(id: string, update: Partial<IUser>): Promise<IUser | null> {
+    return await UserModel.findByIdAndUpdate(id, { $set: update }, { new: true });
+  }
+
+  /**
+   * Kullanıcının sistem rolünü günceller.
+   */
+  async updateUserSystemRole(id: string, systemRole: SystemRole): Promise<IUser | null> {
+    return await UserModel.findByIdAndUpdate(
+      id,
+      { $set: { system_role: systemRole } },
+      { new: true }
+    );
+  }
+
+  /**
+   * Kullanıcının departman/fonksiyonel rollerini günceller.
+   */
+  async updateUserRoles(id: string, roles: string[]): Promise<IUser | null> {
+    return await UserModel.findByIdAndUpdate(
+      id,
+      { $set: { roles } },
+      { new: true }
+    );
+  }
+
+  /**
+   * Kullanıcı aktiflik/ban durumunu günceller.
+   */
+  async updateUserStatus(id: string, isActive: boolean): Promise<IUser | null> {
+    return await UserModel.findByIdAndUpdate(
+      id,
+      { $set: { is_active: isActive } },
+      { new: true }
+    );
   }
 
   /**
@@ -58,7 +112,6 @@ export class AuthRepository {
   async createSession(data: {
     tokenHash: string;
     userId: string;
-    tenantId: string;
     ipAddress?: string;
     userAgent?: string;
     expiresAt: Date;
@@ -66,7 +119,6 @@ export class AuthRepository {
     const sessionDoc: Record<string, unknown> = {
       token_hash: data.tokenHash,
       user_id: data.userId,
-      tenant_id: data.tenantId,
       expires_at: data.expiresAt,
       last_active_at: new Date(),
     };
@@ -85,7 +137,7 @@ export class AuthRepository {
       return null;
     }
 
-    // Süresi dolmuşsa doğrudan null dön (TTL silene kadar güvenlik)
+    // Süresi dolmuşsa doğrudan sil ve null dön (TTL temizliğine ek anlık garanti)
     if (new Date() > session.expires_at) {
       await SessionModel.deleteOne({ _id: session._id });
       return null;
@@ -108,7 +160,7 @@ export class AuthRepository {
   }
 
   /**
-   * Bir kullanıcının tüm oturumlarını sonlandırır (Tüm cihazlardan çıkış).
+   * Bir kullanıcının tüm oturumlarını sonlandırır (Ban veya rol değişikliğinde anında oturum iptali).
    */
   async deleteAllSessionsForUser(userId: string): Promise<number> {
     const res = await SessionModel.deleteMany({ user_id: userId });
@@ -119,7 +171,10 @@ export class AuthRepository {
    * Oturumun son aktivite zamanını günceller.
    */
   async touchSession(tokenHash: string): Promise<void> {
-    await SessionModel.updateOne({ token_hash: tokenHash }, { $set: { last_active_at: new Date() } });
+    await SessionModel.updateOne(
+      { token_hash: tokenHash },
+      { $set: { last_active_at: new Date() } }
+    );
   }
 }
 

@@ -1,6 +1,8 @@
 import app from "#app.js";
 import { env } from "#config/env.config.js";
 import { connectDatabase, disconnectDatabase } from "#shared/database/index.js";
+import { cacheService } from "#shared/cache/index.js";
+import { roleService } from "#modules/role/index.js";
 import { devInspectorHub } from "#shared/utils/index.js";
 
 const PORT = env.PORT;
@@ -10,7 +12,13 @@ async function bootstrap() {
     // 1. Veritabanı bağlantısı
     await connectDatabase();
 
-    // 2. HTTP sunucusu başlatma
+    // 2. Önbellek altyapısını başlat (Redis / Graceful In-Memory fallback)
+    await cacheService.init();
+
+    // 3. Varsayılan kurumsal sistem ve departman rollerini tohumla (seed)
+    await roleService.initDefaultRoles();
+
+    // 3. HTTP sunucusu başlatma
     const server = app.listen(PORT, env.HOST, () => {
       console.log(`[Backend API] Sunucu ${PORT} portunda başarıyla başlatıldı.`);
       console.log(`[Environment] MOD: ${env.NODE_ENV}`);
@@ -31,6 +39,7 @@ async function bootstrap() {
 
       server.close(async () => {
         console.log("🛑 [Backend API] Tüm aktif HTTP bağlantıları sonlandırıldı.");
+        await cacheService.disconnect();
         await disconnectDatabase();
         process.exit(0);
       });

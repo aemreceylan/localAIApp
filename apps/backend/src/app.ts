@@ -7,10 +7,10 @@ import { generateOpenApiDocument, saveOpenApiDocument } from '#config/openapi.co
 import { chatRoutes } from '#modules/chat/index.js';
 import { promptRoutes } from '#modules/prompt/index.js';
 import { authRoutes, optionalAuth } from '#modules/auth/index.js';
+import { roleRoutes } from '#modules/role/index.js';
 import {
   notFoundHandler,
   globalErrorHandler,
-  tenantMiddleware,
   devLoggerMiddleware,
 } from '#shared/middleware/index.js';
 
@@ -64,10 +64,11 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-// API Rotaları (Tenant Doğrulama ve İzolasyon Middleware ile korumalı)
-app.use('/api/auth', tenantMiddleware, authRoutes);
-app.use('/api/chat', tenantMiddleware, optionalAuth, chatRoutes);
-app.use('/api/prompts', tenantMiddleware, optionalAuth, promptRoutes);
+// API Rotaları
+app.use('/api/auth', authRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/chat', optionalAuth, chatRoutes);
+app.use('/api/prompts', optionalAuth, promptRoutes);
 
 // 404 & Global Error Handling
 app.use(notFoundHandler);

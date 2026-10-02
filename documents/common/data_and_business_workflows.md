@@ -28,36 +28,34 @@ Aşağıdaki şemada, MongoDB üzerindeki temel koleksiyonlar, aralarındaki 1-N
 
 ```mermaid
 erDiagram
-    TENANT ||--o{ USER : has
-    TENANT ||--o{ PROMPT : defines
-    TENANT ||--o{ CONVERSATION : owns
-    TENANT ||--o{ DOCUMENT : stores
-    TENANT ||--o{ TENANT_MODEL_CONFIG : configures
+    ROLE ||--o{ USER : assigns
     USER ||--o{ CONVERSATION : creates
     USER ||--o{ SESSION : has
+    USER ||--o{ AUDIT_LOG : triggers
     CONVERSATION ||--o{ MESSAGE : contains
     PROMPT ||--o{ CONVERSATION : applies_to
     DOCUMENT ||--o{ QDRANT_VECTOR_CHUNK : chunked_into
 
-    TENANT {
+    ROLE {
         string id PK
-        string name "Kurum veya Sirket Adi"
-        string slug UK "Benzersiz URL ve Tanimlayici"
-        string status "active suspended pending"
-        object settings "Model izinleri ve kotalar"
+        string slug UK "Rol tekil kimligi admin user hr developer"
+        string name "Rol Basligi"
+        string description "Rol aciklamasi"
+        array permissions "Izin stringleri"
+        boolean is_system "Sistemik rol mu"
         date created_at "Olusturulma tarihi"
         date updated_at "Guncellenme tarihi"
     }
 
     USER {
         string id PK
-        string tenant_id FK "Zorunlu Kiraci ID"
         string email UK "Benzersiz Eposta"
         string password_hash "Sifrelenmis parola hash"
         string first_name "Kullanici Adi"
         string last_name "Kullanici Soyadi"
-        string role "superadmin tenant_admin user"
-        boolean is_active "Hesap aktiflik durumu"
+        string system_role "superadmin admin user (Tek superadmin)"
+        array roles "Fonksiyonel departman rolleri hr dev vb"
+        boolean is_active "Hesap aktiflik ban durumu"
         date created_at "Olusturulma tarihi"
         date updated_at "Guncellenme tarihi"
     }
@@ -66,7 +64,6 @@ erDiagram
         string id PK
         string token_hash UK "SHA256 Opaque Token Hash"
         string user_id FK "Kullanici ID"
-        string tenant_id FK "Kiraci ID"
         string ip_address "Istemci IP Adresi"
         string user_agent "Tarayici ve Istemci Bilgisi"
         date expires_at "TTL Otomatik Silinme Tarihi"
@@ -74,26 +71,26 @@ erDiagram
         date created_at "Giris Tarihi"
     }
 
-    TENANT_MODEL_CONFIG {
+    AUDIT_LOG {
         string id PK
-        string tenant_id FK "Kiraci ID"
-        string model_id "Model kimligi"
-        string provider "ollama openai anthropic vllm"
-        boolean is_allowed "Kiraci erisim izni"
-        boolean is_default "Varsayilan model secimi"
-        object model_parameters "Model parametreleri"
-        date updated_at "Guncellenme tarihi"
+        string actor_id FK "Islemi yapan kullanici"
+        string actor_email "Islemi yapan eposta"
+        string action "USER_BANNED ADMIN_ASSIGNED vb"
+        string target_id "Etkilenen kullanici veya dokuman"
+        string target_type "user document prompt"
+        object details "Ek degisiklik detaylari"
+        date created_at "Islem zamani"
     }
 
     PROMPT {
         string id PK
-        string tenant_id FK "Kiraci ID"
         string title "Prompt Persona Basligi"
-        string slug "Tenant icinde benzersiz slug"
+        string slug UK "Kurum icinde benzersiz slug"
         string type "system_guardrail persona custom"
         string content "Sistem Direktifi ve Talimat Metni"
+        array allowed_roles "Erisim izni olan roller"
         boolean is_active "Kullanimda mi"
-        boolean is_default "Tenant varsayilan personasi"
+        boolean is_default "Varsayilan persona mi"
         int priority "Guardrail oncelik sirasi"
         date created_at "Olusturulma tarihi"
         date updated_at "Guncellenme tarihi"
@@ -101,7 +98,6 @@ erDiagram
 
     CONVERSATION {
         string id PK
-        string tenant_id FK "Kiraci ID"
         string user_id FK "Olusturan Kullanici ID"
         string title "Sohbet Basligi"
         string model "Kullanilan Model Adi"
@@ -114,7 +110,6 @@ erDiagram
     MESSAGE {
         string id PK
         string conversation_id FK "Bagli Oldugu Oturum"
-        string tenant_id FK "Kiraci Izolasyon ID"
         string role "user assistant system"
         string content "Mesaj Icerigi"
         date created_at "Gonderilme tarihi"
@@ -122,16 +117,14 @@ erDiagram
 
     DOCUMENT {
         string id PK
-        string tenant_id FK "Kiraci ID"
         string title "Dokuman Adi ve Basligi"
         string file_name "Orijinal Dosya Adi"
         string file_path "Depolama Dosya Yolu"
         int file_size "Bayt Cinsinden Boyut"
         string mime_type "Dosya tipi"
         string status "pending processing completed failed"
-        int chunk_count "Uretilen Parca Sayisi"
-        string error_message "Hata Detayi"
-        object metadata "Ek etiketler ve departman"
+        array allowed_roles "Erisim izni olan roller hr dev all"
+        string uploaded_by FK "Yukleyen Kullanici"
         date created_at "Yuklenme tarihi"
         date updated_at "Guncellenme tarihi"
     }
@@ -139,8 +132,8 @@ erDiagram
     QDRANT_VECTOR_CHUNK {
         uuid point_id PK "Vektor Nokta ID"
         vector embedding "Gomme Vektor Dizisi"
-        string tenant_id "Payload RLS Filtresi"
         string document_id "Kaynak Dokuman ID"
+        array allowed_roles "Erisim izni olan roller"
         int chunk_index "Parca Sira Numarasi"
         string text "Orijinal Parca Metni"
         object metadata "Sayfa No Baslik Bolum"
@@ -151,19 +144,18 @@ erDiagram
 
 ## 3. Koleksiyon Şemaları ve Veri Sözlüğü (Data Dictionary)
 
-### 3.1. `tenants` (Kurumsal Kiracılar)
+### 3.1. `roles` (Kurumsal Rol ve Yetki Şeması)
 
-Sistemin en üst düzey izolasyon birimidir. Tüm veriler bir kiracıya aittir.
+Open/Closed prensibine uygun dinamik rol tanımları.
 
 | Alan Adı                    | Tip           | Zorunlu? | Varsayılan | İndeks | Açıklama                                              |
 | :-------------------------- | :------------ | :------: | :--------: | :----: | :---------------------------------------------------- |
-| `_id`                       | ObjectId      |   Evet   |    auto    |   PK   | Kiracı benzersiz kimliği                              |
-| `name`                      | String (100)  |   Evet   |     -      |   -    | Kurum ticari unvanı                                   |
-| `slug`                      | String (50)   |   Evet   |     -      | UNIQUE | URL ve alt alan adı tanımlayıcısı                     |
-| `status`                    | String        |   Evet   | `'active'` | Index  | `'active'`, `'suspended'`, `'pending'`                |
-| `settings.allowed_models`   | Array[String] |   Evet   |    `[]`    |   -    | Admin tarafından kiracıya atanan izinli LLM modelleri |
-| `settings.default_model`    | String        |  Hayır   |   `null`   |   -    | Oturumlarda varsayılan önerilecek model adı           |
-| `settings.max_storage_mb`   | Number        |   Evet   |   `1024`   |   -    | Kiracının RAG doküman saklama kotası (MB)             |
+| `_id`                       | ObjectId      |   Evet   |    auto    |   PK   | Rol benzersiz kimliği                                 |
+| `slug`                      | String (50)   |   Evet   |     -      | UNIQUE | Rol sistemik adı (`admin`, `user`, `hr`, `developer`) |
+| `name`                      | String (100)  |   Evet   |     -      |   -    | Rolün görünen adı                                     |
+| `description`               | String        |  Hayır   |    `""`    |   -    | Rol tanımı ve sorumluluk alanı                        |
+| `permissions`               | Array[String] |   Evet   |    `[]`    |   -    | Rolün sahip olduğu izinler (`rag:read`, `user:ban`)   |
+| `is_system`                 | Boolean       |   Evet   |  `false`   |   -    | Sistemik rol (silinemez)                              |
 | `created_at` / `updated_at` | Date          |   Evet   |    auto    |   -    | Zaman damgaları                                       |
 
 ---
@@ -172,16 +164,16 @@ Sistemin en üst düzey izolasyon birimidir. Tüm veriler bir kiracıya aittir.
 
 Sistemde oturum açan personeller.
 
-| Alan Adı        | Tip               | Zorunlu? | Varsayılan |             İndeks             | Açıklama                                   |
-| :-------------- | :---------------- | :------: | :--------: | :----------------------------: | :----------------------------------------- |
-| `_id`           | ObjectId          |   Evet   |    auto    |               PK               | Kullanıcı kimliği                          |
-| `tenant_id`     | String / ObjectId |   Evet   |     -      |         Compound Index         | Bağlı olduğu kurum                         |
-| `email`         | String            |   Evet   |     -      | UNIQUE (`email` + `tenant_id`) | E-posta adresi                             |
-| `password_hash` | String            |   Evet   |     -      |               -                | Şifrelenmiş parola özeti                   |
-| `first_name`    | String            |   Evet   |     -      |               -                | Adı                                        |
-| `last_name`     | String            |   Evet   |     -      |               -                | Soyadı                                     |
-| `role`          | String            |   Evet   |  `'user'`  |             Index              | `'superadmin'`, `'tenant_admin'`, `'user'` |
-| `is_active`     | Boolean           |   Evet   |   `true`   |             Index              | Hesap aktiflik durumu                      |
+| Alan Adı        | Tip               | Zorunlu? | Varsayılan | İndeks                         | Açıklama                                   |
+| :-------------- | :---------------- | :------: | :--------: | :----------------------------- | :----------------------------------------- |
+| `_id`           | ObjectId          |   Evet   |    auto    | PK                             | Kullanıcı kimliği                          |
+| `email`         | String            |   Evet   |     -      | UNIQUE                         | E-posta adresi                             |
+| `password_hash` | String            |   Evet   |     -      | -                              | Şifrelenmiş parola özeti                   |
+| `first_name`    | String            |   Evet   |     -      | -                              | Adı                                        |
+| `last_name`     | String            |   Evet   |     -      | -                              | Soyadı                                     |
+| `system_role`   | String            |   Evet   |  `'user'`  | Partial Unique (`superadmin`)  | `'superadmin'`, `'admin'`, `'user'`        |
+| `roles`         | Array[String]     |   Evet   |    `[]`    | Index                          | Fonksiyonel roller (`['hr']`, `['dev']`)   |
+| `is_active`     | Boolean           |   Evet   |   `true`   | Index                          | Hesap aktiflik durumu (Ban kontrolü)       |
 
 ---
 
@@ -189,61 +181,61 @@ Sistemde oturum açan personeller.
 
 Kullanıcıların aktif oturumlarını ve anlık ban/yetki iptalini yöneten veritabanı oturum koleksiyonu.
 
-| Alan Adı         | Tip               | Zorunlu? | Varsayılan | İndeks                     | Açıklama                                                       |
-| :--------------- | :---------------- | :------: | :--------: | :------------------------- | :------------------------------------------------------------- |
-| `_id`            | ObjectId          |   Evet   |    auto    | PK                         | Oturum benzersiz kimliği                                       |
-| `token_hash`     | String (64 hex)   |   Evet   |     -      | UNIQUE                     | Opaque Bearer Token'ın SHA-256 kriptografik özeti              |
-| `user_id`        | ObjectId          |   Evet   |     -      | Compound (`user_id`, `tenant_id`) | Oturumu açan kullanıcı kimliği                                |
-| `tenant_id`      | String            |   Evet   |     -      | Index                      | Kiracı kimliği                                                 |
-| `ip_address`     | String            |  Hayır   |     -      | -                          | Oturum açılan istemci IP adresi                                |
-| `user_agent`     | String            |  Hayır   |     -      | -                          | İstemci tarayıcı ve platform başlığı                           |
-| `expires_at`     | Date              |   Evet   |   +7 gün   | TTL Index (`expireAfterSeconds: 0`) | Süresi dolan oturumları MongoDB otomatik siler                 |
-| `last_active_at` | Date              |   Evet   |    auto    | -                          | Son HTTP isteği zaman damgası (Anlık aktivite takibi)          |
-| `created_at`     | Date              |   Evet   |    auto    | -                          | Oturum başlangıç zamanı                                        |
+| Alan Adı         | Tip               | Zorunlu? | Varsayılan | İndeks                             | Açıklama                                              |
+| :--------------- | :---------------- | :------: | :--------: | :--------------------------------- | :---------------------------------------------------- |
+| `_id`            | ObjectId          |   Evet   |    auto    | PK                                 | Oturum benzersiz kimliği                              |
+| `token_hash`     | String (64 hex)   |   Evet   |     -      | UNIQUE                             | Opaque Bearer Token'ın SHA-256 kriptografik özeti     |
+| `user_id`        | ObjectId          |   Evet   |     -      | Index                              | Oturumu açan kullanıcı kimliği                        |
+| `ip_address`     | String            |  Hayır   |     -      | -                                  | Oturum açılan istemci IP adresi                       |
+| `user_agent`     | String            |  Hayır   |     -      | -                                  | İstemci tarayıcı ve platform başlığı                  |
+| `expires_at`     | Date              |   Evet   |   +7 gün   | TTL Index (`expireAfterSeconds: 0`) | Süresi dolan oturumları MongoDB otomatik siler        |
+| `last_active_at` | Date              |   Evet   |    auto    | -                                  | Son HTTP isteği zaman damgası (Anlık aktivite takibi) |
+| `created_at`     | Date              |   Evet   |    auto    | -                                  | Oturum başlangıç zamanı                               |
 
 ---
 
-### 3.3. `prompts` (Dinamik Prompt Stacking Motoru)
+### 3.3. `prompts` (Dinamik Prompt Stacking Motoru & Rol İzolasyonu)
 
 Promptlar artık oturum içine gömülü statik metinler değildir. 3 farklı tipte dinamik derlenir:
 
-| Alan Adı     | Tip          | Zorunlu? | Varsayılan  |                    İndeks                     | Açıklama                                           |
-| :----------- | :----------- | :------: | :---------: | :-------------------------------------------: | :------------------------------------------------- |
-| `_id`        | ObjectId     |   Evet   |    auto     |                      PK                       | Prompt kimliği                                     |
-| `tenant_id`  | String       |   Evet   |      -      |                Compound Index                 | Kiracı kimliği                                     |
-| `title`      | String (150) |   Evet   |      -      |                       -                       | Başlık (Örn: "KVKK & Finansal Güvenlik Guardrail") |
-| `slug`       | String       |   Evet   |      -      |        Compound (`tenant_id` + `slug`)        | Kod içi ve API erişim slug'ı                       |
-| `type`       | String       |   Evet   | `'persona'` | Compound (`tenant_id` + `type` + `is_active`) | `'system_guardrail'`, `'persona'`, `'custom'`      |
-| `content`    | String       |   Evet   |      -      |                       -                       | LLM'e enjekte edilecek gerçek talimat              |
-| `is_active`  | Boolean      |   Evet   |   `true`    |                     Index                     | Aktiflik anahtarı                                  |
-| `is_default` | Boolean      |   Evet   |   `false`   |                       -                       | Tenant için varsayılan persona mı?                 |
-| `priority`   | Number       |   Evet   |     `0`     |                       -                       | Guardrail birleştirme öncelik sırası               |
+| Alan Adı        | Tip           | Zorunlu? | Varsayılan  | İndeks                | Açıklama                                           |
+| :-------------- | :------------ | :------: | :---------: | :-------------------- | :------------------------------------------------- |
+| `_id`           | ObjectId      |   Evet   |    auto     | PK                    | Prompt kimliği                                     |
+| `title`         | String (150)  |   Evet   |      -      | -                     | Başlık (Örn: "KVKK & Finansal Güvenlik Guardrail") |
+| `slug`          | String        |   Evet   |      -      | UNIQUE                | Kod içi ve API erişim slug'ı                       |
+| `type`          | String        |   Evet   | `'persona'` | Compound (`type` + `is_active`) | `'system_guardrail'`, `'persona'`, `'custom'`      |
+| `content`       | String        |   Evet   |      -      | -                     | LLM'e enjekte edilecek gerçek talimat              |
+| `allowed_roles` | Array[String] |   Evet   |  `['*']`    | Index                 | Erişebilecek roller (`['*']`, `['hr']` vb.)        |
+| `is_active`     | Boolean       |   Evet   |   `true`    | Index                 | Aktiflik anahtarı                                  |
+| `is_default`    | Boolean       |   Evet   |   `false`   | -                     | Kurum için varsayılan persona mı?                  |
+| `priority`      | Number        |   Evet   |     `0`     | -                     | Guardrail birleştirme öncelik sırası               |
 
 ---
 
 ### 3.4. `conversations` (Sohbet Oturumları)
 
-| Alan Adı              | Tip           | Zorunlu? |   Varsayılan    |                İndeks                 | Açıklama                                               |
-| :-------------------- | :------------ | :------: | :-------------: | :-----------------------------------: | :----------------------------------------------------- |
-| `_id`                 | ObjectId      |   Evet   |      auto       |                  PK                   | Oturum kimliği                                         |
-| `tenant_id`           | String        |   Evet   |        -        | Compound (`tenant_id` + `updated_at`) | RLS İzolasyon anahtarı                                 |
-| `title`               | String (200)  |   Evet   | `'Yeni Sohbet'` |                   -                   | Sohbet başlığı                                         |
-| `model`               | String        |   Evet   |        -        |                   -                   | Zorunlu seçilen LLM adı (Hardcode yasaktır!)           |
-| `prompt_id`           | ObjectId      |  Hayır   |     `null`      |                 Index                 | Bağlı olunan Persona (`prompts` koleksiyonu referansı) |
-| `custom_instructions` | String (2000) |  Hayır   |     `null`      |                   -                   | Kullanıcının bu oturuma özel eklediği yönergeler       |
+| Alan Adı              | Tip           | Zorunlu? | Varsayılan    | İndeks                       | Açıklama                                               |
+| :-------------------- | :------------ | :------: | :-----------: | :--------------------------- | :----------------------------------------------------- |
+| `_id`                 | ObjectId      |   Evet   |     auto      | PK                           | Oturum kimliği                                         |
+| `user_id`             | ObjectId      |  Hayır   |       -       | Compound (`user_id` + `updated_at`) | Oturumu başlatan kullanıcı (Özel veri sahipliği)       |
+| `title`               | String (200)  |   Evet   | 'Yeni Sohbet' | -                            | Sohbet başlığı                                         |
+| `model`               | String        |   Evet   |       -       | -                            | Oturumda seçilen LLM kimliği (Zorunlu)                 |
+| `prompt_id`           | ObjectId      |  Hayır   |    `null`     | -                            | Bağlı olduğu persona ID                                |
+| `custom_instructions` | String (2000) |  Hayır   |    `null`     | -                            | Oturuma özel kullanıcı ek talimatı                     |
+| `created_at`          | Date          |   Evet   |     auto      | -                            | Oluşturulma tarihi                                     |
+| `updated_at`          | Date          |   Evet   |     auto      | Index                        | Son aktivite tarihi                                    |
 
 ---
 
 ### 3.5. `messages` (Sohbet Mesajları)
 
-| Alan Adı          | Tip      | Zorunlu? | Varsayılan |                   İndeks                    | Açıklama                                |
-| :---------------- | :------- | :------: | :--------: | :-----------------------------------------: | :-------------------------------------- |
-| `_id`             | ObjectId |   Evet   |    auto    |                     PK                      | Mesaj kimliği                           |
+| Alan Adı          | Tip      | Zorunlu? | Varsayılan | İndeks                                      | Açıklama                                |
+| :---------------- | :------- | :------: | :--------: | :------------------------------------------ | :-------------------------------------- |
+| `_id`             | ObjectId |   Evet   |    auto    | PK                                          | Mesaj kimliği                           |
 | `conversation_id` | ObjectId |   Evet   |     -      | Compound (`conversation_id` + `created_at`) | Bağlı olduğu oturum                     |
-| `tenant_id`       | String   |   Evet   |     -      | Compound (`tenant_id` + `conversation_id`)  | Çift katmanlı RLS kontrolü              |
-| `role`            | String   |   Evet   |     -      |                      -                      | `'user'`, `'assistant'`, `'system'`     |
-| `content`         | String   |   Evet   |     -      |                      -                      | Mesaj içeriği (Markdown destekli metin) |
-| `created_at`      | Date     |   Evet   |    auto    |                      -                      | Mesaj zaman damgası                     |
+| `role`            | String   |   Evet   |     -      | -                                           | `'user'`, `'assistant'`, `'system'`     |
+| `content`         | String   |   Evet   |     -      | -                                           | Mesaj içeriği (Markdown destekli metin) |
+| `created_at`      | Date     |   Evet   |    auto    | -                                           | Mesaj zaman damgası                     |
 
 ---
 

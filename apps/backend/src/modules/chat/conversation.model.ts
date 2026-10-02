@@ -12,13 +12,8 @@ import mongoose, { Schema, type Model } from 'mongoose';
  * 2. Hangi Persona'ya bağlı olduğunu (`prompt_id` referansı ile `prompts` koleksiyonu),
  * 3. Kullanıcının oturuma özel ek talimatlarını (`custom_instructions`)
  * saklar.
- * 
- * Kurumsal guardrail ve persona içerikleri anlık olarak dinamik prompt motoru
- * (Prompt Stacking Engine) tarafından derlenir; böylece Admin personayı güncellediğinde
- * tüm oturumlar deploy gerekmeksizin güncel talimatla çalışmaya devam eder.
  */
 export interface IConversation {
-  tenant_id: string;
   user_id?: mongoose.Types.ObjectId | string;
   title: string;
   model: string;
@@ -30,11 +25,6 @@ export interface IConversation {
 
 const conversationSchema = new Schema<IConversation>(
   {
-    tenant_id: {
-      type: String,
-      required: [true, 'tenant_id zorunludur.'],
-      index: true,
-    },
     user_id: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -68,9 +58,8 @@ const conversationSchema = new Schema<IConversation>(
   }
 );
 
-// Çoklu kiracı (Tenant) ve kullanıcı bazlı kronolojik indeksleme
-conversationSchema.index({ tenant_id: 1, user_id: 1, updated_at: -1 });
+// Kullanıcı bazlı kronolojik indeksleme
+conversationSchema.index({ user_id: 1, updated_at: -1 });
 
 export const ConversationModel: Model<IConversation> =
   mongoose.models.Conversation || mongoose.model<IConversation>('Conversation', conversationSchema);
-

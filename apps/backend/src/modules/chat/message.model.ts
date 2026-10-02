@@ -2,7 +2,6 @@ import mongoose, { Schema, type Model, Types } from 'mongoose';
 
 export interface IMessage {
   conversation_id: Types.ObjectId;
-  tenant_id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   created_at?: Date;
@@ -14,11 +13,6 @@ const messageSchema = new Schema<IMessage>(
       type: Schema.Types.ObjectId,
       ref: 'Conversation',
       required: [true, 'conversation_id zorunludur.'],
-      index: true,
-    },
-    tenant_id: {
-      type: String,
-      required: [true, 'tenant_id zorunludur.'],
       index: true,
     },
     role: {
@@ -38,7 +32,6 @@ const messageSchema = new Schema<IMessage>(
 
 // Oturum mesajlarını sıralı çekmek için bileşik indeks
 messageSchema.index({ conversation_id: 1, created_at: 1 });
-messageSchema.index({ tenant_id: 1, conversation_id: 1 });
 
 export const MessageModel: Model<IMessage> =
   mongoose.models.Message || mongoose.model<IMessage>('Message', messageSchema);

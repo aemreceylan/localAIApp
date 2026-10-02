@@ -1,6 +1,6 @@
 /**
  * @file auth.dto.ts
- * @description Kimlik doğrulama, ilk kurulum ve oturum Zod DTO şemaları ve OpenAPI tanımları.
+ * @description Kimlik doğrulama, ilk kurulum, rol yönetimi ve oturum Zod DTO şemaları.
  */
 
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
@@ -40,15 +40,6 @@ export const setupSuperAdminSchema = z.object({
       description: 'Super Admin Giriş Parolası',
       example: 'SuperGucluSifre2026!',
     }),
-  organizationName: z
-    .string()
-    .min(2, 'Kurum adı en az 2 karakter olmalıdır.')
-    .max(100, 'Kurum adı en fazla 100 karakter olabilir.')
-    .optional()
-    .openapi({
-      description: 'İlk kurulumda oluşturulacak varsayılan kurum / şirket adı',
-      example: 'NexusAI Kurumsal Çözümler',
-    }),
 });
 
 export const loginSchema = z.object({
@@ -80,9 +71,9 @@ export const userResponseSchema = z.object({
   email: z.string().openapi({ description: 'E-posta' }),
   firstName: z.string().openapi({ description: 'Ad' }),
   lastName: z.string().openapi({ description: 'Soyad' }),
-  role: z.enum(['superadmin', 'tenant_admin', 'user']).openapi({ description: 'Kullanıcı Rolü' }),
-  tenantId: z.string().openapi({ description: 'Bağlı olunan kiracı ID' }),
-  isActive: z.boolean().openapi({ description: 'Hesap aktiflik durumu' }),
+  systemRole: z.enum(['superadmin', 'admin', 'user']).openapi({ description: 'Sistem Seviyesi Rol' }),
+  roles: z.array(z.string()).openapi({ description: 'Kurum içi departman ve fonksiyonel roller' }),
+  isActive: z.boolean().openapi({ description: 'Hesap aktiflik/ban durumu' }),
 });
 
 export const authResponseSchema = z.object({
@@ -93,7 +84,30 @@ export const authResponseSchema = z.object({
   user: userResponseSchema,
 });
 
+export const transferSuperAdminSchema = z.object({
+  targetUserId: z.string().min(1, 'Hedef kullanıcı ID zorunludur.'),
+  passwordConfirm: z.string().min(1, 'Superadmin doğrulama parolası zorunludur.'),
+});
+
+export const assignAdminSchema = z.object({
+  targetUserId: z.string().min(1, 'Hedef kullanıcı ID zorunludur.'),
+});
+
+export const assignRolesSchema = z.object({
+  targetUserId: z.string().min(1, 'Hedef kullanıcı ID zorunludur.'),
+  roles: z.array(z.string()).min(1, 'En az bir rol belirtilmelidir.'),
+});
+
+export const banUserSchema = z.object({
+  targetUserId: z.string().min(1, 'Hedef kullanıcı ID zorunludur.'),
+  reason: z.string().optional(),
+});
+
 export type SetupSuperAdminDto = z.infer<typeof setupSuperAdminSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;
 export type UserResponseDto = z.infer<typeof userResponseSchema>;
 export type AuthResponseDto = z.infer<typeof authResponseSchema>;
+export type TransferSuperAdminDto = z.infer<typeof transferSuperAdminSchema>;
+export type AssignAdminDto = z.infer<typeof assignAdminSchema>;
+export type AssignRolesDto = z.infer<typeof assignRolesSchema>;
+export type BanUserDto = z.infer<typeof banUserSchema>;

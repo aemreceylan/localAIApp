@@ -10,7 +10,6 @@ import mongoose, { Schema, type Model } from 'mongoose';
 export interface ISession {
   token_hash: string;
   user_id: mongoose.Types.ObjectId | string;
-  tenant_id: string;
   ip_address?: string;
   user_agent?: string;
   expires_at: Date;
@@ -30,11 +29,6 @@ const sessionSchema = new Schema<ISession>(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'user_id zorunludur.'],
-      index: true,
-    },
-    tenant_id: {
-      type: String,
-      required: [true, 'tenant_id zorunludur.'],
       index: true,
     },
     ip_address: {

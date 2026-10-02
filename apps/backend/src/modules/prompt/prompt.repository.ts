@@ -3,79 +3,91 @@ import { PromptModel, type IPrompt, type PromptType } from '#modules/prompt/prom
 
 export class PromptRepository {
   async createPrompt(data: {
-    tenant_id: string;
     title: string;
     slug: string;
     type: PromptType;
     content: string;
+    allowed_roles?: string[];
     is_active?: boolean;
     is_default?: boolean;
     priority?: number;
   }): Promise<IPrompt> {
-    return await PromptModel.create(data);
+    return await PromptModel.create({
+      ...data,
+      allowed_roles: data.allowed_roles && data.allowed_roles.length > 0 ? data.allowed_roles : ['*'],
+    });
   }
 
-  async getPrompts(
-    tenant_id: string,
-    filter?: { type?: PromptType; is_active?: boolean }
-  ): Promise<IPrompt[]> {
-    const query: Record<string, unknown> = { tenant_id };
+  async getPrompts(filter?: {
+    type?: PromptType;
+    is_active?: boolean;
+    roles?: string[];
+  }): Promise<IPrompt[]> {
+    const query: Record<string, unknown> = {};
     if (filter?.type) query.type = filter.type;
     if (filter?.is_active !== undefined) query.is_active = filter.is_active;
+
+    if (filter?.roles && filter.roles.length > 0) {
+      query.allowed_roles = { $in: [...filter.roles, '*'] };
+    }
 
     return await PromptModel.find(query).sort({ priority: 1, created_at: -1 }).exec();
   }
 
-  async getPromptById(id: string, tenant_id: string): Promise<IPrompt | null> {
+  async getPromptById(id: string): Promise<IPrompt | null> {
     if (!Types.ObjectId.isValid(id)) return null;
-    return await PromptModel.findOne({ _id: id, tenant_id }).exec();
+    return await PromptModel.findById(id).exec();
   }
 
-  async getPromptBySlug(slug: string, tenant_id: string): Promise<IPrompt | null> {
-    return await PromptModel.findOne({ slug, tenant_id }).exec();
+  async getPromptBySlug(slug: string): Promise<IPrompt | null> {
+    return await PromptModel.findOne({ slug }).exec();
   }
 
   /**
-   * Tenant'a ait tüm aktif güvenlik (Guardrail) prompt'larını öncelik sırasına göre getirir.
+   * Tüm aktif güvenlik (Guardrail) prompt'larını öncelik sırasına göre getirir.
    */
-  async getActiveGuardrails(tenant_id: string): Promise<IPrompt[]> {
-    return await PromptModel.find({
-      tenant_id,
+  async getActiveGuardrails(roles?: string[]): Promise<IPrompt[]> {
+    const query: Record<string, unknown> = {
       type: 'system_guardrail',
       is_active: true,
-    })
-      .sort({ priority: 1 })
-      .exec();
+    };
+
+    if (roles && roles.length > 0) {
+      query.allowed_roles = { $in: [...roles, '*'] };
+    }
+
+    return await PromptModel.find(query).sort({ priority: 1 }).exec();
   }
 
   /**
-   * Tenant için varsayılan olarak belirlenmiş persona prompt'unu getirir.
+   * Varsayılan olarak belirlenmiş persona prompt'unu getirir.
    */
-  async getDefaultPersona(tenant_id: string): Promise<IPrompt | null> {
-    return await PromptModel.findOne({
-      tenant_id,
+  async getDefaultPersona(roles?: string[]): Promise<IPrompt | null> {
+    const query: Record<string, unknown> = {
       type: 'persona',
       is_default: true,
       is_active: true,
-    }).exec();
+    };
+
+    if (roles && roles.length > 0) {
+      query.allowed_roles = { $in: [...roles, '*'] };
+    }
+
+    return await PromptModel.findOne(query).exec();
   }
 
-  async updatePrompt(
-    id: string,
-    tenant_id: string,
-    data: Partial<IPrompt>
-  ): Promise<IPrompt | null> {
+  async updatePrompt(id: string, data: Partial<IPrompt>): Promise<IPrompt | null> {
     if (!Types.ObjectId.isValid(id)) return null;
-    return await PromptModel.findOneAndUpdate(
-      { _id: id, tenant_id },
+    return await PromptModel.findByIdAndUpdate(
+      id,
       data,
       { returnDocument: 'after' }
     ).exec();
   }
 
-  async deletePrompt(id: string, tenant_id: string): Promise<boolean> {
+  async deletePrompt(id: string): Promise<boolean> {
     if (!Types.ObjectId.isValid(id)) return false;
-    const deleted = await PromptModel.findOneAndDelete({ _id: id, tenant_id }).exec();
+    const deleted = await PromptModel.findByIdAndDelete(id).exec();
     return !!deleted;
   }
 }

@@ -25,7 +25,16 @@ import {
   setupStatusResponseSchema,
   authResponseSchema,
   userResponseSchema,
+  transferSuperAdminSchema,
+  assignAdminSchema,
+  assignRolesSchema,
+  banUserSchema,
 } from '#modules/auth/auth.dto.js';
+import {
+  createRoleSchema,
+  updateRolePermissionsSchema,
+  roleResponseSchema,
+} from '#modules/role/role.dto.js';
 
 // Zod'u OpenAPI desteğiyle genişlet
 extendZodWithOpenApi(z);
@@ -45,21 +54,13 @@ export const errorResponseSchema = registry.register(
   })
 );
 
-// Çok Kiracılılık (Multi-Tenancy) Header Parametresi
-export const tenantHeaderParameter = {
-  name: 'x-tenant-id',
-  in: 'header' as const,
-  required: false,
-  schema: {
-    type: 'string' as const,
-    default: 'default-tenant',
-  },
-  description:
-    'Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.',
-  example: 'default-tenant',
-};
-
-registry.registerComponent('parameters', 'TenantIdHeader', tenantHeaderParameter);
+// Güvenlik Şeması: Opaque Bearer Token
+registry.registerComponent('securitySchemes', 'bearerAuth', {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'Opaque Token',
+  description: 'Giriş ve ilk kurulum sonrası dönen nx_live_... biçimindeki Opaque Bearer token',
+});
 
 // 1. Health Check Endpoint
 registry.registerPath({
@@ -75,7 +76,7 @@ registry.registerPath({
         'application/json': {
           schema: z.object({
             status: z.literal('ok').openapi({ example: 'ok' }),
-            timestamp: z.string().openapi({ example: '2026-09-29T10:00:00.000Z' }),
+            timestamp: z.string().openapi({ example: '2026-10-02T10:00:00.000Z' }),
             uptime: z.number().openapi({ example: 120.45 }),
           }),
         },
@@ -84,18 +85,11 @@ registry.registerPath({
   },
 });
 
-// Güvenlik Şeması: Opaque Bearer Token
-registry.registerComponent('securitySchemes', 'bearerAuth', {
-  type: 'http',
-  scheme: 'bearer',
-  bearerFormat: 'Opaque Token',
-  description: 'Giriş ve ilk kurulum sonrası dönen nx_live_... biçimindeki Opaque Bearer token',
-});
-
-// 2. Chat, Prompt & Auth DTO'larını Registry'ye Kaydet
+// 2. DTO'ları Registry'ye Kaydet
 registry.register('ChatMessage', chatMessageSchema);
 registry.register('ChatRequest', chatRequestSchema);
 registry.register('CreateSessionRequest', createSessionSchema);
+registry.register('ModelInfo', modelInfoSchema);
 registry.register('CreatePromptRequest', createPromptSchema);
 registry.register('UpdatePromptRequest', updatePromptSchema);
 registry.register('SetupSuperAdminRequest', setupSuperAdminSchema);
@@ -103,16 +97,25 @@ registry.register('LoginRequest', loginSchema);
 registry.register('SetupStatusResponse', setupStatusResponseSchema);
 registry.register('UserResponse', userResponseSchema);
 registry.register('AuthResponse', authResponseSchema);
+registry.register('TransferSuperAdminRequest', transferSuperAdminSchema);
+registry.register('AssignAdminRequest', assignAdminSchema);
+registry.register('AssignRolesRequest', assignRolesSchema);
+registry.register('BanUserRequest', banUserSchema);
+registry.register('CreateRoleRequest', createRoleSchema);
+registry.register('UpdateRolePermissionsRequest', updateRolePermissionsSchema);
+registry.register('RoleResponse', roleResponseSchema);
 
-// 3. Chat Streaming Endpoint
+// ==========================================
+// 3. Sohbet & LLM Rotaları
+// ==========================================
 registry.registerPath({
   method: 'post',
   path: '/api/chat',
   tags: ['Sohbet & LLM'],
   summary: 'Canlı LLM Sohbet Akışı (Streaming & Persistence)',
   description:
-    'Kullanıcı mesaj geçmişini alır. Eğer conversationId belirtilmişse mesajları MongoDB oturumuna kaydeder ve Ollama üzerinden anlık token akışı (Data Stream) başlatır.',
-  parameters: [tenantHeaderParameter],
+    'Kullanıcı mesaj geçmişini alır. Eğer conversationId belirtilmişse mesajları MongoDB oturumuna kaydeder ve LLM sağlayıcısı üzerinden anlık token akışı (Data Stream) başlatır.',
+  security: [{ bearerAuth: [] }],
   request: {
     body: {
       description: 'Sohbet isteği parametreleri',
@@ -137,31 +140,22 @@ registry.registerPath({
     },
     422: {
       description: 'İstek gövdesi doğrulama hatası (Validation Error)',
-      content: {
-        'application/json': {
-          schema: errorResponseSchema,
-        },
-      },
+      content: { 'application/json': { schema: errorResponseSchema } },
     },
     502: {
-      description: 'Model servis sağlayıcısı (Ollama) bağlantı hatası',
-      content: {
-        'application/json': {
-          schema: errorResponseSchema,
-        },
-      },
+      description: 'Model servis sağlayıcısı bağlantı hatası',
+      content: { 'application/json': { schema: errorResponseSchema } },
     },
   },
 });
 
-// 4. Sohbet Oturumu Oluşturma
 registry.registerPath({
   method: 'post',
   path: '/api/chat/sessions',
   tags: ['Sohbet Oturumları (Sessions)'],
   summary: 'Yeni Sohbet Oturumu Oluştur',
-  description: 'Tenant için yeni bir konuşma başlığı ve modeliyle oturum (thread) kaydı oluşturur.',
-  parameters: [tenantHeaderParameter],
+  description: 'Aktif kullanıcı için yeni bir konuşma başlığı ve modeliyle oturum (thread) kaydı oluşturur.',
+  security: [{ bearerAuth: [] }],
   request: {
     body: {
       description: 'Oturum oluşturma parametreleri',
@@ -184,14 +178,13 @@ registry.registerPath({
   },
 });
 
-// 5. Sohbet Oturumlarını Listeleme
 registry.registerPath({
   method: 'get',
   path: '/api/chat/sessions',
   tags: ['Sohbet Oturumları (Sessions)'],
   summary: 'Sohbet Oturumlarını Listele',
-  description: 'Aktif kiracıya (tenant) ait tüm geçmiş oturumları en yeniden eskiye listeler.',
-  parameters: [tenantHeaderParameter],
+  description: 'Aktif kullanıcıya ait tüm geçmiş oturumları en yeniden eskiye listeler.',
+  security: [{ bearerAuth: [] }],
   responses: {
     200: {
       description: 'Oturum listesi',
@@ -199,15 +192,14 @@ registry.registerPath({
   },
 });
 
-// 6. Tekil Oturum Detayı Getirme
 registry.registerPath({
   method: 'get',
   path: '/api/chat/sessions/{id}',
   tags: ['Sohbet Oturumları (Sessions)'],
   summary: 'Tekil Sohbet Oturumu Detayı',
   description: 'Belirtilen ID değerine sahip oturumun detaylarını getirir.',
+  security: [{ bearerAuth: [] }],
   parameters: [
-    tenantHeaderParameter,
     {
       name: 'id',
       in: 'path',
@@ -227,15 +219,14 @@ registry.registerPath({
   },
 });
 
-// 7. Oturum Mesajlarını Getirme
 registry.registerPath({
   method: 'get',
   path: '/api/chat/sessions/{id}/messages',
   tags: ['Sohbet Oturumları (Sessions)'],
   summary: 'Oturum Mesaj Geçmişini Getir',
   description: 'Belirtilen oturum ID için tüm kullanıcı ve asistan mesajlarını kronolojik sırada getirir.',
+  security: [{ bearerAuth: [] }],
   parameters: [
-    tenantHeaderParameter,
     {
       name: 'id',
       in: 'path',
@@ -255,15 +246,14 @@ registry.registerPath({
   },
 });
 
-// 8. Oturum Silme
 registry.registerPath({
   method: 'delete',
   path: '/api/chat/sessions/{id}',
   tags: ['Sohbet Oturumları (Sessions)'],
   summary: 'Sohbet Oturumunu Sil',
   description: 'Oturumu ve bağlı tüm mesajları kalıcı olarak siler.',
+  security: [{ bearerAuth: [] }],
   parameters: [
-    tenantHeaderParameter,
     {
       name: 'id',
       in: 'path',
@@ -283,15 +273,13 @@ registry.registerPath({
   },
 });
 
-// 8.1. Aktif LLM Modellerini Listeleme
-registry.register('ModelInfo', modelInfoSchema);
 registry.registerPath({
   method: 'get',
   path: '/api/chat/models',
   tags: ['Sohbet & LLM'],
   summary: 'Kullanılabilir LLM Modellerini Listele',
-  description: 'Sistemde kayıtlı AI sağlayıcılarından (Ollama, vLLM, OpenAI vb.) anlık olarak kullanılabilir dil modellerini ve varsa varsayılan modeli listeler.',
-  parameters: [tenantHeaderParameter],
+  description: 'Sistemde kayıtlı AI sağlayıcılarından (Ollama, vLLM, OpenAI vb.) anlık olarak kullanılabilir dil modellerini listeler.',
+  security: [{ bearerAuth: [] }],
   responses: {
     200: {
       description: 'Kullanılabilir model listesi',
@@ -304,14 +292,16 @@ registry.registerPath({
   },
 });
 
-// 9. Prompt Yönetimi (Dinamik Çok Katmanlı Prompt Stacking)
+// ==========================================
+// 4. Prompt Yönetimi (Dinamik Prompt Stacking & Rol İzolasyonu)
+// ==========================================
 registry.registerPath({
   method: 'post',
   path: '/api/prompts',
   tags: ['Prompt Yönetimi (Dinamik Prompt Stacking)'],
   summary: 'Yeni Prompt / Persona / Guardrail Oluştur',
-  description: 'Sisteme yeni bir kurumsal guardrail kuralı, uzmanlık personasi veya özel prompt şablonu ekler.',
-  parameters: [tenantHeaderParameter],
+  description: 'Sisteme yeni bir kurumsal guardrail kuralı, uzmanlık personasi veya departman bazlı prompt şablonu ekler.',
+  security: [{ bearerAuth: [] }],
   request: {
     body: {
       description: 'Prompt oluşturma verisi',
@@ -339,9 +329,9 @@ registry.registerPath({
   path: '/api/prompts',
   tags: ['Prompt Yönetimi (Dinamik Prompt Stacking)'],
   summary: 'Promptları Listele',
-  description: 'Kiracıya (tenant) ait promptları filtreleyerek listeler.',
+  description: 'Kullanıcının departman ve fonksiyonel rollerine göre filtrelenmiş promptları listeler.',
+  security: [{ bearerAuth: [] }],
   parameters: [
-    tenantHeaderParameter,
     {
       name: 'type',
       in: 'query',
@@ -370,8 +360,8 @@ registry.registerPath({
   tags: ['Prompt Yönetimi (Dinamik Prompt Stacking)'],
   summary: 'Tekil Prompt Detayı',
   description: 'Belirtilen ID değerine sahip promptun detaylarını getirir.',
+  security: [{ bearerAuth: [] }],
   parameters: [
-    tenantHeaderParameter,
     {
       name: 'id',
       in: 'path',
@@ -396,9 +386,9 @@ registry.registerPath({
   path: '/api/prompts/{id}',
   tags: ['Prompt Yönetimi (Dinamik Prompt Stacking)'],
   summary: 'Prompt Güncelle',
-  description: 'Var olan bir promptun metnini, aktiflik durumunu veya önceliğini günceller.',
+  description: 'Var olan bir promptun metnini, aktiflik durumunu, önceliğini veya erişim rollerini günceller.',
+  security: [{ bearerAuth: [] }],
   parameters: [
-    tenantHeaderParameter,
     {
       name: 'id',
       in: 'path',
@@ -435,8 +425,8 @@ registry.registerPath({
   tags: ['Prompt Yönetimi (Dinamik Prompt Stacking)'],
   summary: 'Prompt Sil',
   description: 'Belirtilen promptu kalıcı olarak siler.',
+  security: [{ bearerAuth: [] }],
   parameters: [
-    tenantHeaderParameter,
     {
       name: 'id',
       in: 'path',
@@ -456,7 +446,9 @@ registry.registerPath({
   },
 });
 
-// 10. Kimlik Doğrulama & Oturum Yönetimi (Opaque Bearer Token & Bootstrap)
+// ==========================================
+// 5. Kimlik Doğrulama & Oturum Yönetimi (Auth)
+// ==========================================
 registry.registerPath({
   method: 'get',
   path: '/api/auth/setup-status',
@@ -486,7 +478,7 @@ registry.registerPath({
   description: 'Sistem ilk açıldığında doğrudan kayıt olabilecek tek kullanıcı olan Super Admin hesabını oluşturur. Super Admin zaten varsa 403 Forbidden döner.',
   request: {
     body: {
-      description: 'Super Admin bilgileri ve opsiyonel organizasyon adı',
+      description: 'Super Admin bilgileri',
       required: true,
       content: {
         'application/json': {
@@ -547,6 +539,10 @@ registry.registerPath({
       description: 'Geçersiz e-posta veya parola',
       content: { 'application/json': { schema: errorResponseSchema } },
     },
+    403: {
+      description: 'Kullanıcı hesabı askıya alınmış/banlanmış',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
   },
 });
 
@@ -581,7 +577,7 @@ registry.registerPath({
   path: '/api/auth/me',
   tags: ['Kimlik Doğrulama & Oturum (Auth)'],
   summary: 'Aktif Kullanıcı Bilgisi',
-  description: 'Bearer token üzerinden oturum açmış aktif kullanıcının profil ve rol bilgilerini döndürür.',
+  description: 'Bearer token üzerinden oturum açmış aktif kullanıcının profil, sistem rolü ve fonksiyonel departman rollerini döndürür.',
   security: [{ bearerAuth: [] }],
   responses: {
     200: {
@@ -602,6 +598,343 @@ registry.registerPath({
   },
 });
 
+// ==========================================
+// 6. Superadmin & Admin Yetki Yönetimi
+// ==========================================
+registry.registerPath({
+  method: 'post',
+  path: '/api/auth/superadmin/transfer',
+  tags: ['Kurumsal RBAC & Yönetim'],
+  summary: 'Superadmin Yetkisini Devret (Transfer Superadmin)',
+  description: 'Yalnızca mevcut Superadmin tarafından çalıştırılabilir. Parola doğrulaması sonrasında superadminlik rolü hedef kullanıcıya devreder.',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      description: 'Hedef kullanıcı ID ve mevcut superadmin onay parolası',
+      required: true,
+      content: { 'application/json': { schema: transferSuperAdminSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Superadmin yetkisi başarıyla devredildi.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+          }),
+        },
+      },
+    },
+    403: {
+      description: 'Yetkisiz (Sadece mevcut Superadmin devredebilir)',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/auth/admin/assign',
+  tags: ['Kurumsal RBAC & Yönetim'],
+  summary: 'Admin Rolü Ata',
+  description: 'Yalnızca Superadmin tarafından çalıştırılabilir. Bir kullanıcıya sistem düzeyinde admin rolü atar.',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      description: 'Hedef kullanıcı ID',
+      required: true,
+      content: { 'application/json': { schema: assignAdminSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Admin rolü başarıyla atandı.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+            data: userResponseSchema,
+          }),
+        },
+      },
+    },
+    403: {
+      description: 'Yalnızca Superadmin admin atayabilir.',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/auth/admin/revoke',
+  tags: ['Kurumsal RBAC & Yönetim'],
+  summary: 'Admin Rolünü Geri Al',
+  description: 'Yalnızca Superadmin tarafından çalıştırılabilir. Admin rolünü geri alır ve kullanıcıyı standart "user" seviyesine çeker.',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      description: 'Hedef kullanıcı ID',
+      required: true,
+      content: { 'application/json': { schema: assignAdminSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Admin rolü geri alındı.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+            data: userResponseSchema,
+          }),
+        },
+      },
+    },
+    403: {
+      description: 'Yalnızca Superadmin admin rolünü geri alabilir.',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/auth/users',
+  tags: ['Kurumsal RBAC & Yönetim'],
+  summary: 'Kullanıcıları Listele',
+  description: 'Sistemdeki tüm kayıtlı kullanıcıları listeler. (Yetki: user:read)',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Kullanıcı listesi',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.array(userResponseSchema),
+          }),
+        },
+      },
+    },
+    403: {
+      description: 'Yetki yetersiz.',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/auth/users/{id}/ban',
+  tags: ['Kurumsal RBAC & Yönetim'],
+  summary: 'Kullanıcıyı Yasakla / Askıya Al (Ban)',
+  description: 'Kullanıcının hesabını devre dışı bırakır ve açık tüm oturumlarını anında iptal eder. Superadmin yasaklanamaz. (Yetki: user:ban)',
+  security: [{ bearerAuth: [] }],
+  parameters: [
+    {
+      name: 'id',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Kullanıcı ID',
+    },
+  ],
+  responses: {
+    200: {
+      description: 'Kullanıcı başarıyla yasaklandı ve tüm oturumları iptal edildi.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+            data: userResponseSchema,
+          }),
+        },
+      },
+    },
+    403: {
+      description: 'Superadmin yasaklanamaz veya yetki yetersiz.',
+      content: { 'application/json': { schema: errorResponseSchema } },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/auth/users/{id}/unban',
+  tags: ['Kurumsal RBAC & Yönetim'],
+  summary: 'Kullanıcı Yasağını Kaldır (Unban)',
+  description: 'Kullanıcının hesabını tekrar aktif hale getirir. (Yetki: user:unban)',
+  security: [{ bearerAuth: [] }],
+  parameters: [
+    {
+      name: 'id',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Kullanıcı ID',
+    },
+  ],
+  responses: {
+    200: {
+      description: 'Kullanıcı hesabı tekrar aktif edildi.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+            data: userResponseSchema,
+          }),
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'put',
+  path: '/api/auth/users/{id}/roles',
+  tags: ['Kurumsal RBAC & Yönetim'],
+  summary: 'Kullanıcı Fonksiyonel Rollerini Güncelle',
+  description: 'Kullanıcının kurum içi departman rollerini (hr, developer, finance vb.) günceller ve oturumlarını anında yeniler. (Yetki: user:manage_roles)',
+  security: [{ bearerAuth: [] }],
+  parameters: [
+    {
+      name: 'id',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Kullanıcı ID',
+    },
+  ],
+  request: {
+    body: {
+      description: 'Yeni atanacak roller listesi',
+      required: true,
+      content: {
+        'application/json': {
+          schema: z.object({
+            roles: z.array(z.string()).min(1),
+          }),
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Kullanıcı rolleri başarıyla güncellendi.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+            data: userResponseSchema,
+          }),
+        },
+      },
+    },
+  },
+});
+
+// ==========================================
+// 7. Dinamik Rol ve İzin Yönetimi (OCP Engine)
+// ==========================================
+registry.registerPath({
+  method: 'get',
+  path: '/api/roles',
+  tags: ['Rol ve İzin Yönetimi (OCP Engine)'],
+  summary: 'Tanımlı Rolleri Listele',
+  description: 'Sistemde kayıtlı varsayılan ve dinamik olarak eklenmiş departman rollerini listeler.',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Rol listesi',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            data: z.array(roleResponseSchema),
+          }),
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/roles',
+  tags: ['Rol ve İzin Yönetimi (OCP Engine)'],
+  summary: 'Yeni Departman / Fonksiyonel Rol Oluştur',
+  description: 'Kurum için yeni bir rol ve bu role ait izinler tanımlar. (Yetki: user:manage_roles)',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      description: 'Rol tanımlama verisi',
+      required: true,
+      content: { 'application/json': { schema: createRoleSchema } },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Rol başarıyla oluşturuldu.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+            data: roleResponseSchema,
+          }),
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'put',
+  path: '/api/roles/{slug}/permissions',
+  tags: ['Rol ve İzin Yönetimi (OCP Engine)'],
+  summary: 'Rol İzinlerini Güncelle',
+  description: 'Var olan bir rolün erişim yetkilerini dinamik olarak günceller. (Yetki: user:manage_roles)',
+  security: [{ bearerAuth: [] }],
+  parameters: [
+    {
+      name: 'slug',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Rol kodu (slug: örn. hr, developer)',
+    },
+  ],
+  request: {
+    body: {
+      description: 'Yeni yetkiler listesi',
+      required: true,
+      content: { 'application/json': { schema: updateRolePermissionsSchema } },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Rol izinleri güncellendi.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+            data: roleResponseSchema,
+          }),
+        },
+      },
+    },
+  },
+});
+
 export function generateOpenApiDocument() {
   const generator = new OpenApiGeneratorV3(registry.definitions);
 
@@ -611,7 +944,7 @@ export function generateOpenApiDocument() {
       title: 'NexusAI Gateway & Knowledge Base API',
       version: '1.0.0',
       description:
-        'Kurumsal LLM Orkestrasyonu, Yerel Modeller (Ollama), Bulut Modeller ve RAG Ağ Geçidi API Dokümantasyonu',
+        'Kurumsal LLM Orkestrasyonu, Yerel Modeller (Ollama), Bulut Modeller ve On-Premises Role-Based Access Control (RBAC) API Dokümantasyonu',
       contact: {
         name: 'NexusAI Platform Team',
       },
@@ -660,4 +993,3 @@ export function saveOpenApiDocument(customPath?: string): string {
 
   return masterPath;
 }
-

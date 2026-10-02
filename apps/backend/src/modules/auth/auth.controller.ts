@@ -1,6 +1,6 @@
 /**
  * @file auth.controller.ts
- * @description Kimlik doğrulama HTTP istek işleyicileri (Controller).
+ * @description Kimlik doğrulama, kullanıcı ve rol yönetimi HTTP istek işleyicileri (Controller).
  */
 
 import type { Request, Response, NextFunction } from 'express';
@@ -25,7 +25,7 @@ export class AuthController {
 
   /**
    * POST /api/auth/setup
-   * İlk Super Admin ve varsayılan kurum kaydını tamamlar.
+   * İlk Super Admin kaydını tamamlar.
    */
   async setupSuperAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -39,7 +39,7 @@ export class AuthController {
 
       res.status(201).json({
         success: true,
-        message: 'Super Admin hesabı ve kurumsal alan başarıyla oluşturuldu.',
+        message: 'Super Admin hesabı başarıyla oluşturuldu.',
         data: result,
       });
     } catch (err) {
@@ -103,6 +103,170 @@ export class AuthController {
       res.status(200).json({
         success: true,
         data: userProfile,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/superadmin/transfer
+   * Superadmin yetkisini başka bir kullanıcıya devreder.
+   */
+  async transferSuperAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const result = await authService.transferSuperAdmin(req.user!, req.body, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: result.message,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/admin/assign
+   * Superadmin tarafından kullanıcıya Admin rolü atanması.
+   */
+  async assignAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const user = await authService.assignAdmin(req.user!, req.body.targetUserId, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Kullanıcı başarıyla Admin olarak yetkilendirildi.',
+        data: user,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/admin/revoke
+   * Superadmin tarafından Admin yetkisinin geri alınması.
+   */
+  async revokeAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const user = await authService.revokeAdmin(req.user!, req.body.targetUserId, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Admin yetkisi başarıyla geri alındı.',
+        data: user,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/auth/users
+   * Tüm personelleri listeler.
+   */
+  async listUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const users = await authService.listUsers();
+      res.status(200).json({
+        success: true,
+        data: users,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/users/:id/ban
+   * Kullanıcıyı askıya alır / banlar.
+   */
+  async banUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const targetUserId = req.params.id as string;
+      const { reason } = req.body || {};
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const user = await authService.banUser(req.user!, targetUserId, reason, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Kullanıcı hesabı askıya alındı ve oturumları sonlandırıldı.',
+        data: user,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/users/:id/unban
+   * Kullanıcı banını kaldırır.
+   */
+  async unbanUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const targetUserId = req.params.id as string;
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const user = await authService.unbanUser(req.user!, targetUserId, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Kullanıcı hesabı tekrar aktif edildi.',
+        data: user,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * PUT /api/auth/users/:id/roles
+   * Kullanıcıya departman/fonksiyonel rolleri atar.
+   */
+  async assignUserRoles(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const targetUserId = req.params.id as string;
+      const { roles } = req.body;
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const user = await authService.assignUserRoles(req.user!, targetUserId, roles, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Kullanıcı rolleri başarıyla güncellendi.',
+        data: user,
       });
     } catch (err) {
       next(err);

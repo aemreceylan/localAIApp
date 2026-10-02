@@ -17,6 +17,10 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().min(1, "CORS_ORIGIN boş olamaz."),
   OLLAMA_BASE_URL: z.string().url("OLLAMA_BASE_URL geçerli bir URL olmalıdır."),
   MONGODB_URI: z.string().min(1, "MONGODB_URI boş olamaz."),
+  REDIS_URL: z.string().optional(),
+  REDIS_HOST: z.string().optional(),
+  REDIS_PORT: z.coerce.number().optional(),
+  REDIS_PASSWORD: z.string().optional(),
 });
 
 const _env = envSchema.safeParse(process.env);

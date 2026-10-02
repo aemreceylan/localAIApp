@@ -14,14 +14,10 @@ describe('OpenAPI & Swagger Dokümantasyon Testleri', () => {
     expect(res.body.info).toHaveProperty('title', 'NexusAI Gateway & Knowledge Base API');
     expect(res.body.paths).toHaveProperty('/health');
     expect(res.body.paths).toHaveProperty('/api/chat');
-    expect(res.body.paths['/api/chat'].post.parameters).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          name: 'x-tenant-id',
-          in: 'header',
-        }),
-      ])
-    );
+    expect(res.body.paths).toHaveProperty('/api/roles');
+    expect(res.body.paths).toHaveProperty('/api/auth/setup');
+    expect(res.body.paths).toHaveProperty('/api/auth/login');
+    expect(res.body.components.securitySchemes).toHaveProperty('bearerAuth');
     expect(res.body.paths).toHaveProperty('/api/prompts');
     expect(res.body.components.schemas).toHaveProperty('ChatRequest');
     expect(res.body.components.schemas).toHaveProperty('ChatMessage');

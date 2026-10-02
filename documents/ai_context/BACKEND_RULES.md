@@ -48,16 +48,18 @@ Klasik katmanlı Clean Architecture yerine, sistem **iş alanlarına (Bounded Co
 src/
 ├── config/             # Genel Sistem & Uygulama Yapılandırmaları
 ├── modules/
-│   ├── auth/           # Kimlik doğrulama, kullanıcılar ve rol yönetimi
-│   ├── tenant/         # Tenant ve organizasyon yönetimi
+│   ├── auth/           # Kimlik doğrulama, kullanıcılar, ban ve oturum yönetimi
+│   ├── role/           # Open/Closed prensibine uygun dinamik rol, izin ve PolicyEngine
+│   ├── audit/          # Güvenlik ve yetki değişiklikleri için değişmez (immutable) denetim izi
 │   ├── chat/           # LLM Sohbet oturumları ve streaming
 │   ├── prompt/         # Çok katmanlı dinamik prompt & persona yönetim motoru
 │   ├── rag/            # Doküman ingestion, embedding ve Qdrant vektör araması
 │   └── ai/             # Yerel model indirme ve yönetim modülü
-├── shared/             # Ortak altyapı, middleware'ler, RLS, base class'lar
-│   ├── database/       # Mongoose bağlantısı, tenant plugin'leri
+├── shared/             # Ortak altyapı, middleware'ler, cache, base class'lar
+│   ├── cache/          # Redis + In-Memory fallback önbellek katmanı
+│   ├── database/       # Mongoose bağlantısı
 │   ├── errors/         # Standart hata hiyerarşisi
-│   ├── middleware/     # Auth, RLS, Rate limit, validation middleware'leri
+│   ├── middleware/     # Auth, requirePermission, devLogger, validation middleware'leri
 │   ├── queue/          # BullMQ/Redis temel yapılandırmaları
 │   └── utils/          # Ortak yardımcı fonksiyonlar
 ├── tests/              # Test süiti ve ortam yapılandırmaları
@@ -95,32 +97,31 @@ src/modules/<module-name>/
 
 ---
 
-## 3. Multi-Tenancy: Row-Level Security (RLS)
+## 3. Kurumsal RBAC, Yetkilendirme (OCP) ve Rol Bazlı Veri İzolasyonu (Document ACL)
 
-Multi-Tenancy altyapısı `shared/database` altında merkezi olarak yönetilir ve tüm modüllerde standart olarak uygulanır.
+Sistem tek kurum içi (on-premise) kullanım için tasarlandığından yapay SaaS multi-tenancy soyutlamalarından arındırılmıştır. İzolasyon; kullanıcı (`user_id`), sistem rolleri (`system_role`) ve fonksiyonel departman rolleri (`roles: string[]`) üzerinden sağlanır.
 
-### MongoDB (Mongoose) İzolasyonu
+### Open/Closed Prensibi (OCP) Yetkilendirme Motoru (`PolicyEngine`)
 
-1. **Global Tenant Plugin (`shared/database/plugins/tenant.plugin.ts`):** Tüm Mongoose şemalarına `tenant_id: ObjectId` ve `is_global: Boolean` alanları otomatik eklenir.
-2. **Query Hook'ları:** `pre('find')`, `pre('findOne')`, `pre('count')`, `pre('aggregate')` middleware'lerinde tenant filtresi enjekte edilir.
-3. **Filtre Mantığı:**
-   ```typescript
-   {
-     $or: [{ tenant_id: currentTenantId }, { is_global: true }];
-   }
-   ```
-4. **Bypass Yok:** Geliştiricinin `.find()` çağrısında `tenant_id` yazmayı unutması tehlikesiz olacak şekilde hook katmanı her zaman filtreyi zorlar.
+1. **Genişletilebilir Politika Motoru:** İzin denetimleri doğrudan kod içine gömülü `if` blokları yerine `PolicyEngine.can(user, permission, context)` üzerinden işletilir. Yeni kaynak stratejileri çekirdek kod değiştirilmeden enjekte edilebilir.
+2. **Superadmin Bypass & Invariant:** Sistemde veritabanı seviyesinde tek bir Superadmin garantilenir. Superadmin tüm yetki denetimlerinden otomatik geçer (`can() -> true`).
+3. **Rol Hiyerarşisi & Atama Kuralları:** Yalnızca Superadmin başka bir kullanıcıyı `admin` yapabilir veya adminliği geri alabilir. Normal adminler standart kullanıcıları banlayabilir ve fonksiyonel roller (`hr`, `developer` vb.) atayabilir.
+4. **Anlık Ban & Oturum İptali:** Banlanan veya rolü değişen kullanıcının tüm oturumları `deleteAllSessionsForUser` ile veritabanından anında silinir; bir sonraki istekte 401/403 ile reddedilir.
 
-### Qdrant Vektör İzolasyonu (`src/modules/rag`)
+### Qdrant Vektör & RAG Doküman İzolasyonu (`src/modules/rag`)
 
-- Her vektör kaydı payload'ında `tenant_id` taşır.
-- Similarity search sırasında Qdrant `Filter` nesnesi zorunlu olarak eklenir:
+- Her doküman ve vektör parçası (`chunk`), payload'ında erişim izni olan rolleri (`allowed_roles: string[]`) taşır.
+- Vektör benzerlik aramasında kullanıcının rolleri otomatik olarak filtrelere enjekte edilir:
   ```typescript
   const filter = {
-    must: [{ key: "tenant_id", match: { value: currentTenantId } }],
+    should: [
+      { key: "allowed_roles", match: { any: user.roles } },
+      { key: "allowed_roles", match: { value: "*" } }
+    ]
   };
   ```
-- **Filtresiz arama yapan fonksiyon yazılırsa bu güvenlik ihlali sayılır.**
+- **Rol filtresi enjekte edilmeden arama yapılması veri sızıntısı (Zero-Context-Leakage ihlali) sayılır.**
+- Dokümanın rolleri güncellendiğinde (`PATCH /api/v1/rag/documents/:id/roles`), Qdrant'taki vektörlerin payload'undaki `allowed_roles` alanı anında senkronize edilir.
 
 ---
 

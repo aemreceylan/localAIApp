@@ -1,10 +1,12 @@
 /**
  * @file auth.service.ts
- * @description Kimlik doğrulama, ilk kurulum ve oturum yönetimi iş mantığı servisi.
+ * @description Kimlik doğrulama, ilk kurulum, rol atama ve oturum yönetimi iş mantığı servisi.
+ * Tek kurum mimarisine uygun olarak SaaS tenant bağımlılığından tamamen arındırılmıştır.
  */
 
 import { authRepository } from '#modules/auth/auth.repository.js';
-import { tenantRepository } from '#modules/tenant/index.js';
+import { auditService } from '#modules/audit/index.js';
+import { cacheService } from '#shared/cache/index.js';
 import {
   hashPassword,
   verifyPassword,
@@ -22,12 +24,25 @@ import type {
   LoginDto,
   AuthResponseDto,
   UserResponseDto,
+  TransferSuperAdminDto,
 } from '#modules/auth/auth.dto.js';
 import type { IUser } from '#modules/auth/user.model.js';
 import type { ISession } from '#modules/auth/session.model.js';
 
 // Oturum geçerlilik süresi: 7 Gün
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface AuthRequestMeta {
+  ipAddress?: string | undefined;
+  userAgent?: string | undefined;
+}
+
+function buildAuditMeta(meta?: AuthRequestMeta): { ipAddress?: string; userAgent?: string } {
+  const result: { ipAddress?: string; userAgent?: string } = {};
+  if (meta?.ipAddress) result.ipAddress = meta.ipAddress;
+  if (meta?.userAgent) result.userAgent = meta.userAgent;
+  return result;
+}
 
 export class AuthService {
   /**
@@ -44,7 +59,7 @@ export class AuthService {
    */
   async setupSuperAdmin(
     dto: SetupSuperAdminDto,
-    meta: { ipAddress?: string; userAgent?: string }
+    meta?: AuthRequestMeta
   ): Promise<AuthResponseDto> {
     // 1. KONTROL: Sistemde süper admin var mı?
     const hasSuperAdmin = await authRepository.hasSuperAdmin();
@@ -60,22 +75,28 @@ export class AuthService {
       throw new ValidationError('Bu e-posta adresi ile kayıtlı bir kullanıcı zaten mevcut.');
     }
 
-    // 3. Varsayılan Kurum / Tenant oluştur veya getir
-    const organizationName = dto.organizationName || 'NexusAI Kurumsal';
-    const defaultTenant = await tenantRepository.findOrCreateDefaultTenant(organizationName);
-
-    // 4. Parolayı güvenli scrypt hash'e dönüştür
+    // 3. Parolayı güvenli scrypt hash'e dönüştür
     const passwordHash = await hashPassword(dto.password);
 
-    // 5. Super Admin kullanıcısını kaydet
+    // 4. Tek Super Admin kullanıcısını kaydet
     const user = await authRepository.createUser({
-      tenant_id: defaultTenant.slug,
       email: dto.email,
       password_hash: passwordHash,
       first_name: dto.firstName,
       last_name: dto.lastName,
-      role: 'superadmin',
+      system_role: 'superadmin',
+      roles: ['admin'],
       is_active: true,
+    });
+
+    // 5. Denetim İzi (Audit Log)
+    await auditService.log({
+      actor: { _id: (user as any)._id, email: user.email, system_role: user.system_role },
+      action: 'ADMIN_ASSIGNED',
+      targetId: (user as any)._id.toString(),
+      targetType: 'user',
+      details: { role: 'superadmin', note: 'İlk kurulum Super Admin oluşturuldu.' },
+      ...buildAuditMeta(meta),
     });
 
     // 6. Opaque Bearer Token oluştur ve kaydet
@@ -86,9 +107,8 @@ export class AuthService {
     await authRepository.createSession({
       tokenHash,
       userId: (user as any)._id.toString(),
-      tenantId: user.tenant_id,
-      ...(meta.ipAddress ? { ipAddress: meta.ipAddress } : {}),
-      ...(meta.userAgent ? { userAgent: meta.userAgent } : {}),
+      ...(meta?.ipAddress ? { ipAddress: meta.ipAddress } : {}),
+      ...(meta?.userAgent ? { userAgent: meta.userAgent } : {}),
       expiresAt,
     });
 
@@ -103,7 +123,7 @@ export class AuthService {
    */
   async login(
     dto: LoginDto,
-    meta: { ipAddress?: string; userAgent?: string }
+    meta?: AuthRequestMeta
   ): Promise<AuthResponseDto> {
     const user = await authRepository.findByEmail(dto.email);
     if (!user) {
@@ -115,10 +135,19 @@ export class AuthService {
       throw new UnauthorizedError('E-posta adresi veya parola hatalı.');
     }
 
-    // Anlık banlama kontrolü
+    // ANLIK BANLAMA KONTROLÜ
     if (!user.is_active) {
+      await auditService.log({
+        actor: { email: user.email },
+        action: 'LOGIN_FAILED_BANNED',
+        targetId: (user as any)._id.toString(),
+        targetType: 'user',
+        details: { reason: 'Banlı kullanıcı giriş denemesi' },
+        ...buildAuditMeta(meta),
+      });
+
       throw new ForbiddenError(
-        'Hesabınız askıya alınmıştır. Lütfen kurum yöneticinizle iletişime geçiniz.'
+        'Hesabınız askıya alınmıştır/banlanmıştır. Lütfen kurum yöneticinizle iletişime geçiniz.'
       );
     }
 
@@ -130,9 +159,8 @@ export class AuthService {
     await authRepository.createSession({
       tokenHash,
       userId: (user as any)._id.toString(),
-      tenantId: user.tenant_id,
-      ...(meta.ipAddress ? { ipAddress: meta.ipAddress } : {}),
-      ...(meta.userAgent ? { userAgent: meta.userAgent } : {}),
+      ...(meta?.ipAddress ? { ipAddress: meta.ipAddress } : {}),
+      ...(meta?.userAgent ? { userAgent: meta.userAgent } : {}),
       expiresAt,
     });
 
@@ -182,8 +210,9 @@ export class AuthService {
 
     const { user, session } = result;
 
-    // Kullanıcı anında banlandıysa veya dondurulduysa erişimi reddet
+    // Kullanıcı anında banlandıysa veya dondurulduysa oturumu iptal et
     if (!user.is_active) {
+      await authRepository.deleteSession(tokenHash);
       return null;
     }
 
@@ -191,6 +220,270 @@ export class AuthService {
     void authRepository.touchSession(tokenHash);
 
     return { user, session };
+  }
+
+  /**
+   * SUPERADMIN DEVRİ:
+   * Mevcut Superadmin, rolünü güvenli parola doğrulaması ile başka bir kullanıcıya devreder.
+   */
+  async transferSuperAdmin(
+    actor: IUser,
+    dto: TransferSuperAdminDto,
+    meta?: AuthRequestMeta
+  ): Promise<{ success: boolean; message: string }> {
+    if (actor.system_role !== 'superadmin') {
+      throw new ForbiddenError('Yalnızca mevcut Superadmin sahiplik devri gerçekleştirebilir.');
+    }
+
+    const isMatch = await verifyPassword(dto.passwordConfirm, actor.password_hash);
+    if (!isMatch) {
+      throw new UnauthorizedError('Sahiplik devri için girdiğiniz parola hatalı.');
+    }
+
+    const targetUser = await authRepository.findById(dto.targetUserId);
+    if (!targetUser) {
+      throw new NotFoundError('Hedef kullanıcı bulunamadı.');
+    }
+
+    if (!targetUser.is_active) {
+      throw new ValidationError('Askıya alınmış (banlı) bir kullanıcıya sahiplik devredilemez.');
+    }
+
+    const actorId = (actor as any)._id.toString();
+    const targetId = (targetUser as any)._id.toString();
+
+    if (actorId === targetId) {
+      throw new ValidationError('Zaten sistemin Superadmin kullanıcısısınız.');
+    }
+
+    // 1. Yeni kullanıcıyı superadmin yap
+    await authRepository.updateUserSystemRole(targetId, 'superadmin');
+    // 2. Mevcut kullanıcıyı admin seviyesine düşür
+    await authRepository.updateUserSystemRole(actorId, 'admin');
+
+    // 3. Her iki kullanıcının oturumlarını sonlandır (yeni yetkilerle tekrar giriş zorunlu)
+    await authRepository.deleteAllSessionsForUser(actorId);
+    await authRepository.deleteAllSessionsForUser(targetId);
+
+    // 4. Denetim İzi
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'SUPERADMIN_TRANSFERRED',
+      targetId,
+      targetType: 'user',
+      details: { previousSuperAdmin: actor.email, newSuperAdmin: targetUser.email },
+      ...buildAuditMeta(meta),
+    });
+
+    return { success: true, message: 'Superadmin yetkisi başarıyla yeni kullanıcıya devredildi.' };
+  }
+
+  /**
+   * ADMİN ATAMA (Yalnızca Superadmin):
+   * Bir kullanıcıya 'admin' sistem rolü atar.
+   */
+  async assignAdmin(
+    actor: IUser,
+    targetUserId: string,
+    meta?: AuthRequestMeta
+  ): Promise<UserResponseDto> {
+    if (actor.system_role !== 'superadmin') {
+      throw new ForbiddenError('Yalnızca Superadmin diğer kullanıcılara Admin rolü atayabilir.');
+    }
+
+    const targetUser = await authRepository.findById(targetUserId);
+    if (!targetUser) {
+      throw new NotFoundError('Hedef kullanıcı bulunamadı.');
+    }
+
+    if (targetUser.system_role === 'superadmin') {
+      throw new ValidationError('Superadmin rolü üzerinde bu işlem yapılamaz.');
+    }
+
+    const updated = await authRepository.updateUserSystemRole(targetUserId, 'admin');
+    if (!updated) {
+      throw new NotFoundError('Kullanıcı güncellenemedi.');
+    }
+
+    // Hedef kullanıcının tüm oturumlarını anında sonlandır (Yetki değişikliği hemen geçerli olsun)
+    await authRepository.deleteAllSessionsForUser(targetUserId);
+    await cacheService.delPattern('role:*');
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'ADMIN_ASSIGNED',
+      targetId: targetUserId,
+      targetType: 'user',
+      details: { email: targetUser.email },
+      ...buildAuditMeta(meta),
+    });
+
+    return this.mapUserResponse(updated);
+  }
+
+  /**
+   * ADMİN YETKİSİNİ GERİ ALMA (Yalnızca Superadmin)
+   */
+  async revokeAdmin(
+    actor: IUser,
+    targetUserId: string,
+    meta?: AuthRequestMeta
+  ): Promise<UserResponseDto> {
+    if (actor.system_role !== 'superadmin') {
+      throw new ForbiddenError('Yalnızca Superadmin bir kullanıcının Admin yetkisini geri alabilir.');
+    }
+
+    const targetUser = await authRepository.findById(targetUserId);
+    if (!targetUser) {
+      throw new NotFoundError('Hedef kullanıcı bulunamadı.');
+    }
+
+    if (targetUser.system_role === 'superadmin') {
+      throw new ValidationError('Superadmin yetkisi bu işlemle geri alınamaz.');
+    }
+
+    const updated = await authRepository.updateUserSystemRole(targetUserId, 'user');
+    if (!updated) {
+      throw new NotFoundError('Kullanıcı güncellenemedi.');
+    }
+
+    // Oturumları anında temizle
+    await authRepository.deleteAllSessionsForUser(targetUserId);
+    await cacheService.delPattern('role:*');
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'ADMIN_REVOKED',
+      targetId: targetUserId,
+      targetType: 'user',
+      details: { email: targetUser.email },
+      ...buildAuditMeta(meta),
+    });
+
+    return this.mapUserResponse(updated);
+  }
+
+  /**
+   * KULLANICI BANLAMA (Hesabı Askıya Alma):
+   * Anında tüm cihaz oturumlarını sonlandırır.
+   */
+  async banUser(
+    actor: IUser,
+    targetUserId: string,
+    reason?: string | undefined,
+    meta?: AuthRequestMeta
+  ): Promise<UserResponseDto> {
+    const actorId = (actor as any)._id.toString();
+    if (actorId === targetUserId) {
+      throw new ValidationError('Kendi hesabınızı banlayamazsınız.');
+    }
+
+    const targetUser = await authRepository.findById(targetUserId);
+    if (!targetUser) {
+      throw new NotFoundError('Kullanıcı bulunamadı.');
+    }
+
+    // Superadmin Dokunulmazlığı
+    if (targetUser.system_role === 'superadmin') {
+      throw new ForbiddenError('Superadmin hesabı asla banlanamaz veya askıya alınamaz.');
+    }
+
+    // Admin koruması: Bir normal admin başka bir admini banlayamaz (Yalnızca Superadmin admini banlayabilir)
+    if (actor.system_role !== 'superadmin' && targetUser.system_role === 'admin') {
+      throw new ForbiddenError('Bir yönetici (Admin) yalnızca Superadmin tarafından askıya alınabilir.');
+    }
+
+    const updated = await authRepository.updateUserStatus(targetUserId, false);
+    if (!updated) {
+      throw new NotFoundError('Kullanıcı güncellenemedi.');
+    }
+
+    // GÜVENLİK: Kullanıcının tüm oturumlarını anında sonlandır!
+    await authRepository.deleteAllSessionsForUser(targetUserId);
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'USER_BANNED',
+      targetId: targetUserId,
+      targetType: 'user',
+      details: { email: targetUser.email, reason },
+      ...buildAuditMeta(meta),
+    });
+
+    return this.mapUserResponse(updated);
+  }
+
+  /**
+   * KULLANICI BANINI KALDIRMA
+   */
+  async unbanUser(
+    actor: IUser,
+    targetUserId: string,
+    meta?: AuthRequestMeta
+  ): Promise<UserResponseDto> {
+    const targetUser = await authRepository.findById(targetUserId);
+    if (!targetUser) {
+      throw new NotFoundError('Kullanıcı bulunamadı.');
+    }
+
+    const updated = await authRepository.updateUserStatus(targetUserId, true);
+    if (!updated) {
+      throw new NotFoundError('Kullanıcı güncellenemedi.');
+    }
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'USER_UNBANNED',
+      targetId: targetUserId,
+      targetType: 'user',
+      details: { email: targetUser.email },
+      ...buildAuditMeta(meta),
+    });
+
+    return this.mapUserResponse(updated);
+  }
+
+  /**
+   * KULLANICIYA FONKSİYONEL ROLLER ATAMA (örn: ['hr', 'developer'])
+   */
+  async assignUserRoles(
+    actor: IUser,
+    targetUserId: string,
+    roles: string[],
+    meta?: AuthRequestMeta
+  ): Promise<UserResponseDto> {
+    const targetUser = await authRepository.findById(targetUserId);
+    if (!targetUser) {
+      throw new NotFoundError('Kullanıcı bulunamadı.');
+    }
+
+    const updated = await authRepository.updateUserRoles(targetUserId, roles);
+    if (!updated) {
+      throw new NotFoundError('Kullanıcı güncellenemedi.');
+    }
+
+    // Rol değişikliğinde oturumları tazelemesi için oturumları sonlandır veya cache temizle
+    await authRepository.deleteAllSessionsForUser(targetUserId);
+    await cacheService.delPattern('role:*');
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'ROLES_ASSIGNED',
+      targetId: targetUserId,
+      targetType: 'user',
+      details: { email: targetUser.email, assignedRoles: roles },
+      ...buildAuditMeta(meta),
+    });
+
+    return this.mapUserResponse(updated);
+  }
+
+  /**
+   * Tüm kullanıcıları listeler.
+   */
+  async listUsers(): Promise<UserResponseDto[]> {
+    const users = await authRepository.findAllUsers();
+    return users.map((u) => this.mapUserResponse(u));
   }
 
   /**
@@ -202,8 +495,8 @@ export class AuthService {
       email: user.email,
       firstName: user.first_name,
       lastName: user.last_name,
-      role: user.role,
-      tenantId: user.tenant_id,
+      systemRole: user.system_role,
+      roles: user.roles || [],
       isActive: user.is_active,
     };
   }

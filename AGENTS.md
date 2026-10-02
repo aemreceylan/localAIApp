@@ -51,8 +51,8 @@
    - Renk paletleri ana sohbet ekranında değil, **Görünüm Ayarları Modalı** içinde "derinde" yer alır.
 3. **Backend Modüler Monolit (Modular Monolith) & Katı İzolasyon:**  
    Klasik Clean Architecture yerine iş alanlarına (Bounded Contexts) göre ayrılmış Modüler Monolit yapısı esastır. Modüller birbirlerinin veritabanı modellerine/koleksiyonlarına doğrudan erişemez; iletişim yalnızca modülün kamuya açık public arayüzü (`index.ts` / Facade) üzerinden gerçekleşir.
-4. **Veri İzolasyonu (Multi-Tenancy):**  
-   MongoDB ve Qdrant sorgularında `tenant_id` filtresi zorunludur.
+4. **Kurumsal Veri ve Rol İzolasyonu (Enterprise RBAC & Document ACL):**  
+   Sistem tek kurum içi (on-premise) kullanım için tasarlanmıştır. Veriler kullanıcı (`user_id`) ve rol/kapsam (`allowed_roles`) bazında izole edilir. RAG bilgi bankası, vektör arama (Qdrant) ve prompt sorgularında rol filtrelemesi zorunludur; bir role/departmana (örn. İK) ait veriye yetkisiz başka bir rolün (örn. Yazılımcı) erişmesi matematiksel olarak engellenir.
 5. **Admin Model Yönetimi:**  
    Sistemde hiçbir yerde (kod, şema, env) sabit kodlanmış (hardcoded) varsayılan model bulunamaz. Modelleri ve varsayılan modeli yalnızca Admin belirler; kullanıcı model seçmek zorundadır.
 6. **Çok Katmanlı Dinamik Prompt Mimarisi (Prompt Stacking):**  

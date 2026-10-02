@@ -35,6 +35,14 @@ export const createPromptSchema = z.object({
       description: 'Modele verilecek sistem talimat metni',
       example: 'Sen deneyimli bir kurumsal hukuk danışmanısın. Sözleşmeleri risk ve mevzuat açısından incele.',
     }),
+  allowedRoles: z
+    .array(z.string())
+    .optional()
+    .default(['*'])
+    .openapi({
+      description: 'Bu promptu görebilecek ve kullanabilecek roller (örn: ["*"] veya ["hr", "developer"])',
+      example: ['*'],
+    }),
   isActive: z
     .boolean()
     .optional()

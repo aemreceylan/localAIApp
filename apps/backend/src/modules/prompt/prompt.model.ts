@@ -3,11 +3,11 @@ import mongoose, { Schema, type Model } from 'mongoose';
 export type PromptType = 'system_guardrail' | 'persona' | 'custom';
 
 export interface IPrompt {
-  tenant_id: string;
   title: string;
   slug: string;
   type: PromptType;
   content: string;
+  allowed_roles: string[]; // Erişebilecek roller, örn: ['*'] (herkes) veya ['hr', 'developer']
   is_active: boolean;
   is_default: boolean;
   priority: number;
@@ -17,11 +17,6 @@ export interface IPrompt {
 
 const promptSchema = new Schema<IPrompt>(
   {
-    tenant_id: {
-      type: String,
-      required: [true, 'tenant_id zorunludur.'],
-      index: true,
-    },
     title: {
       type: String,
       required: [true, 'Prompt başlığı zorunludur.'],
@@ -33,6 +28,8 @@ const promptSchema = new Schema<IPrompt>(
       required: [true, 'Prompt slug değeri zorunludur.'],
       trim: true,
       lowercase: true,
+      unique: true,
+      index: true,
     },
     type: {
       type: String,
@@ -43,6 +40,11 @@ const promptSchema = new Schema<IPrompt>(
     content: {
       type: String,
       required: [true, 'Prompt içeriği boş olamaz.'],
+    },
+    allowed_roles: {
+      type: [String],
+      default: ['*'], // Varsayılan olarak tüm rollere açık
+      index: true,
     },
     is_active: {
       type: Boolean,
@@ -63,9 +65,7 @@ const promptSchema = new Schema<IPrompt>(
   }
 );
 
-// Tenant bazlı bileşik indeksler
-promptSchema.index({ tenant_id: 1, slug: 1 }, { unique: true });
-promptSchema.index({ tenant_id: 1, type: 1, is_active: 1 });
+promptSchema.index({ type: 1, is_active: 1 });
 
 export const PromptModel: Model<IPrompt> =
   mongoose.models.Prompt || mongoose.model<IPrompt>('Prompt', promptSchema);

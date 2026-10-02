@@ -27,7 +27,7 @@ export interface SidebarProps {
 
 function getUserRoleLabel(role?: string): string {
   if (role === 'superadmin') return 'Super Admin';
-  if (role === 'tenant_admin') return 'Kurum Yöneticisi';
+  if (role === 'admin' || role === 'tenant_admin') return 'Sistem Yöneticisi';
   return 'Kullanıcı';
 }
 

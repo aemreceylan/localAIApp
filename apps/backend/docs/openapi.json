@@ -3,7 +3,7 @@
   "info": {
     "title": "NexusAI Gateway & Knowledge Base API",
     "version": "1.0.0",
-    "description": "Kurumsal LLM Orkestrasyonu, Yerel Modeller (Ollama), Bulut Modeller ve RAG Ağ Geçidi API Dokümantasyonu",
+    "description": "Kurumsal LLM Orkestrasyonu, Yerel Modeller (Ollama), Bulut Modeller ve On-Premises Role-Based Access Control (RBAC) API Dokümantasyonu",
     "contact": {
       "name": "NexusAI Platform Team"
     }
@@ -15,19 +15,6 @@
     }
   ],
   "components": {
-    "parameters": {
-      "TenantIdHeader": {
-        "name": "x-tenant-id",
-        "in": "header",
-        "required": false,
-        "schema": {
-          "type": "string",
-          "default": "default-tenant"
-        },
-        "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-        "example": "default-tenant"
-      }
-    },
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
@@ -195,6 +182,47 @@
           "model"
         ]
       },
+      "ModelInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Model kimliği",
+            "example": "llama3.2:3b"
+          },
+          "name": {
+            "type": "string",
+            "description": "Görünen model adı",
+            "example": "Llama 3.2 3B"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Sağlayıcı motoru",
+            "example": "ollama"
+          },
+          "isLocal": {
+            "type": "boolean",
+            "description": "Yerel sunucuda mı çalışıyor?",
+            "example": true
+          },
+          "description": {
+            "type": "string",
+            "description": "Model açıklaması",
+            "example": "Hafif yerel model"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Varsayılan model mi?",
+            "example": false
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "provider",
+          "isLocal"
+        ]
+      },
       "CreatePromptRequest": {
         "type": "object",
         "properties": {
@@ -227,6 +255,19 @@
             "minLength": 1,
             "description": "Modele verilecek sistem talimat metni",
             "example": "Sen deneyimli bir kurumsal hukuk danışmanısın. Sözleşmeleri risk ve mevzuat açısından incele."
+          },
+          "allowedRoles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "*"
+            ],
+            "description": "Bu promptu görebilecek ve kullanabilecek roller (örn: [\"*\"] veya [\"hr\", \"developer\"])",
+            "example": [
+              "*"
+            ]
           },
           "isActive": {
             "type": "boolean",
@@ -287,6 +328,19 @@
             "description": "Modele verilecek sistem talimat metni",
             "example": "Sen deneyimli bir kurumsal hukuk danışmanısın. Sözleşmeleri risk ve mevzuat açısından incele."
           },
+          "allowedRoles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [
+              "*"
+            ],
+            "description": "Bu promptu görebilecek ve kullanabilecek roller (örn: [\"*\"] veya [\"hr\", \"developer\"])",
+            "example": [
+              "*"
+            ]
+          },
           "isActive": {
             "type": "boolean",
             "default": true,
@@ -336,13 +390,6 @@
             "maxLength": 100,
             "description": "Super Admin Giriş Parolası",
             "example": "SuperGucluSifre2026!"
-          },
-          "organizationName": {
-            "type": "string",
-            "minLength": 2,
-            "maxLength": 100,
-            "description": "İlk kurulumda oluşturulacak varsayılan kurum / şirket adı",
-            "example": "NexusAI Kurumsal Çözümler"
           }
         },
         "required": [
@@ -405,22 +452,25 @@
             "type": "string",
             "description": "Soyad"
           },
-          "role": {
+          "systemRole": {
             "type": "string",
             "enum": [
               "superadmin",
-              "tenant_admin",
+              "admin",
               "user"
             ],
-            "description": "Kullanıcı Rolü"
+            "description": "Sistem Seviyesi Rol"
           },
-          "tenantId": {
-            "type": "string",
-            "description": "Bağlı olunan kiracı ID"
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Kurum içi departman ve fonksiyonel roller"
           },
           "isActive": {
             "type": "boolean",
-            "description": "Hesap aktiflik durumu"
+            "description": "Hesap aktiflik/ban durumu"
           }
         },
         "required": [
@@ -428,8 +478,8 @@
           "email",
           "firstName",
           "lastName",
-          "role",
-          "tenantId",
+          "systemRole",
+          "roles",
           "isActive"
         ]
       },
@@ -460,22 +510,25 @@
                 "type": "string",
                 "description": "Soyad"
               },
-              "role": {
+              "systemRole": {
                 "type": "string",
                 "enum": [
                   "superadmin",
-                  "tenant_admin",
+                  "admin",
                   "user"
                 ],
-                "description": "Kullanıcı Rolü"
+                "description": "Sistem Seviyesi Rol"
               },
-              "tenantId": {
-                "type": "string",
-                "description": "Bağlı olunan kiracı ID"
+              "roles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Kurum içi departman ve fonksiyonel roller"
               },
               "isActive": {
                 "type": "boolean",
-                "description": "Hesap aktiflik durumu"
+                "description": "Hesap aktiflik/ban durumu"
               }
             },
             "required": [
@@ -483,8 +536,8 @@
               "email",
               "firstName",
               "lastName",
-              "role",
-              "tenantId",
+              "systemRole",
+              "roles",
               "isActive"
             ]
           }
@@ -494,48 +547,173 @@
           "user"
         ]
       },
-      "ModelInfo": {
+      "TransferSuperAdminRequest": {
+        "type": "object",
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "passwordConfirm": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "targetUserId",
+          "passwordConfirm"
+        ]
+      },
+      "AssignAdminRequest": {
+        "type": "object",
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "targetUserId"
+        ]
+      },
+      "AssignRolesRequest": {
+        "type": "object",
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "targetUserId",
+          "roles"
+        ]
+      },
+      "BanUserRequest": {
+        "type": "object",
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "targetUserId"
+        ]
+      },
+      "CreateRoleRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 50,
+            "description": "Görünen Rol Adı",
+            "example": "İnsan Kaynakları"
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 30,
+            "pattern": "^[a-z0-9_-]+$",
+            "description": "Benzersiz Rol Tanımlayıcısı (slug)",
+            "example": "hr"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 250,
+            "description": "Rol Açıklaması",
+            "example": "İnsan Kaynakları departmanı personelleri için erişim izinleri."
+          },
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "description": "Role atanan yetkiler listesi",
+            "example": [
+              "rag:document:read",
+              "prompt:read"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "slug"
+        ]
+      },
+      "UpdateRolePermissionsRequest": {
+        "type": "object",
+        "properties": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Güncellenecek yeni yetki listesi",
+            "example": [
+              "rag:document:read",
+              "prompt:read",
+              "rag:document:upload"
+            ]
+          }
+        },
+        "required": [
+          "permissions"
+        ]
+      },
+      "RoleResponse": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
-            "description": "Model kimliği",
-            "example": "llama3.2:3b"
+            "description": "Rol ID"
           },
           "name": {
             "type": "string",
-            "description": "Görünen model adı",
-            "example": "Llama 3.2 3B"
+            "description": "Rol Adı"
           },
-          "provider": {
+          "slug": {
             "type": "string",
-            "description": "Sağlayıcı motoru",
-            "example": "ollama"
-          },
-          "isLocal": {
-            "type": "boolean",
-            "description": "Yerel sunucuda mı çalışıyor?",
-            "example": true
+            "description": "Rol Tanımlayıcısı (slug)"
           },
           "description": {
             "type": "string",
-            "description": "Model açıklaması",
-            "example": "Hafif yerel model"
+            "description": "Rol Açıklaması"
           },
-          "isDefault": {
+          "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Rol İzinleri"
+          },
+          "isSystem": {
             "type": "boolean",
-            "description": "Varsayılan model mi?",
-            "example": false
+            "description": "Sistem Rolü mü?"
           }
         },
         "required": [
           "id",
           "name",
-          "provider",
-          "isLocal"
+          "slug",
+          "permissions",
+          "isSystem"
         ]
       }
-    }
+    },
+    "parameters": {}
   },
   "paths": {
     "/health": {
@@ -562,7 +740,7 @@
                     },
                     "timestamp": {
                       "type": "string",
-                      "example": "2026-09-29T10:00:00.000Z"
+                      "example": "2026-10-02T10:00:00.000Z"
                     },
                     "uptime": {
                       "type": "number",
@@ -587,18 +765,10 @@
           "Sohbet & LLM"
         ],
         "summary": "Canlı LLM Sohbet Akışı (Streaming & Persistence)",
-        "description": "Kullanıcı mesaj geçmişini alır. Eğer conversationId belirtilmişse mesajları MongoDB oturumuna kaydeder ve Ollama üzerinden anlık token akışı (Data Stream) başlatır.",
-        "parameters": [
+        "description": "Kullanıcı mesaj geçmişini alır. Eğer conversationId belirtilmişse mesajları MongoDB oturumuna kaydeder ve LLM sağlayıcısı üzerinden anlık token akışı (Data Stream) başlatır.",
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -698,7 +868,7 @@
             }
           },
           "502": {
-            "description": "Model servis sağlayıcısı (Ollama) bağlantı hatası",
+            "description": "Model servis sağlayıcısı bağlantı hatası",
             "content": {
               "application/json": {
                 "schema": {
@@ -716,18 +886,10 @@
           "Sohbet Oturumları (Sessions)"
         ],
         "summary": "Yeni Sohbet Oturumu Oluştur",
-        "description": "Tenant için yeni bir konuşma başlığı ve modeliyle oturum (thread) kaydı oluşturur.",
-        "parameters": [
+        "description": "Aktif kullanıcı için yeni bir konuşma başlığı ve modeliyle oturum (thread) kaydı oluşturur.",
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -790,18 +952,10 @@
           "Sohbet Oturumları (Sessions)"
         ],
         "summary": "Sohbet Oturumlarını Listele",
-        "description": "Aktif kiracıya (tenant) ait tüm geçmiş oturumları en yeniden eskiye listeler.",
-        "parameters": [
+        "description": "Aktif kullanıcıya ait tüm geçmiş oturumları en yeniden eskiye listeler.",
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -818,18 +972,12 @@
         ],
         "summary": "Tekil Sohbet Oturumu Detayı",
         "description": "Belirtilen ID değerine sahip oturumun detaylarını getirir.",
-        "parameters": [
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "id",
             "in": "path",
@@ -862,18 +1010,12 @@
         ],
         "summary": "Sohbet Oturumunu Sil",
         "description": "Oturumu ve bağlı tüm mesajları kalıcı olarak siler.",
-        "parameters": [
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "id",
             "in": "path",
@@ -908,18 +1050,12 @@
         ],
         "summary": "Oturum Mesaj Geçmişini Getir",
         "description": "Belirtilen oturum ID için tüm kullanıcı ve asistan mesajlarını kronolojik sırada getirir.",
-        "parameters": [
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "id",
             "in": "path",
@@ -953,18 +1089,10 @@
           "Sohbet & LLM"
         ],
         "summary": "Kullanılabilir LLM Modellerini Listele",
-        "description": "Sistemde kayıtlı AI sağlayıcılarından (Ollama, vLLM, OpenAI vb.) anlık olarak kullanılabilir dil modellerini ve varsa varsayılan modeli listeler.",
-        "parameters": [
+        "description": "Sistemde kayıtlı AI sağlayıcılarından (Ollama, vLLM, OpenAI vb.) anlık olarak kullanılabilir dil modellerini listeler.",
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -1048,18 +1176,10 @@
           "Prompt Yönetimi (Dinamik Prompt Stacking)"
         ],
         "summary": "Yeni Prompt / Persona / Guardrail Oluştur",
-        "description": "Sisteme yeni bir kurumsal guardrail kuralı, uzmanlık personasi veya özel prompt şablonu ekler.",
-        "parameters": [
+        "description": "Sisteme yeni bir kurumsal guardrail kuralı, uzmanlık personasi veya departman bazlı prompt şablonu ekler.",
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
+            "bearerAuth": []
           }
         ],
         "requestBody": {
@@ -1099,6 +1219,19 @@
                     "minLength": 1,
                     "description": "Modele verilecek sistem talimat metni",
                     "example": "Sen deneyimli bir kurumsal hukuk danışmanısın. Sözleşmeleri risk ve mevzuat açısından incele."
+                  },
+                  "allowedRoles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [
+                      "*"
+                    ],
+                    "description": "Bu promptu görebilecek ve kullanabilecek roller (örn: [\"*\"] veya [\"hr\", \"developer\"])",
+                    "example": [
+                      "*"
+                    ]
                   },
                   "isActive": {
                     "type": "boolean",
@@ -1150,19 +1283,13 @@
           "Prompt Yönetimi (Dinamik Prompt Stacking)"
         ],
         "summary": "Promptları Listele",
-        "description": "Kiracıya (tenant) ait promptları filtreleyerek listeler.",
-        "parameters": [
+        "description": "Kullanıcının departman ve fonksiyonel rollerine göre filtrelenmiş promptları listeler.",
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "type",
             "in": "query",
@@ -1201,18 +1328,12 @@
         ],
         "summary": "Tekil Prompt Detayı",
         "description": "Belirtilen ID değerine sahip promptun detaylarını getirir.",
-        "parameters": [
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "id",
             "in": "path",
@@ -1244,19 +1365,13 @@
           "Prompt Yönetimi (Dinamik Prompt Stacking)"
         ],
         "summary": "Prompt Güncelle",
-        "description": "Var olan bir promptun metnini, aktiflik durumunu veya önceliğini günceller.",
-        "parameters": [
+        "description": "Var olan bir promptun metnini, aktiflik durumunu, önceliğini veya erişim rollerini günceller.",
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "id",
             "in": "path",
@@ -1305,6 +1420,19 @@
                     "description": "Modele verilecek sistem talimat metni",
                     "example": "Sen deneyimli bir kurumsal hukuk danışmanısın. Sözleşmeleri risk ve mevzuat açısından incele."
                   },
+                  "allowedRoles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [
+                      "*"
+                    ],
+                    "description": "Bu promptu görebilecek ve kullanabilecek roller (örn: [\"*\"] veya [\"hr\", \"developer\"])",
+                    "example": [
+                      "*"
+                    ]
+                  },
                   "isActive": {
                     "type": "boolean",
                     "default": true,
@@ -1350,18 +1478,12 @@
         ],
         "summary": "Prompt Sil",
         "description": "Belirtilen promptu kalıcı olarak siler.",
-        "parameters": [
+        "security": [
           {
-            "name": "x-tenant-id",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "default-tenant"
-            },
-            "description": "Çok kiracılı (Multi-Tenancy) veri izolasyonu için Kiracı ID. Belirtilmezse varsayılan kiracı (default-tenant) kullanılır.",
-            "example": "default-tenant"
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "id",
             "in": "path",
@@ -1443,7 +1565,7 @@
         "summary": "İlk Super Admin Kurulumu (Tek Seferlik)",
         "description": "Sistem ilk açıldığında doğrudan kayıt olabilecek tek kullanıcı olan Super Admin hesabını oluşturur. Super Admin zaten varsa 403 Forbidden döner.",
         "requestBody": {
-          "description": "Super Admin bilgileri ve opsiyonel organizasyon adı",
+          "description": "Super Admin bilgileri",
           "required": true,
           "content": {
             "application/json": {
@@ -1476,13 +1598,6 @@
                     "maxLength": 100,
                     "description": "Super Admin Giriş Parolası",
                     "example": "SuperGucluSifre2026!"
-                  },
-                  "organizationName": {
-                    "type": "string",
-                    "minLength": 2,
-                    "maxLength": 100,
-                    "description": "İlk kurulumda oluşturulacak varsayılan kurum / şirket adı",
-                    "example": "NexusAI Kurumsal Çözümler"
                   }
                 },
                 "required": [
@@ -1536,22 +1651,25 @@
                               "type": "string",
                               "description": "Soyad"
                             },
-                            "role": {
+                            "systemRole": {
                               "type": "string",
                               "enum": [
                                 "superadmin",
-                                "tenant_admin",
+                                "admin",
                                 "user"
                               ],
-                              "description": "Kullanıcı Rolü"
+                              "description": "Sistem Seviyesi Rol"
                             },
-                            "tenantId": {
-                              "type": "string",
-                              "description": "Bağlı olunan kiracı ID"
+                            "roles": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Kurum içi departman ve fonksiyonel roller"
                             },
                             "isActive": {
                               "type": "boolean",
-                              "description": "Hesap aktiflik durumu"
+                              "description": "Hesap aktiflik/ban durumu"
                             }
                           },
                           "required": [
@@ -1559,8 +1677,8 @@
                             "email",
                             "firstName",
                             "lastName",
-                            "role",
-                            "tenantId",
+                            "systemRole",
+                            "roles",
                             "isActive"
                           ]
                         }
@@ -1669,22 +1787,25 @@
                               "type": "string",
                               "description": "Soyad"
                             },
-                            "role": {
+                            "systemRole": {
                               "type": "string",
                               "enum": [
                                 "superadmin",
-                                "tenant_admin",
+                                "admin",
                                 "user"
                               ],
-                              "description": "Kullanıcı Rolü"
+                              "description": "Sistem Seviyesi Rol"
                             },
-                            "tenantId": {
-                              "type": "string",
-                              "description": "Bağlı olunan kiracı ID"
+                            "roles": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Kurum içi departman ve fonksiyonel roller"
                             },
                             "isActive": {
                               "type": "boolean",
-                              "description": "Hesap aktiflik durumu"
+                              "description": "Hesap aktiflik/ban durumu"
                             }
                           },
                           "required": [
@@ -1692,8 +1813,8 @@
                             "email",
                             "firstName",
                             "lastName",
-                            "role",
-                            "tenantId",
+                            "systemRole",
+                            "roles",
                             "isActive"
                           ]
                         }
@@ -1714,6 +1835,16 @@
           },
           "401": {
             "description": "Geçersiz e-posta veya parola",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Kullanıcı hesabı askıya alınmış/banlanmış",
             "content": {
               "application/json": {
                 "schema": {
@@ -1790,7 +1921,7 @@
           "Kimlik Doğrulama & Oturum (Auth)"
         ],
         "summary": "Aktif Kullanıcı Bilgisi",
-        "description": "Bearer token üzerinden oturum açmış aktif kullanıcının profil ve rol bilgilerini döndürür.",
+        "description": "Bearer token üzerinden oturum açmış aktif kullanıcının profil, sistem rolü ve fonksiyonel departman rollerini döndürür.",
         "security": [
           {
             "bearerAuth": []
@@ -1829,22 +1960,25 @@
                           "type": "string",
                           "description": "Soyad"
                         },
-                        "role": {
+                        "systemRole": {
                           "type": "string",
                           "enum": [
                             "superadmin",
-                            "tenant_admin",
+                            "admin",
                             "user"
                           ],
-                          "description": "Kullanıcı Rolü"
+                          "description": "Sistem Seviyesi Rol"
                         },
-                        "tenantId": {
-                          "type": "string",
-                          "description": "Bağlı olunan kiracı ID"
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Kurum içi departman ve fonksiyonel roller"
                         },
                         "isActive": {
                           "type": "boolean",
-                          "description": "Hesap aktiflik durumu"
+                          "description": "Hesap aktiflik/ban durumu"
                         }
                       },
                       "required": [
@@ -1852,8 +1986,8 @@
                         "email",
                         "firstName",
                         "lastName",
-                        "role",
-                        "tenantId",
+                        "systemRole",
+                        "roles",
                         "isActive"
                       ]
                     }
@@ -1872,6 +2006,1098 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/superadmin/transfer": {
+      "post": {
+        "tags": [
+          "Kurumsal RBAC & Yönetim"
+        ],
+        "summary": "Superadmin Yetkisini Devret (Transfer Superadmin)",
+        "description": "Yalnızca mevcut Superadmin tarafından çalıştırılabilir. Parola doğrulaması sonrasında superadminlik rolü hedef kullanıcıya devreder.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Hedef kullanıcı ID ve mevcut superadmin onay parolası",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "passwordConfirm": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "targetUserId",
+                  "passwordConfirm"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Superadmin yetkisi başarıyla devredildi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yetkisiz (Sadece mevcut Superadmin devredebilir)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/admin/assign": {
+      "post": {
+        "tags": [
+          "Kurumsal RBAC & Yönetim"
+        ],
+        "summary": "Admin Rolü Ata",
+        "description": "Yalnızca Superadmin tarafından çalıştırılabilir. Bir kullanıcıya sistem düzeyinde admin rolü atar.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Hedef kullanıcı ID",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "targetUserId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Admin rolü başarıyla atandı.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Kullanıcı ID (ObjectId)"
+                        },
+                        "email": {
+                          "type": "string",
+                          "description": "E-posta"
+                        },
+                        "firstName": {
+                          "type": "string",
+                          "description": "Ad"
+                        },
+                        "lastName": {
+                          "type": "string",
+                          "description": "Soyad"
+                        },
+                        "systemRole": {
+                          "type": "string",
+                          "enum": [
+                            "superadmin",
+                            "admin",
+                            "user"
+                          ],
+                          "description": "Sistem Seviyesi Rol"
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Kurum içi departman ve fonksiyonel roller"
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                          "description": "Hesap aktiflik/ban durumu"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "firstName",
+                        "lastName",
+                        "systemRole",
+                        "roles",
+                        "isActive"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yalnızca Superadmin admin atayabilir.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/admin/revoke": {
+      "post": {
+        "tags": [
+          "Kurumsal RBAC & Yönetim"
+        ],
+        "summary": "Admin Rolünü Geri Al",
+        "description": "Yalnızca Superadmin tarafından çalıştırılabilir. Admin rolünü geri alır ve kullanıcıyı standart \"user\" seviyesine çeker.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Hedef kullanıcı ID",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetUserId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "targetUserId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Admin rolü geri alındı.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Kullanıcı ID (ObjectId)"
+                        },
+                        "email": {
+                          "type": "string",
+                          "description": "E-posta"
+                        },
+                        "firstName": {
+                          "type": "string",
+                          "description": "Ad"
+                        },
+                        "lastName": {
+                          "type": "string",
+                          "description": "Soyad"
+                        },
+                        "systemRole": {
+                          "type": "string",
+                          "enum": [
+                            "superadmin",
+                            "admin",
+                            "user"
+                          ],
+                          "description": "Sistem Seviyesi Rol"
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Kurum içi departman ve fonksiyonel roller"
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                          "description": "Hesap aktiflik/ban durumu"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "firstName",
+                        "lastName",
+                        "systemRole",
+                        "roles",
+                        "isActive"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yalnızca Superadmin admin rolünü geri alabilir.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/users": {
+      "get": {
+        "tags": [
+          "Kurumsal RBAC & Yönetim"
+        ],
+        "summary": "Kullanıcıları Listele",
+        "description": "Sistemdeki tüm kayıtlı kullanıcıları listeler. (Yetki: user:read)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kullanıcı listesi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Kullanıcı ID (ObjectId)"
+                          },
+                          "email": {
+                            "type": "string",
+                            "description": "E-posta"
+                          },
+                          "firstName": {
+                            "type": "string",
+                            "description": "Ad"
+                          },
+                          "lastName": {
+                            "type": "string",
+                            "description": "Soyad"
+                          },
+                          "systemRole": {
+                            "type": "string",
+                            "enum": [
+                              "superadmin",
+                              "admin",
+                              "user"
+                            ],
+                            "description": "Sistem Seviyesi Rol"
+                          },
+                          "roles": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Kurum içi departman ve fonksiyonel roller"
+                          },
+                          "isActive": {
+                            "type": "boolean",
+                            "description": "Hesap aktiflik/ban durumu"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "email",
+                          "firstName",
+                          "lastName",
+                          "systemRole",
+                          "roles",
+                          "isActive"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Yetki yetersiz.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/users/{id}/ban": {
+      "post": {
+        "tags": [
+          "Kurumsal RBAC & Yönetim"
+        ],
+        "summary": "Kullanıcıyı Yasakla / Askıya Al (Ban)",
+        "description": "Kullanıcının hesabını devre dışı bırakır ve açık tüm oturumlarını anında iptal eder. Superadmin yasaklanamaz. (Yetki: user:ban)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Kullanıcı ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kullanıcı başarıyla yasaklandı ve tüm oturumları iptal edildi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Kullanıcı ID (ObjectId)"
+                        },
+                        "email": {
+                          "type": "string",
+                          "description": "E-posta"
+                        },
+                        "firstName": {
+                          "type": "string",
+                          "description": "Ad"
+                        },
+                        "lastName": {
+                          "type": "string",
+                          "description": "Soyad"
+                        },
+                        "systemRole": {
+                          "type": "string",
+                          "enum": [
+                            "superadmin",
+                            "admin",
+                            "user"
+                          ],
+                          "description": "Sistem Seviyesi Rol"
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Kurum içi departman ve fonksiyonel roller"
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                          "description": "Hesap aktiflik/ban durumu"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "firstName",
+                        "lastName",
+                        "systemRole",
+                        "roles",
+                        "isActive"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Superadmin yasaklanamaz veya yetki yetersiz.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/users/{id}/unban": {
+      "post": {
+        "tags": [
+          "Kurumsal RBAC & Yönetim"
+        ],
+        "summary": "Kullanıcı Yasağını Kaldır (Unban)",
+        "description": "Kullanıcının hesabını tekrar aktif hale getirir. (Yetki: user:unban)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Kullanıcı ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Kullanıcı hesabı tekrar aktif edildi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Kullanıcı ID (ObjectId)"
+                        },
+                        "email": {
+                          "type": "string",
+                          "description": "E-posta"
+                        },
+                        "firstName": {
+                          "type": "string",
+                          "description": "Ad"
+                        },
+                        "lastName": {
+                          "type": "string",
+                          "description": "Soyad"
+                        },
+                        "systemRole": {
+                          "type": "string",
+                          "enum": [
+                            "superadmin",
+                            "admin",
+                            "user"
+                          ],
+                          "description": "Sistem Seviyesi Rol"
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Kurum içi departman ve fonksiyonel roller"
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                          "description": "Hesap aktiflik/ban durumu"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "firstName",
+                        "lastName",
+                        "systemRole",
+                        "roles",
+                        "isActive"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/users/{id}/roles": {
+      "put": {
+        "tags": [
+          "Kurumsal RBAC & Yönetim"
+        ],
+        "summary": "Kullanıcı Fonksiyonel Rollerini Güncelle",
+        "description": "Kullanıcının kurum içi departman rollerini (hr, developer, finance vb.) günceller ve oturumlarını anında yeniler. (Yetki: user:manage_roles)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Kullanıcı ID"
+          }
+        ],
+        "requestBody": {
+          "description": "Yeni atanacak roller listesi",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "roles": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "minItems": 1
+                  }
+                },
+                "required": [
+                  "roles"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kullanıcı rolleri başarıyla güncellendi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Kullanıcı ID (ObjectId)"
+                        },
+                        "email": {
+                          "type": "string",
+                          "description": "E-posta"
+                        },
+                        "firstName": {
+                          "type": "string",
+                          "description": "Ad"
+                        },
+                        "lastName": {
+                          "type": "string",
+                          "description": "Soyad"
+                        },
+                        "systemRole": {
+                          "type": "string",
+                          "enum": [
+                            "superadmin",
+                            "admin",
+                            "user"
+                          ],
+                          "description": "Sistem Seviyesi Rol"
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Kurum içi departman ve fonksiyonel roller"
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                          "description": "Hesap aktiflik/ban durumu"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "firstName",
+                        "lastName",
+                        "systemRole",
+                        "roles",
+                        "isActive"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles": {
+      "get": {
+        "tags": [
+          "Rol ve İzin Yönetimi (OCP Engine)"
+        ],
+        "summary": "Tanımlı Rolleri Listele",
+        "description": "Sistemde kayıtlı varsayılan ve dinamik olarak eklenmiş departman rollerini listeler.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rol listesi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "description": "Rol ID"
+                          },
+                          "name": {
+                            "type": "string",
+                            "description": "Rol Adı"
+                          },
+                          "slug": {
+                            "type": "string",
+                            "description": "Rol Tanımlayıcısı (slug)"
+                          },
+                          "description": {
+                            "type": "string",
+                            "description": "Rol Açıklaması"
+                          },
+                          "permissions": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            },
+                            "description": "Rol İzinleri"
+                          },
+                          "isSystem": {
+                            "type": "boolean",
+                            "description": "Sistem Rolü mü?"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "slug",
+                          "permissions",
+                          "isSystem"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Rol ve İzin Yönetimi (OCP Engine)"
+        ],
+        "summary": "Yeni Departman / Fonksiyonel Rol Oluştur",
+        "description": "Kurum için yeni bir rol ve bu role ait izinler tanımlar. (Yetki: user:manage_roles)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Rol tanımlama verisi",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 50,
+                    "description": "Görünen Rol Adı",
+                    "example": "İnsan Kaynakları"
+                  },
+                  "slug": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 30,
+                    "pattern": "^[a-z0-9_-]+$",
+                    "description": "Benzersiz Rol Tanımlayıcısı (slug)",
+                    "example": "hr"
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 250,
+                    "description": "Rol Açıklaması",
+                    "example": "İnsan Kaynakları departmanı personelleri için erişim izinleri."
+                  },
+                  "permissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [],
+                    "description": "Role atanan yetkiler listesi",
+                    "example": [
+                      "rag:document:read",
+                      "prompt:read"
+                    ]
+                  }
+                },
+                "required": [
+                  "name",
+                  "slug"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Rol başarıyla oluşturuldu.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Rol ID"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Rol Adı"
+                        },
+                        "slug": {
+                          "type": "string",
+                          "description": "Rol Tanımlayıcısı (slug)"
+                        },
+                        "description": {
+                          "type": "string",
+                          "description": "Rol Açıklaması"
+                        },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Rol İzinleri"
+                        },
+                        "isSystem": {
+                          "type": "boolean",
+                          "description": "Sistem Rolü mü?"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "slug",
+                        "permissions",
+                        "isSystem"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles/{slug}/permissions": {
+      "put": {
+        "tags": [
+          "Rol ve İzin Yönetimi (OCP Engine)"
+        ],
+        "summary": "Rol İzinlerini Güncelle",
+        "description": "Var olan bir rolün erişim yetkilerini dinamik olarak günceller. (Yetki: user:manage_roles)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Rol kodu (slug: örn. hr, developer)"
+          }
+        ],
+        "requestBody": {
+          "description": "Yeni yetkiler listesi",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "permissions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Güncellenecek yeni yetki listesi",
+                    "example": [
+                      "rag:document:read",
+                      "prompt:read",
+                      "rag:document:upload"
+                    ]
+                  }
+                },
+                "required": [
+                  "permissions"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rol izinleri güncellendi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Rol ID"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Rol Adı"
+                        },
+                        "slug": {
+                          "type": "string",
+                          "description": "Rol Tanımlayıcısı (slug)"
+                        },
+                        "description": {
+                          "type": "string",
+                          "description": "Rol Açıklaması"
+                        },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Rol İzinleri"
+                        },
+                        "isSystem": {
+                          "type": "boolean",
+                          "description": "Sistem Rolü mü?"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "slug",
+                        "permissions",
+                        "isSystem"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
                 }
               }
             }

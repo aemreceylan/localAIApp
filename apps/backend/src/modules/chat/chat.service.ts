@@ -14,11 +14,9 @@ interface SessionContext {
 export class ChatService {
   /**
    * Yeni bir sohbet oturumu oluşturur. Model seçimi zorunludur.
-   * Kural 6: Oturumda statik prompt tutulmaz; persona referansı ve özel talimat saklanır.
    */
-  async createSession(tenant_id: string, dto: CreateSessionDto, user_id?: string) {
+  async createSession(dto: CreateSessionDto, user_id?: string) {
     return await chatRepository.createConversation({
-      tenant_id,
       ...(user_id ? { user_id } : {}),
       title: dto.title || 'Yeni Sohbet',
       model: dto.model,
@@ -28,17 +26,17 @@ export class ChatService {
   }
 
   /**
-   * Tenant'a (ve opsiyonel kullanıcıya) ait oturumları listeler.
+   * Kullanıcıya ait oturumları listeler.
    */
-  async getSessions(tenant_id: string, user_id?: string) {
-    return await chatRepository.getConversations(tenant_id, user_id);
+  async getSessions(user_id?: string) {
+    return await chatRepository.getConversations(user_id);
   }
 
   /**
    * Tekil oturum detayını getirir.
    */
-  async getSessionById(id: string, tenant_id: string, user_id?: string) {
-    const session = await chatRepository.getConversationById(id, tenant_id, user_id);
+  async getSessionById(id: string, user_id?: string) {
+    const session = await chatRepository.getConversationById(id, user_id);
     if (!session) {
       throw new NotFoundError(`Sohbet oturumu bulunamadı: ${id}`);
     }
@@ -48,8 +46,8 @@ export class ChatService {
   /**
    * Oturumu ve mesajlarını siler.
    */
-  async deleteSession(id: string, tenant_id: string) {
-    const deleted = await chatRepository.deleteConversation(id, tenant_id);
+  async deleteSession(id: string, user_id?: string) {
+    const deleted = await chatRepository.deleteConversation(id, user_id);
     if (!deleted) {
       throw new NotFoundError(`Silinecek sohbet oturumu bulunamadı: ${id}`);
     }
@@ -59,15 +57,15 @@ export class ChatService {
   /**
    * Oturuma ait mesaj geçmişini getirir.
    */
-  async getSessionMessages(conversationId: string, tenant_id: string) {
-    await this.getSessionById(conversationId, tenant_id);
-    return await chatRepository.getMessagesByConversationId(conversationId, tenant_id);
+  async getSessionMessages(conversationId: string, user_id?: string) {
+    await this.getSessionById(conversationId, user_id);
+    return await chatRepository.getMessagesByConversationId(conversationId);
   }
 
   /**
    * Sistemde ve sağlayıcılarda anlık kullanılabilir olan modelleri listeler.
    */
-  async getAvailableModels(_tenant_id: string) {
+  async getAvailableModels() {
     const models = await aiProviderRegistry.getAvailableModels();
     const defaultProviderId = aiProviderRegistry.getDefaultProviderId();
     const defaultModel = defaultProviderId
@@ -85,15 +83,14 @@ export class ChatService {
    */
   private async processSessionContext(
     conversationId: string,
-    tenant_id: string,
+    user_id?: string,
     lastUserMessage?: ChatMessageDto
   ): Promise<SessionContext> {
-    const session = await this.getSessionById(conversationId, tenant_id);
+    const session = await this.getSessionById(conversationId, user_id);
 
     if (lastUserMessage?.role === 'user') {
       await chatRepository.addMessage({
         conversation_id: conversationId,
-        tenant_id,
         role: 'user',
         content: lastUserMessage.content,
       });
@@ -107,39 +104,20 @@ export class ChatService {
   }
 
   /**
-   * Chat Oturumu ve İstek Parametrelerini Çözümleme Adaptörü (Context Resolver)
-   * 
-   * [MİMARİ ROL - Adapter & Bounded Context]:
-   * Asıl 3 katmanlı Prompt Stacking derleme motoru `#modules/prompt` modülündeki `promptService.buildSystemPrompt()`
-   * fonksiyonudur. Bu metod ise bir "Prompt Motoru" DEĞİLDİR; chat modülüne özgü olan:
-   * 1. Anlık HTTP istek parametreleri (`dto.promptId`, `dto.customInstructions`) ile
-   * 2. Veritabanında kayıtlı sohbet oturumu parametreleri (`sessionContext.promptId`, `sessionContext.customInstructions`)
-   * arasındaki öncelik hiyerarşisini (fallback) çözen bir adaptördür.
-   * 
-   * [NEDEN CHAT MODÜLÜNDE?]:
-   * `ChatRequestDto` ve `SessionContext` modelleri `chat` modülüne aittir. `prompt` modülünün chat'e
-   * ait veri tiplerine bağımlı olmasını önlemek ve katı modüler monolit sınırlarını korumak (Separation of Concerns)
-   * amacıyla parametre çözümleme burada yapılır ve prompt modülüne yalnızca saf primitive değerler iletilir.
-   * 
-   * @param dto İstemciden gelen anlık chat isteği
-   * @param tenant_id Kiracı izolasyon kimliği
-   * @param sessionContext İsteğe bağlı DB sohbet oturumu bilgileri
-   * @returns Birleştirilmiş nihai sistem prompt metni veya undefined
-   * 
-   * @example
-   * const systemPrompt = await this.resolveSessionPrompt(dto, 'tenant_123', sessionContext);
+   * Chat Oturumu ve İstek Parametrelerini Çözümleme Adaptörü
    */
   private async resolveSessionPrompt(
     dto: ChatRequestDto,
-    tenant_id: string,
+    userRoles?: string[],
     sessionContext?: SessionContext
   ): Promise<string | undefined> {
     const promptId = dto.promptId || sessionContext?.promptId;
     const customInstructions = dto.customInstructions || sessionContext?.customInstructions;
 
-    return await promptService.buildSystemPrompt(tenant_id, {
+    return await promptService.buildSystemPrompt({
       ...(promptId ? { prompt_id: promptId } : {}),
       ...(customInstructions ? { custom_instructions: customInstructions } : {}),
+      ...(userRoles ? { userRoles } : {}),
     });
   }
 
@@ -148,13 +126,11 @@ export class ChatService {
    */
   private async persistAssistantMessage(
     conversationId: string,
-    tenant_id: string,
     text: string
   ): Promise<void> {
     try {
       await chatRepository.addMessage({
         conversation_id: conversationId,
-        tenant_id,
         role: 'assistant',
         content: text,
       });
@@ -165,15 +141,16 @@ export class ChatService {
 
   /**
    * Kullanıcı mesajlarını alır, opsiyonel olarak DB'ye kaydeder ve LLM üzerinden canlı akış başlatır.
-   * Model parametresi oturumdan veya istek gövdesinden gelmek zorundadır.
-   * Sistem promptları gerçek zamanlı birleştirme motoru (Prompt Stacking Engine) ile derlenir.
    */
-  async streamChat(dto: ChatRequestDto, tenant_id = 'default-tenant') {
+  async streamChat(
+    dto: ChatRequestDto,
+    user?: { id?: string | undefined; roles?: string[] | undefined } | undefined
+  ) {
     let sessionContext: SessionContext | undefined;
 
     if (dto.conversationId) {
       const lastUserMessage = dto.messages.at(-1);
-      sessionContext = await this.processSessionContext(dto.conversationId, tenant_id, lastUserMessage);
+      sessionContext = await this.processSessionContext(dto.conversationId, user?.id, lastUserMessage);
     }
 
     let selectedModel = dto.model || sessionContext?.model;
@@ -181,7 +158,7 @@ export class ChatService {
       throw new ValidationError('Sohbet için bir model belirtilmelidir.');
     }
 
-    // Model tanımlayıcısı sağlayıcı ön eki ('provider/model') içermiyorsa, mevcut sağlayıcı modelleriyle dinamik eşleştir
+    // Model tanımlayıcısı sağlayıcı ön eki ('provider/model') içermiyorsa dinamik eşleştir
     const rawModelName = selectedModel;
     if (!rawModelName.includes('/') && !aiProviderRegistry.getDefaultProviderId()) {
       const available = await aiProviderRegistry.getAvailableModels();
@@ -198,7 +175,7 @@ export class ChatService {
 
     try {
       const model = getModel(selectedModel);
-      const finalSystemPrompt = await this.resolveSessionPrompt(dto, tenant_id, sessionContext);
+      const finalSystemPrompt = await this.resolveSessionPrompt(dto, user?.roles, sessionContext);
 
       return streamText({
         model,
@@ -207,7 +184,7 @@ export class ChatService {
         ...(dto.temperature !== undefined ? { temperature: dto.temperature } : {}),
         onFinish: async (event) => {
           if (dto.conversationId && event.text) {
-            await this.persistAssistantMessage(dto.conversationId, tenant_id, event.text);
+            await this.persistAssistantMessage(dto.conversationId, event.text);
           }
         },
       });

@@ -101,31 +101,31 @@ src/modules/<module-name>/
 
 ---
 
-## 4. ÇOKLU KİRACILIK (MULTI-TENANCY) VE VERİ İZOLASYON STRATEJİSİ
+## 4. KURUMSAL TEK ÇATI (ON-PREMISES) RBAC VE ROL BAZLI VERİ İZOLASYONU
 
-MVP aşamasında verim ve bakım kolaylığı sağlamak adına **Row-Level Security (RLS) Mantıksal Ayrım** yaklaşımı benimsenmiştir. Multi-tenancy altyapısı `shared/database` katmanında merkezi olarak yönetilir.
+Sistem tek kurum içi (on-premise / self-hosted) kullanım için tasarlandığından yapay SaaS multi-tenancy (`tenant_id`) soyutlamalarından tamamen arındırılmıştır. İzolasyon; kullanıcı (`user_id`), sistem rolleri (`system_role: 'superadmin' | 'admin' | 'user'`) ve departman fonksiyonel rolleri (`roles: string[]`) üzerinden sağlanır.
 
-### 4.1. MongoDB (Mongoose) Katmanında İzolasyon
+### 4.1. Open/Closed Prensibi (OCP) Yetkilendirme Motoru (`PolicyEngine`)
 
-1. **Global Tenant Plugin (`shared/database/plugins/tenant.plugin.ts`):** Tüm Mongoose şemalarına `tenant_id` (ObjectId) ve `is_global` (Boolean) alanları zorunlu olarak eklenir.
-2. **Automatic Query Hooks:** Mongoose middleware katmanında `pre('find')`, `pre('findOne')`, `pre('count')` ve `pre('aggregate')` kancaları tanımlanır.
-3. **İzolasyon Mantığı:**
-   - İsteği atan kullanıcının `tenant_id` bilgisi Express Context Middleware üzerinden otomatik okunur.
-   - Sorgular varsayılan olarak şu filtreye zorlanır:
-     $$\text{Filter} = \{ \$or: [ \{ tenant\_id: \text{currentTenantId} \}, \{ is\_global: true \} ] \}$$
-   - Bu sayede yazılımcı `.find()` çağrısında `tenant_id` yazmayı unutsa dahi başka bir kiracının verisine erişemez.
+1. **Genişletilebilir Politika Motoru:** İzin denetimleri doğrudan kod içine gömülü statik `if` blokları yerine `PolicyEngine.can(user, permission, context)` üzerinden işletilir. Yeni kaynak stratejileri çekirdek kod değiştirilmeden enjekte edilebilir (`IPermissionStrategy`).
+2. **Superadmin Bypass & Invariant:** Sistemde veritabanı seviyesinde tek bir Superadmin garantilenir. Superadmin tüm yetki denetimlerinden otomatik geçer (`can() -> true`).
+3. **Rol Hiyerarşisi & Atama Kuralları:** Yalnızca Superadmin başka bir kullanıcıyı `admin` yapabilir veya adminliği geri alabilir. Normal adminler standart kullanıcıları banlayabilir ve fonksiyonel roller (`hr`, `developer`, `finance`, `legal` vb.) atayabilir.
+4. **Anlık Ban & Oturum İptali:** Banlanan veya rolü değişen kullanıcının tüm oturumları `deleteAllSessionsForUser` ile veritabanından ve önbellekten anında silinir; bir sonraki istekte 401/403 ile reddedilir.
 
-### 4.2. Qdrant Vektör Katmanında İzolasyon (`src/modules/rag`)
+### 4.2. Qdrant Vektör & RAG Doküman Katmanında İzolasyon (`src/modules/rag`)
 
-- Qdrant koleksiyonlarında her vektör kaydı payload alanında `tenant_id` taşır.
-- Similarity Search (Yakınlık Araması) atılırken Qdrant `Filter` nesnesi zorunlu olarak enjekte edilir:
+- Her doküman ve vektör parçası (`chunk`), payload alanında erişim izni olan rolleri (`allowed_roles: string[]`) taşır.
+- Similarity Search (Yakınlık Araması) atılırken Qdrant `Filter` nesnesi kullanıcının aktif rolleriyle zorunlu olarak enjekte edilir:
 ```typescript
 const filter = {
-  must: [
-    { key: "tenant_id", match: { value: currentTenantId } }
+  should: [
+    { key: "allowed_roles", match: { any: user.roles } },
+    { key: "allowed_roles", match: { value: "*" } }
   ]
 };
 ```
+- **Rol filtresi enjekte edilmeden arama yapılması veri sızıntısı (Zero-Context-Leakage ihlali) sayılır.**
+- Dokümanın rolleri güncellendiğinde (`PATCH /api/v1/rag/documents/:id/roles`), Qdrant'taki vektörlerin payload'undaki `allowed_roles` alanı anında senkronize edilir.
 
 ---
 

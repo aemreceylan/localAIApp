@@ -2,14 +2,9 @@ import type { Request, Response, NextFunction } from 'express';
 import { promptService } from '#modules/prompt/prompt.service.js';
 
 export class PromptController {
-  private getTenantId(req: Request): string {
-    return (req.headers['x-tenant-id'] as string) || 'default-tenant';
-  }
-
   async createPrompt(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
-      const prompt = await promptService.createPrompt(tenantId, req.body);
+      const prompt = await promptService.createPrompt(req.body);
 
       res.status(201).json({
         success: true,
@@ -22,7 +17,6 @@ export class PromptController {
 
   async getPrompts(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
       const { type, isActive, is_active } = req.query as {
         type?: string;
         isActive?: boolean;
@@ -30,10 +24,14 @@ export class PromptController {
       };
 
       const activeFilter = isActive ?? is_active;
+      // Superadmin ve admin tüm promptları görebilir; diğer kullanıcılar sadece rollerine uygun olanları görür
+      const isPrivileged = req.user?.system_role === 'superadmin' || req.user?.system_role === 'admin';
+      const userRoles = isPrivileged ? undefined : req.user?.roles;
 
-      const prompts = await promptService.getPrompts(tenantId, {
+      const prompts = await promptService.getPrompts({
         ...(type ? { type } : {}),
         ...(activeFilter !== undefined ? { is_active: activeFilter } : {}),
+        ...(userRoles ? { roles: userRoles } : {}),
       });
 
       res.status(200).json({
@@ -47,8 +45,7 @@ export class PromptController {
 
   async getPromptById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
-      const prompt = await promptService.getPromptById(req.params.id as string, tenantId);
+      const prompt = await promptService.getPromptById(req.params.id as string);
 
       res.status(200).json({
         success: true,
@@ -61,10 +58,8 @@ export class PromptController {
 
   async updatePrompt(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
       const updated = await promptService.updatePrompt(
         req.params.id as string,
-        tenantId,
         req.body
       );
 
@@ -79,8 +74,7 @@ export class PromptController {
 
   async deletePrompt(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
-      const result = await promptService.deletePrompt(req.params.id as string, tenantId);
+      const result = await promptService.deletePrompt(req.params.id as string);
 
       res.status(200).json(result);
     } catch (error) {

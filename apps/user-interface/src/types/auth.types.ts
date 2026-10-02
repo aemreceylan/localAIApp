@@ -3,15 +3,17 @@
  * @description Kimlik doğrulama, kullanıcı profili ve oturum durum tipleri.
  */
 
-export type UserRole = 'superadmin' | 'tenant_admin' | 'user';
+export type UserRole = 'superadmin' | 'admin' | 'tenant_admin' | 'user';
 
 export interface User {
   id: string;
   email: string;
   firstName: string;
   lastName: string;
-  role: UserRole;
-  tenantId: string;
+  role?: UserRole;
+  systemRole?: 'superadmin' | 'admin' | 'user';
+  roles?: string[];
+  tenantId?: string;
   isActive: boolean;
 }
 

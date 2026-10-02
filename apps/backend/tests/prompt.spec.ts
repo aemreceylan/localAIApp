@@ -6,19 +6,16 @@ import { PromptModel } from '#modules/prompt/prompt.model.js';
 import { promptService } from '#modules/prompt/prompt.service.js';
 import { ConversationModel } from '#modules/chat/conversation.model.js';
 
-const TEST_TENANT = 'test-tenant-prompt';
-const OTHER_TENANT = 'other-tenant-prompt';
-
 describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   beforeAll(async () => {
     await connectDatabase();
-    await PromptModel.deleteMany({ tenant_id: { $in: [TEST_TENANT, OTHER_TENANT] } });
-    await ConversationModel.deleteMany({ tenant_id: TEST_TENANT });
+    await PromptModel.deleteMany({ slug: { $in: ['sec-fin-01', 'tax-expert', 'hr-persona', 'dev-persona'] } });
+    await ConversationModel.deleteMany({ title: 'Vergi Oturumu' });
   });
 
   afterAll(async () => {
-    await PromptModel.deleteMany({ tenant_id: { $in: [TEST_TENANT, OTHER_TENANT] } });
-    await ConversationModel.deleteMany({ tenant_id: TEST_TENANT });
+    await PromptModel.deleteMany({ slug: { $in: ['sec-fin-01', 'tax-expert', 'hr-persona', 'dev-persona'] } });
+    await ConversationModel.deleteMany({ title: 'Vergi Oturumu' });
     await disconnectDatabase();
   });
 
@@ -28,7 +25,6 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   it('POST /api/prompts yeni bir kurumsal guardrail promptu oluşturmalı (201)', async () => {
     const res = await request(app)
       .post('/api/prompts')
-      .set('x-tenant-id', TEST_TENANT)
       .send({
         title: 'Finansal Gizlilik Kuralı',
         slug: 'sec-fin-01',
@@ -42,7 +38,7 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.slug).toBe('sec-fin-01');
     expect(res.body.data.type).toBe('system_guardrail');
-    expect(res.body.data.tenant_id).toBe(TEST_TENANT);
+    expect(res.body.data.allowed_roles).toEqual(['*']);
 
     guardrailId = res.body.data._id;
   });
@@ -50,7 +46,6 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   it('POST /api/prompts varsayılan uzmanlık personasi oluşturmalı (201)', async () => {
     const res = await request(app)
       .post('/api/prompts')
-      .set('x-tenant-id', TEST_TENANT)
       .send({
         title: 'Kıdemli Vergi Uzmanı',
         slug: 'tax-expert',
@@ -71,7 +66,6 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   it('POST /api/prompts aynı slug ile kayıt oluşturulmak istendiğinde 400 DOMAIN_ERROR dönmelidir', async () => {
     const res = await request(app)
       .post('/api/prompts')
-      .set('x-tenant-id', TEST_TENANT)
       .send({
         title: 'Tekrar Eden Slug',
         slug: 'sec-fin-01',
@@ -83,46 +77,27 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
     expect(res.body.error.code).toBe('DOMAIN_ERROR');
   });
 
-  it('GET /api/prompts kiracıya ait promptları listelemeli ve RLS izolasyonunu sağlamalıdır', async () => {
-    // Başka bir tenant'a prompt ekle
-    await request(app)
-      .post('/api/prompts')
-      .set('x-tenant-id', OTHER_TENANT)
-      .send({
-        title: 'Yabancı Tenant Kuralı',
-        slug: 'foreign-rule',
-        type: 'system_guardrail',
-        content: 'Yabancı kurallar görünmemeli.',
-      });
-
-    const res = await request(app)
-      .get('/api/prompts')
-      .set('x-tenant-id', TEST_TENANT);
+  it('GET /api/prompts promptları listelemelidir', async () => {
+    const res = await request(app).get('/api/prompts');
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveLength(2);
-    // Yabancı tenant kuralı görünmemeli
+    expect(res.body.data.length).toBeGreaterThanOrEqual(2);
     const slugs = res.body.data.map((p: any) => p.slug);
     expect(slugs).toContain('sec-fin-01');
     expect(slugs).toContain('tax-expert');
-    expect(slugs).not.toContain('foreign-rule');
   });
 
   it('GET /api/prompts?type=persona filtrelemeyi doğru yapmalıdır', async () => {
-    const res = await request(app)
-      .get('/api/prompts?type=persona')
-      .set('x-tenant-id', TEST_TENANT);
+    const res = await request(app).get('/api/prompts?type=persona');
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(1);
-    expect(res.body.data[0].slug).toBe('tax-expert');
+    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.data.some((p: any) => p.slug === 'tax-expert')).toBe(true);
   });
 
   it('GET /api/prompts/:id tekil prompt detayını getirmelidir', async () => {
-    const res = await request(app)
-      .get(`/api/prompts/${personaId}`)
-      .set('x-tenant-id', TEST_TENANT);
+    const res = await request(app).get(`/api/prompts/${personaId}`);
 
     expect(res.status).toBe(200);
     expect(res.body.data._id).toBe(personaId);
@@ -132,7 +107,6 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   it('PUT /api/prompts/:id içeriği ve aktifliği güncelleyebilmelidir', async () => {
     const res = await request(app)
       .put(`/api/prompts/${personaId}`)
-      .set('x-tenant-id', TEST_TENANT)
       .send({
         title: 'Baş Danışman & Vergi Uzmanı',
         content: 'Sen uluslararası vergi hukuku ve denetim uzmanısın.',
@@ -144,7 +118,7 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   });
 
   it('Prompt Stacking Engine: Guardrails + Persona + Custom Instructions dinamik olarak birleştirilmelidir', async () => {
-    const assembledPrompt = await promptService.buildSystemPrompt(TEST_TENANT, {
+    const assembledPrompt = await promptService.buildSystemPrompt({
       prompt_id: personaId,
       custom_instructions: 'Yanıtları maddeler halinde sun.',
     });
@@ -161,10 +135,30 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
     expect(assembledPrompt).toContain('Yanıtları maddeler halinde sun.');
   });
 
+  it('Rol Bazlı Prompt İzolasyonu: Yalnızca İK rolüne açık persona, Yazılımcı sorgusunda dönmemelidir', async () => {
+    // İK'ya özel prompt oluştur
+    await promptService.createPrompt({
+      title: 'İK İşe Alım Asistanı',
+      slug: 'hr-persona',
+      type: 'persona',
+      content: 'İK mülakat soruları hazırla.',
+      allowedRoles: ['hr'],
+    });
+
+    // Yazılımcı rolü ile filtrele
+    const devPrompts = await promptService.getPrompts({ roles: ['developer'] });
+    const devSlugs = devPrompts.map((p) => p.slug);
+    expect(devSlugs).not.toContain('hr-persona');
+
+    // İK rolü ile filtrele
+    const hrPrompts = await promptService.getPrompts({ roles: ['hr'] });
+    const hrSlugs = hrPrompts.map((p) => p.slug);
+    expect(hrSlugs).toContain('hr-persona');
+  });
+
   it('POST /api/chat/sessions oturum oluştururken promptId ve customInstructions bağlanabilmelidir', async () => {
     const res = await request(app)
       .post('/api/chat/sessions')
-      .set('x-tenant-id', TEST_TENANT)
       .send({
         title: 'Vergi Oturumu',
         model: 'llama3.2:3b',
@@ -178,16 +172,12 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   });
 
   it('DELETE /api/prompts/:id promptu başarıyla silmelidir', async () => {
-    const res = await request(app)
-      .delete(`/api/prompts/${guardrailId}`)
-      .set('x-tenant-id', TEST_TENANT);
+    const res = await request(app).delete(`/api/prompts/${guardrailId}`);
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
-    const check = await request(app)
-      .get(`/api/prompts/${guardrailId}`)
-      .set('x-tenant-id', TEST_TENANT);
+    const check = await request(app).get(`/api/prompts/${guardrailId}`);
     expect(check.status).toBe(404);
   });
 });

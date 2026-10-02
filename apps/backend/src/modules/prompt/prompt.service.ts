@@ -3,44 +3,45 @@ import type { CreatePromptDto, UpdatePromptDto } from '#modules/prompt/prompt.dt
 import { NotFoundError, DomainError } from '#shared/errors/index.js';
 
 export class PromptService {
-  async createPrompt(tenant_id: string, dto: CreatePromptDto) {
-    const existing = await promptRepository.getPromptBySlug(dto.slug, tenant_id);
+  async createPrompt(dto: CreatePromptDto) {
+    const existing = await promptRepository.getPromptBySlug(dto.slug);
     if (existing) {
       throw new DomainError(`'${dto.slug}' slug değerine sahip bir prompt zaten mevcut.`);
     }
 
     return await promptRepository.createPrompt({
-      tenant_id,
       title: dto.title,
       slug: dto.slug,
       type: dto.type,
       content: dto.content,
+      allowed_roles: dto.allowedRoles,
       ...(dto.isActive !== undefined ? { is_active: dto.isActive } : {}),
       ...(dto.isDefault !== undefined ? { is_default: dto.isDefault } : {}),
       ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
     });
   }
 
-  async getPrompts(tenant_id: string, filter?: { type?: string; is_active?: boolean }) {
-    return await promptRepository.getPrompts(tenant_id, filter as any);
+  async getPrompts(filter?: { type?: string; is_active?: boolean; roles?: string[] }) {
+    return await promptRepository.getPrompts(filter as any);
   }
 
-  async getPromptById(id: string, tenant_id: string) {
-    const prompt = await promptRepository.getPromptById(id, tenant_id);
+  async getPromptById(id: string) {
+    const prompt = await promptRepository.getPromptById(id);
     if (!prompt) {
       throw new NotFoundError(`Prompt bulunamadı: ${id}`);
     }
     return prompt;
   }
 
-  async updatePrompt(id: string, tenant_id: string, dto: UpdatePromptDto) {
-    await this.getPromptById(id, tenant_id);
+  async updatePrompt(id: string, dto: UpdatePromptDto) {
+    await this.getPromptById(id);
 
-    const updated = await promptRepository.updatePrompt(id, tenant_id, {
+    const updated = await promptRepository.updatePrompt(id, {
       ...(dto.title ? { title: dto.title } : {}),
       ...(dto.slug ? { slug: dto.slug } : {}),
       ...(dto.type ? { type: dto.type } : {}),
       ...(dto.content ? { content: dto.content } : {}),
+      ...(dto.allowedRoles ? { allowed_roles: dto.allowedRoles } : {}),
       ...(dto.isActive !== undefined ? { is_active: dto.isActive } : {}),
       ...(dto.isDefault !== undefined ? { is_default: dto.isDefault } : {}),
       ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
@@ -49,8 +50,8 @@ export class PromptService {
     return updated!;
   }
 
-  async deletePrompt(id: string, tenant_id: string) {
-    const deleted = await promptRepository.deletePrompt(id, tenant_id);
+  async deletePrompt(id: string) {
+    const deleted = await promptRepository.deletePrompt(id);
     if (!deleted) {
       throw new NotFoundError(`Silinecek prompt bulunamadı: ${id}`);
     }
@@ -61,20 +62,20 @@ export class PromptService {
    * ÇOK KATMANLI ANLIK DİNAMİK PROMPT OLUŞTURMA MOTORU (Prompt Stacking Engine)
    * 
    * 1. Katman: Kurumsal Güvenlik & Guardrails (Zorunlu)
-   * 2. Katman: Rol / Persona (Seçilen veya varsayılan uzmanlık)
+   * 2. Katman: Rol / Persona (Kullanıcının rollerine uygun veya seçilen uzmanlık)
    * 3. Katman: Kullanıcı Özel Talimatı (Opsiyonel)
    */
   async buildSystemPrompt(
-    tenant_id: string,
     options: {
       prompt_id?: string;
       custom_instructions?: string;
+      userRoles?: string[];
     } = {}
   ): Promise<string | undefined> {
     const sections: string[] = [];
 
-    // 1. Katman: Aktif Kurumsal Guardrail Prompt'ları (Anlık DB sorgusu)
-    const guardrails = await promptRepository.getActiveGuardrails(tenant_id);
+    // 1. Katman: Aktif Kurumsal Guardrail Prompt'ları (Role filtresiyle anlık DB sorgusu)
+    const guardrails = await promptRepository.getActiveGuardrails(options.userRoles);
     if (guardrails.length > 0) {
       const guardrailText = guardrails.map((g) => `- ${g.content}`).join('\n');
       sections.push(`=== [KURUMSAL GÜVENLİK VE POLİTİKA KURALLARI] ===\n${guardrailText}`);
@@ -83,12 +84,12 @@ export class PromptService {
     // 2. Katman: Rol / Persona Prompt'u (Anlık DB sorgusu)
     let personaPrompt = '';
     if (options.prompt_id) {
-      const persona = await promptRepository.getPromptById(options.prompt_id, tenant_id);
+      const persona = await promptRepository.getPromptById(options.prompt_id);
       if (persona?.is_active) {
         personaPrompt = persona.content;
       }
     } else {
-      const defaultPersona = await promptRepository.getDefaultPersona(tenant_id);
+      const defaultPersona = await promptRepository.getDefaultPersona(options.userRoles);
       if (defaultPersona) {
         personaPrompt = defaultPersona.content;
       }

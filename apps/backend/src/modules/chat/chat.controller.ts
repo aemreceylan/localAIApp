@@ -2,10 +2,6 @@ import type { Request, Response, NextFunction } from 'express';
 import { chatService } from '#modules/chat/chat.service.js';
 
 export class ChatController {
-  private getTenantId(req: Request): string {
-    return (req.headers['x-tenant-id'] as string) || 'default-tenant';
-  }
-
   private getUserId(req: Request): string | undefined {
     return (req.user as any)?._id?.toString() || (req.headers['x-user-id'] as string) || undefined;
   }
@@ -15,8 +11,11 @@ export class ChatController {
    */
   async handleChat(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
-      const streamResult = await chatService.streamChat(req.body, tenantId);
+      const userId = this.getUserId(req);
+      const streamResult = await chatService.streamChat(req.body, {
+        id: userId,
+        roles: req.user?.roles,
+      });
 
       // Vercel AI SDK Data Stream Protokolü ile Express yanıtına canlı akış bağlama
       streamResult.pipeDataStreamToResponse(res);
@@ -30,9 +29,8 @@ export class ChatController {
    */
   async createSession(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
       const userId = this.getUserId(req);
-      const session = await chatService.createSession(tenantId, req.body, userId);
+      const session = await chatService.createSession(req.body, userId);
 
       res.status(201).json({
         success: true,
@@ -48,9 +46,8 @@ export class ChatController {
    */
   async getSessions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
       const userId = this.getUserId(req);
-      const sessions = await chatService.getSessions(tenantId, userId);
+      const sessions = await chatService.getSessions(userId);
 
       res.status(200).json({
         success: true,
@@ -66,9 +63,8 @@ export class ChatController {
    */
   async getSessionById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
       const userId = this.getUserId(req);
-      const session = await chatService.getSessionById(req.params.id as string, tenantId, userId);
+      const session = await chatService.getSessionById(req.params.id as string, userId);
 
       res.status(200).json({
         success: true,
@@ -84,8 +80,8 @@ export class ChatController {
    */
   async getSessionMessages(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
-      const messages = await chatService.getSessionMessages(req.params.id as string, tenantId);
+      const userId = this.getUserId(req);
+      const messages = await chatService.getSessionMessages(req.params.id as string, userId);
 
       res.status(200).json({
         success: true,
@@ -101,8 +97,8 @@ export class ChatController {
    */
   async deleteSession(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
-      const result = await chatService.deleteSession(req.params.id as string, tenantId);
+      const userId = this.getUserId(req);
+      const result = await chatService.deleteSession(req.params.id as string, userId);
 
       res.status(200).json(result);
     } catch (error) {
@@ -113,10 +109,9 @@ export class ChatController {
   /**
    * Sistemde ve sağlayıcılarda anlık kullanılabilir olan modelleri listeler.
    */
-  async getAvailableModels(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAvailableModels(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const tenantId = this.getTenantId(req);
-      const result = await chatService.getAvailableModels(tenantId);
+      const result = await chatService.getAvailableModels();
 
       res.status(200).json({
         success: true,

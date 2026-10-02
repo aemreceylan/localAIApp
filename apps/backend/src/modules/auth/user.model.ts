@@ -1,21 +1,24 @@
 /**
  * @file user.model.ts
- * @description Kullanıcı veri modeli.
- * Esnek RBAC, multi-tenant bağlamı ve şifrelenmiş kimlik bilgileri içerir.
- * @design-token documents/common/data_and_business_workflows.md satır 51-62
+ * @description Kurumsal Kullanıcı Veri Modeli.
+ * Tek kurum (On-Prem) mimarisine uygun olarak SaaS tenant bağımlılığından arındırılmıştır.
+ * Çift katmanlı yetkilendirme içerir:
+ * 1. system_role: Sistem seviyesi yetki ('superadmin', 'admin', 'user').
+ *    - Sistemde yalnızca TEK BİR 'superadmin' bulunabilir (Partial Unique Index ile garanti edilir).
+ * 2. roles: Kurum içi fonksiyonel departman/erişim rolleri (örn: ['hr'], ['developer'], ['finance']).
  */
 
 import mongoose, { Schema, type Model } from 'mongoose';
 
-export type UserRole = 'superadmin' | 'tenant_admin' | 'user';
+export type SystemRole = 'superadmin' | 'admin' | 'user';
 
 export interface IUser {
-  tenant_id: string;
   email: string;
   password_hash: string;
   first_name: string;
   last_name: string;
-  role: UserRole;
+  system_role: SystemRole;
+  roles: string[];
   is_active: boolean;
   created_at?: Date;
   updated_at?: Date;
@@ -23,11 +26,6 @@ export interface IUser {
 
 const userSchema = new Schema<IUser>(
   {
-    tenant_id: {
-      type: String,
-      required: [true, 'tenant_id zorunludur.'],
-      index: true,
-    },
     email: {
       type: String,
       required: [true, 'E-posta adresi zorunludur.'],
@@ -52,10 +50,15 @@ const userSchema = new Schema<IUser>(
       trim: true,
       maxlength: [50, 'Soyad 50 karakterden uzun olamaz.'],
     },
-    role: {
+    system_role: {
       type: String,
-      enum: ['superadmin', 'tenant_admin', 'user'],
+      enum: ['superadmin', 'admin', 'user'],
       default: 'user',
+      index: true,
+    },
+    roles: {
+      type: [String],
+      default: [],
       index: true,
     },
     is_active: {
@@ -70,8 +73,18 @@ const userSchema = new Schema<IUser>(
   }
 );
 
-// Hızlı arama için bileşik indeks
-userSchema.index({ tenant_id: 1, email: 1 });
+/**
+ * GÜVENLİK KRİTERİ:
+ * Sistemde yalnızca TEK BİR 'superadmin' bulunabilmesini veritabanı seviyesinde
+ * kesin olarak garanti eden Partial Unique Index.
+ */
+userSchema.index(
+  { system_role: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { system_role: 'superadmin' },
+  }
+);
 
 export const UserModel: Model<IUser> =
   mongoose.models.User || mongoose.model<IUser>('User', userSchema);
