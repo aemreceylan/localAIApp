@@ -51,8 +51,8 @@ Sistem, iş alanlarına göre modüllere ayrılmıştır. Ortak altyapı bileşe
 src/
 ├── config/             # Genel Sistem & Uygulama Yapılandırmaları
 ├── modules/
-│   ├── auth/           # Kimlik doğrulama, kullanıcılar ve rol yönetimi
-│   ├── tenant/         # Tenant ve organizasyon yönetimi
+│   ├── auth/           # Kimlik doğrulama, kullanıcılar, ban ve oturum yönetimi
+│   ├── role/           # Dinamik RBAC, arketip tavanı ve yetki çözümleme motoru
 │   ├── chat/           # LLM Sohbet oturumları ve streaming
 │   ├── prompt/         # Çok katmanlı dinamik prompt & persona yönetim motoru
 │   ├── rag/            # Doküman ingestion, embedding ve Qdrant vektör araması
@@ -295,4 +295,58 @@ Geliştirme ortamında çalışan backend HTTP isteklerini, dönen yanıtları v
 - **`GET /api/dev/inspector/logs`:** Bellekteki son 100 kaydı ve genel metrikleri (`totalRequests`, `errorCount`, `avgDurationMs`) döner.
 - **`DELETE /api/dev/inspector/logs`:** Bellekteki kayıt geçmişini temizler ve bağlı SSE istemcilerini sıfırlar.
 - **`GET /api/dev/inspector/events`:** `user-interface` veya harici web istemcilerinin doğrudan bağlanabileceği SSE akış uç noktası.
+
+---
+
+## 15. KURUMSAL DİNAMİK RBAC, ARKETİP TAVANI VE POLICY ENGINE (`src/modules/role`)
+
+Sistem, geleneksel statik rol atamaları yerine kurumların organizasyonel ihtiyaçlarına uyum sağlayan **3 Seviyeli Arketip Tavanı (Ceiling Model)** ve **Policy Engine** mimarisini uygular.
+
+### 15.1. Sistem Arketipleri ve SuperAdmin Dokunulmazlığı
+
+1. **`superadmin` (Tekil & Dokunulmaz):**  
+   - Sistemde yalnızca tek bir süper admin bulunabilir (`UserModel.system_role = 'superadmin'`).
+   - Süper admin hiçbir role atanmaz veya rolü alınamaz; rolleri dinamik yetkilendirme dışındadır.
+   - Herhangi bir yetki kontrolünde (`can()`), `system_role === 'superadmin'` ise koşulsuz olarak `true` döner.
+   - Diğer adminler tarafından düzenlenemez, silinemez, banlanamaz ve yetkileri kısıtlanamaz.
+
+2. **`admin` (Yönetici Arketipi - Yetki Tavanı):**  
+   - SuperAdmin veya yetkilendirilmiş üst düzey admin tarafından atanır.
+   - Rol ve kullanıcı yönetim yetkilerine sahip olabilir; ancak kendi arketip tavanını (`admin:*`) aşamaz.
+   - Bir admin başka bir role ya da kullanıcıya hiçbir zaman kendi sahip olmadığı veya SuperAdmin seviyesindeki yetkileri veremez.
+
+3. **`user` (Kullanıcı Arketipi):**  
+   - Sistemin temel çalışma arketipidir (`user:*`).
+   - Varsayılan roller veya departman rolleri bu arketipten türer.
+
+### 15.2. Dinamik Rol Yönetimi (`RoleModel`)
+
+- Roller veri tabanında dinamik olarak saklanır:
+  - `slug`: Benzersiz anahtar (`hr-admin`, `senior-dev`, `default-user`).
+  - `base_archetype`: `'admin'` veya `'user'`.
+  - `permissions`: 3 parçalı izin string dizisi (`base_archetype:category:action`, örn: `admin:user:create`, `user:chat:create`).
+  - `is_default`: Yeni kaydolan kullanıcılara otomatik atanacak rol bayrağı (Sistemde yalnızca 1 adet `is_default: true` olan `user` rolü bulunabilir).
+  - `is_system`: Silinemez temel sistem rolleri.
+
+### 15.3. Kullanıcı Bazlı Doğrudan İstisnalar (`direct_permissions`)
+
+Roller departman bazlı genel yetki sağlarken; spesifik kullanıcılara geçici veya özel istisnalar tanımlamak için `UserModel.direct_permissions` yapısı kullanılır:
+- `direct_permissions.allow`: Kullanıcının rollerinde olmasa dahi ekstra sahip olduğu izinler.
+- `direct_permissions.deny`: Kullanıcının rollerinde olsa dahi özellikle yasaklanan (veto edilen) izinler.
+
+### 15.4. Yetki Çözümleme Mantığı (Policy Engine Resolution)
+
+`PolicyEngine.can(user, requiredPermission)` fonksiyonu şu öncelik sırasını çalıştırır:
+1. **SuperAdmin Kontrolü:** `user.system_role === 'superadmin'` ise anında `true`.
+2. **Explicit Deny Kontrolü:** `direct_permissions.deny` içinde `requiredPermission` (veya joker `*`) varsa anında `false`.
+3. **Roller Havuzu (Union):** Kullanıcının tüm rollerindeki izinler birleştirilir; `requiredPermission` mevcutsa `true`.
+4. **Explicit Allow Kontrolü:** `direct_permissions.allow` içinde `requiredPermission` varsa `true`.
+5. **Varsayılan:** Eşleşme yoksa `false`.
+
+### 15.5. Şema Geçiş Güvencesi ve Geriye Dönük Uyumluluk (Self-Healing)
+
+Eski veritabanı sürümlerinden gelen dokümanlarda `role: 'superadmin'` alanı bulunabilirken yeni mimaride `system_role` kullanılır:
+- **`AuthRepository`:** `hasSuperAdmin()` ve `findSuperAdmin()` sorguları `$or: [{ system_role: 'superadmin' }, { role: 'superadmin' }]` ile her iki alanı da denetler.
+- **`userSchema.post('init')`:** Mongoose dokümanı okuduğunda eski `role` alanı mevcutsa ve `system_role` eksikse bellek üzerinde `this.system_role = (this as any).role` ataması yaparak kendini otomatik onarır (self-healing).
+
 

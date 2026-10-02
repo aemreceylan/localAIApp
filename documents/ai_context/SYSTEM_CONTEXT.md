@@ -21,6 +21,13 @@ localAIApp/
 │
 ├── apps/                                      # 📦 ÜÇ BAĞIMSIZ ALT PROJE
 │   ├── backend/                               # Node.js + Express + TypeScript (Modüler Monolit)
+│   │   └── src/modules/
+│   │       ├── auth/                          # Kimlik doğrulama, kullanıcılar, ban ve oturum yönetimi
+│   │       ├── role/                          # Dinamik RBAC, arketip tavanı ve yetkilendirme motoru
+│   │       ├── chat/                          # LLM sohbet oturumları ve SSE streaming
+│   │       ├── prompt/                        # Dinamik prompt stacking ve persona motoru
+│   │       ├── rag/                           # Qdrant vektör arama ve ingestion
+│   │       └── ai/                            # Yerel/bulut model yönetimi
 │   ├── admin-interface/                       # React + TypeScript + Tailwind (Yönetici Paneli)
 │   └── user-interface/                        # React + TypeScript + Tailwind (Kullanıcı Chat & RAG)
 │
@@ -35,7 +42,7 @@ localAIApp/
     │   └── data_and_business_workflows.md     # Bütünleşik MongoDB ERD, Qdrant Şeması & Akışlar
     │
     ├── backend/                               # ⚙️ BACKEND ÖZEL DÖKÜMANTASYONU
-    │   └── architecture.md                    # SAD v1.2.0, Modüler Monolit, RLS, Prompt Engine, RAG
+    │   └── architecture.md                    # SAD v1.2.0, Modüler Monolit, RBAC, Prompt Engine, RAG
     │
     ├── admin-interface/                       # 🛡️ ADMIN INTERFACE ÖZEL DÖKÜMANTASYONU
     │   ├── architecture_and_screens.md        # Admin Paneli Mimarisi & Sayfa Hiyerarşisi
@@ -61,7 +68,7 @@ localAIApp/
 
 | Alt Proje | Teknoloji Yığını | Mevcut Durum | Sonraki Odak / Yapılacaklar |
 | :--- | :--- | :--- | :--- |
-| **`backend`** | Node.js (v20+ LTS), Express, Mongoose, Qdrant, BullMQ, Vercel AI SDK, Vitest | Çekirdek mimari, Prompt Stacking, Subpath imports (`#*`), RLS altyapısı, Zod DTO'lar, Opaque Bearer Token (`sessions`), Super Admin ilk kurulum kapısı (Bootstrap Gatekeeper) ve kullanıcı bazlı sohbet oturum izolasyonu (`user_id`) hazır. | RAG ingestion worker entegrasyonu, Ollama model yönetim API'si. |
+| **`backend`** | Node.js (v20+ LTS), Express, Mongoose, Qdrant, BullMQ, Vercel AI SDK, Vitest | **Çekirdek Mimari & Hiyerarşik RBAC Tamamlandı:** Prompt Stacking, Subpath imports (`#*`), Zod DTO'lar, Opaque Bearer Token (`sessions`), Super Admin ilk kurulum kapısı (Bootstrap Gatekeeper), kullanıcı bazlı sohbet izolasyonu (`user_id`), Dinamik Rol Modülü (`modules/role`), 3 Katmanlı Yetkilendirme (SuperAdmin dokunulmazlığı, Admin/User arketip tavanı, `direct_permissions`), Varsayılan Rol Yönetimi ve Geriye Dönük Uyumluluk (Self-Healing `system_role` & `role` hook) hazır ve test edildi. | RAG ingestion worker entegrasyonu, Ollama model yönetim API'si. |
 | **`admin-interface`** | React 18+, TypeScript, Tailwind CSS, Vite | Mimari şartname ve ekran hiyerarşisi dökümante edildi; iskelet kurulacak. | Vite projesinin başlatılması, "Nexus Precision" token entegrasyonu, model ve RBAC yönetim sayfaları. |
 | **`user-interface`** | React 18+, TypeScript, Tailwind CSS, Vite | **Tamamlandı & Canlı:** Vite + React + Tailwind + Native ESM Subpath Imports (`#*`) iskeleti kuruldu. Sıfır dış UI bağımlılığı ile saf bileşenler, katlanabilir/sürüklenebilir Sidebar, canlı SSE streaming, RAG İnceleme Çekmecesi, Super Admin İlk Kurulum Ekranı (`SetupSuperAdminView`), Kurumsal Giriş Ekranı (`LoginView`), `AuthProvider` & `useAuth`, Sidebar gerçek profil & anlık oturum kapatma (Logout), ve kullanıcıya özel geçmiş sohbet oturumları başarıyla tamamlandı ve tarayıcıda doğrulandı. | RAG dosya yükleme (PDF/DOCX) ve model kıyaslama arena entegrasyonu. |
 
