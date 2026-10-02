@@ -13,8 +13,12 @@ export interface User {
   role?: UserRole;
   systemRole?: 'superadmin' | 'admin' | 'user';
   roles?: string[];
-  tenantId?: string;
+  customPermissions?: {
+    allow: string[];
+    deny: string[];
+  };
   isActive: boolean;
+  createdAt?: string | Date;
 }
 
 export interface SetupSuperAdminPayload {

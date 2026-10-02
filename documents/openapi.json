@@ -466,7 +466,29 @@
             "items": {
               "type": "string"
             },
-            "description": "Kurum içi departman ve fonksiyonel roller"
+            "description": "Kurum içi fonksiyonel departman rolleri"
+          },
+          "customPermissions": {
+            "type": "object",
+            "properties": {
+              "allow": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "Kullanıcıya özel eklenen izinler"
+              },
+              "deny": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "default": [],
+                "description": "Kullanıcıdan geri alınan/engellenen izinler"
+              }
+            },
+            "description": "Kullanıcıya özel yetki istisnaları"
           },
           "isActive": {
             "type": "boolean",
@@ -524,7 +546,29 @@
                 "items": {
                   "type": "string"
                 },
-                "description": "Kurum içi departman ve fonksiyonel roller"
+                "description": "Kurum içi fonksiyonel departman rolleri"
+              },
+              "customPermissions": {
+                "type": "object",
+                "properties": {
+                  "allow": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [],
+                    "description": "Kullanıcıya özel eklenen izinler"
+                  },
+                  "deny": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [],
+                    "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                  }
+                },
+                "description": "Kullanıcıya özel yetki istisnaları"
               },
               "isActive": {
                 "type": "boolean",
@@ -611,6 +655,34 @@
           "targetUserId"
         ]
       },
+      "OverridePermissionsRequest": {
+        "type": "object",
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "allow": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "description": "İstisnai olarak verilen yetkiler"
+          },
+          "deny": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "description": "İstisnai olarak engellenen yetkiler"
+          }
+        },
+        "required": [
+          "targetUserId"
+        ]
+      },
       "CreateRoleRequest": {
         "type": "object",
         "properties": {
@@ -619,7 +691,7 @@
             "minLength": 2,
             "maxLength": 50,
             "description": "Görünen Rol Adı",
-            "example": "İnsan Kaynakları"
+            "example": "İnsan Kaynakları Uzmanı"
           },
           "slug": {
             "type": "string",
@@ -627,13 +699,22 @@
             "maxLength": 30,
             "pattern": "^[a-z0-9_-]+$",
             "description": "Benzersiz Rol Tanımlayıcısı (slug)",
-            "example": "hr"
+            "example": "hr_specialist"
           },
           "description": {
             "type": "string",
             "maxLength": 250,
             "description": "Rol Açıklaması",
             "example": "İnsan Kaynakları departmanı personelleri için erişim izinleri."
+          },
+          "baseArchetype": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ],
+            "description": "Rolün türetildiği ana arketip (Yetki tavanını belirler)",
+            "example": "user"
           },
           "permissions": {
             "type": "array",
@@ -643,14 +724,15 @@
             "default": [],
             "description": "Role atanan yetkiler listesi",
             "example": [
-              "rag:document:read",
-              "prompt:read"
+              "user:rag:read",
+              "user:prompt:read"
             ]
           }
         },
         "required": [
           "name",
-          "slug"
+          "slug",
+          "baseArchetype"
         ]
       },
       "UpdateRolePermissionsRequest": {
@@ -663,14 +745,27 @@
             },
             "description": "Güncellenecek yeni yetki listesi",
             "example": [
-              "rag:document:read",
-              "prompt:read",
-              "rag:document:upload"
+              "user:rag:read",
+              "user:prompt:read"
             ]
           }
         },
         "required": [
           "permissions"
+        ]
+      },
+      "SetDefaultRoleRequest": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "minLength": 2,
+            "description": "Yeni kaydolan kullanıcılar için varsayılan yapılacak rol slug değeri",
+            "example": "default_user"
+          }
+        },
+        "required": [
+          "slug"
         ]
       },
       "RoleResponse": {
@@ -692,12 +787,24 @@
             "type": "string",
             "description": "Rol Açıklaması"
           },
+          "baseArchetype": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "user"
+            ],
+            "description": "Ana Arketip"
+          },
           "permissions": {
             "type": "array",
             "items": {
               "type": "string"
             },
             "description": "Rol İzinleri"
+          },
+          "isDefault": {
+            "type": "boolean",
+            "description": "Varsayılan Kullanıcı Rolü mü?"
           },
           "isSystem": {
             "type": "boolean",
@@ -708,7 +815,9 @@
           "id",
           "name",
           "slug",
+          "baseArchetype",
           "permissions",
+          "isDefault",
           "isSystem"
         ]
       }
@@ -1665,7 +1774,29 @@
                               "items": {
                                 "type": "string"
                               },
-                              "description": "Kurum içi departman ve fonksiyonel roller"
+                              "description": "Kurum içi fonksiyonel departman rolleri"
+                            },
+                            "customPermissions": {
+                              "type": "object",
+                              "properties": {
+                                "allow": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "default": [],
+                                  "description": "Kullanıcıya özel eklenen izinler"
+                                },
+                                "deny": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "default": [],
+                                  "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                                }
+                              },
+                              "description": "Kullanıcıya özel yetki istisnaları"
                             },
                             "isActive": {
                               "type": "boolean",
@@ -1801,7 +1932,29 @@
                               "items": {
                                 "type": "string"
                               },
-                              "description": "Kurum içi departman ve fonksiyonel roller"
+                              "description": "Kurum içi fonksiyonel departman rolleri"
+                            },
+                            "customPermissions": {
+                              "type": "object",
+                              "properties": {
+                                "allow": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "default": [],
+                                  "description": "Kullanıcıya özel eklenen izinler"
+                                },
+                                "deny": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "default": [],
+                                  "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                                }
+                              },
+                              "description": "Kullanıcıya özel yetki istisnaları"
                             },
                             "isActive": {
                               "type": "boolean",
@@ -1974,7 +2127,29 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "Kurum içi departman ve fonksiyonel roller"
+                          "description": "Kurum içi fonksiyonel departman rolleri"
+                        },
+                        "customPermissions": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıya özel eklenen izinler"
+                            },
+                            "deny": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                            }
+                          },
+                          "description": "Kullanıcıya özel yetki istisnaları"
                         },
                         "isActive": {
                           "type": "boolean",
@@ -2171,7 +2346,29 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "Kurum içi departman ve fonksiyonel roller"
+                          "description": "Kurum içi fonksiyonel departman rolleri"
+                        },
+                        "customPermissions": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıya özel eklenen izinler"
+                            },
+                            "deny": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                            }
+                          },
+                          "description": "Kullanıcıya özel yetki istisnaları"
                         },
                         "isActive": {
                           "type": "boolean",
@@ -2293,7 +2490,29 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "Kurum içi departman ve fonksiyonel roller"
+                          "description": "Kurum içi fonksiyonel departman rolleri"
+                        },
+                        "customPermissions": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıya özel eklenen izinler"
+                            },
+                            "deny": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                            }
+                          },
+                          "description": "Kullanıcıya özel yetki istisnaları"
                         },
                         "isActive": {
                           "type": "boolean",
@@ -2394,7 +2613,29 @@
                             "items": {
                               "type": "string"
                             },
-                            "description": "Kurum içi departman ve fonksiyonel roller"
+                            "description": "Kurum içi fonksiyonel departman rolleri"
+                          },
+                          "customPermissions": {
+                            "type": "object",
+                            "properties": {
+                              "allow": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "default": [],
+                                "description": "Kullanıcıya özel eklenen izinler"
+                              },
+                              "deny": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "default": [],
+                                "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                              }
+                            },
+                            "description": "Kullanıcıya özel yetki istisnaları"
                           },
                           "isActive": {
                             "type": "boolean",
@@ -2507,7 +2748,29 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "Kurum içi departman ve fonksiyonel roller"
+                          "description": "Kurum içi fonksiyonel departman rolleri"
+                        },
+                        "customPermissions": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıya özel eklenen izinler"
+                            },
+                            "deny": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                            }
+                          },
+                          "description": "Kullanıcıya özel yetki istisnaları"
                         },
                         "isActive": {
                           "type": "boolean",
@@ -2620,7 +2883,29 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "Kurum içi departman ve fonksiyonel roller"
+                          "description": "Kurum içi fonksiyonel departman rolleri"
+                        },
+                        "customPermissions": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıya özel eklenen izinler"
+                            },
+                            "deny": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                            }
+                          },
+                          "description": "Kullanıcıya özel yetki istisnaları"
                         },
                         "isActive": {
                           "type": "boolean",
@@ -2746,7 +3031,29 @@
                           "items": {
                             "type": "string"
                           },
-                          "description": "Kurum içi departman ve fonksiyonel roller"
+                          "description": "Kurum içi fonksiyonel departman rolleri"
+                        },
+                        "customPermissions": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıya özel eklenen izinler"
+                            },
+                            "deny": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                            }
+                          },
+                          "description": "Kullanıcıya özel yetki istisnaları"
                         },
                         "isActive": {
                           "type": "boolean",
@@ -2823,12 +3130,24 @@
                             "type": "string",
                             "description": "Rol Açıklaması"
                           },
+                          "baseArchetype": {
+                            "type": "string",
+                            "enum": [
+                              "admin",
+                              "user"
+                            ],
+                            "description": "Ana Arketip"
+                          },
                           "permissions": {
                             "type": "array",
                             "items": {
                               "type": "string"
                             },
                             "description": "Rol İzinleri"
+                          },
+                          "isDefault": {
+                            "type": "boolean",
+                            "description": "Varsayılan Kullanıcı Rolü mü?"
                           },
                           "isSystem": {
                             "type": "boolean",
@@ -2839,7 +3158,9 @@
                           "id",
                           "name",
                           "slug",
+                          "baseArchetype",
                           "permissions",
+                          "isDefault",
                           "isSystem"
                         ]
                       }
@@ -2879,7 +3200,7 @@
                     "minLength": 2,
                     "maxLength": 50,
                     "description": "Görünen Rol Adı",
-                    "example": "İnsan Kaynakları"
+                    "example": "İnsan Kaynakları Uzmanı"
                   },
                   "slug": {
                     "type": "string",
@@ -2887,13 +3208,22 @@
                     "maxLength": 30,
                     "pattern": "^[a-z0-9_-]+$",
                     "description": "Benzersiz Rol Tanımlayıcısı (slug)",
-                    "example": "hr"
+                    "example": "hr_specialist"
                   },
                   "description": {
                     "type": "string",
                     "maxLength": 250,
                     "description": "Rol Açıklaması",
                     "example": "İnsan Kaynakları departmanı personelleri için erişim izinleri."
+                  },
+                  "baseArchetype": {
+                    "type": "string",
+                    "enum": [
+                      "admin",
+                      "user"
+                    ],
+                    "description": "Rolün türetildiği ana arketip (Yetki tavanını belirler)",
+                    "example": "user"
                   },
                   "permissions": {
                     "type": "array",
@@ -2903,14 +3233,15 @@
                     "default": [],
                     "description": "Role atanan yetkiler listesi",
                     "example": [
-                      "rag:document:read",
-                      "prompt:read"
+                      "user:rag:read",
+                      "user:prompt:read"
                     ]
                   }
                 },
                 "required": [
                   "name",
-                  "slug"
+                  "slug",
+                  "baseArchetype"
                 ]
               }
             }
@@ -2952,12 +3283,24 @@
                           "type": "string",
                           "description": "Rol Açıklaması"
                         },
+                        "baseArchetype": {
+                          "type": "string",
+                          "enum": [
+                            "admin",
+                            "user"
+                          ],
+                          "description": "Ana Arketip"
+                        },
                         "permissions": {
                           "type": "array",
                           "items": {
                             "type": "string"
                           },
                           "description": "Rol İzinleri"
+                        },
+                        "isDefault": {
+                          "type": "boolean",
+                          "description": "Varsayılan Kullanıcı Rolü mü?"
                         },
                         "isSystem": {
                           "type": "boolean",
@@ -2968,7 +3311,9 @@
                         "id",
                         "name",
                         "slug",
+                        "baseArchetype",
                         "permissions",
+                        "isDefault",
                         "isSystem"
                       ]
                     }
@@ -3023,9 +3368,8 @@
                     },
                     "description": "Güncellenecek yeni yetki listesi",
                     "example": [
-                      "rag:document:read",
-                      "prompt:read",
-                      "rag:document:upload"
+                      "user:rag:read",
+                      "user:prompt:read"
                     ]
                   }
                 },
@@ -3072,12 +3416,24 @@
                           "type": "string",
                           "description": "Rol Açıklaması"
                         },
+                        "baseArchetype": {
+                          "type": "string",
+                          "enum": [
+                            "admin",
+                            "user"
+                          ],
+                          "description": "Ana Arketip"
+                        },
                         "permissions": {
                           "type": "array",
                           "items": {
                             "type": "string"
                           },
                           "description": "Rol İzinleri"
+                        },
+                        "isDefault": {
+                          "type": "boolean",
+                          "description": "Varsayılan Kullanıcı Rolü mü?"
                         },
                         "isSystem": {
                           "type": "boolean",
@@ -3088,8 +3444,270 @@
                         "id",
                         "name",
                         "slug",
+                        "baseArchetype",
                         "permissions",
+                        "isDefault",
                         "isSystem"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/roles/{slug}/set-default": {
+      "put": {
+        "tags": [
+          "Rol ve İzin Yönetimi (OCP Engine)"
+        ],
+        "summary": "Varsayılan Kullanıcı Rolünü Belirle",
+        "description": "Yeni kaydolan veya eklenen personeller için varsayılan rolü belirler. Yalnızca user arketipindeki roller seçilebilir. (Yetki: admin:role:set_default)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Varsayılan yapılacak rol kodu (slug)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Varsayılan rol başarıyla güncellendi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Rol ID"
+                        },
+                        "name": {
+                          "type": "string",
+                          "description": "Rol Adı"
+                        },
+                        "slug": {
+                          "type": "string",
+                          "description": "Rol Tanımlayıcısı (slug)"
+                        },
+                        "description": {
+                          "type": "string",
+                          "description": "Rol Açıklaması"
+                        },
+                        "baseArchetype": {
+                          "type": "string",
+                          "enum": [
+                            "admin",
+                            "user"
+                          ],
+                          "description": "Ana Arketip"
+                        },
+                        "permissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Rol İzinleri"
+                        },
+                        "isDefault": {
+                          "type": "boolean",
+                          "description": "Varsayılan Kullanıcı Rolü mü?"
+                        },
+                        "isSystem": {
+                          "type": "boolean",
+                          "description": "Sistem Rolü mü?"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "slug",
+                        "baseArchetype",
+                        "permissions",
+                        "isDefault",
+                        "isSystem"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/users/{id}/permissions/override": {
+      "put": {
+        "tags": [
+          "Kullanıcı & Kimlik Yönetimi"
+        ],
+        "summary": "Kullanıcıya Özel Yetki İstisnası Belirle (Allow / Deny Override)",
+        "description": "Belirli bir personelin rolünden bağımsız olarak yetki verilmesini (allow) veya rolündeki bir yetkisinin geri alınmasını (deny) sağlar. (Yetki: admin:user:override)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Hedef kullanıcı ID (ObjectId)"
+          }
+        ],
+        "requestBody": {
+          "description": "İstisnai yetki listesi (allow ve deny)",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "allow": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [],
+                    "description": "İstisnai olarak verilen yetkiler"
+                  },
+                  "deny": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [],
+                    "description": "İstisnai olarak engellenen yetkiler"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kullanıcı yetki istisnaları başarıyla uygulandı.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Kullanıcı ID (ObjectId)"
+                        },
+                        "email": {
+                          "type": "string",
+                          "description": "E-posta"
+                        },
+                        "firstName": {
+                          "type": "string",
+                          "description": "Ad"
+                        },
+                        "lastName": {
+                          "type": "string",
+                          "description": "Soyad"
+                        },
+                        "systemRole": {
+                          "type": "string",
+                          "enum": [
+                            "superadmin",
+                            "admin",
+                            "user"
+                          ],
+                          "description": "Sistem Seviyesi Rol"
+                        },
+                        "roles": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Kurum içi fonksiyonel departman rolleri"
+                        },
+                        "customPermissions": {
+                          "type": "object",
+                          "properties": {
+                            "allow": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıya özel eklenen izinler"
+                            },
+                            "deny": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "default": [],
+                              "description": "Kullanıcıdan geri alınan/engellenen izinler"
+                            }
+                          },
+                          "description": "Kullanıcıya özel yetki istisnaları"
+                        },
+                        "isActive": {
+                          "type": "boolean",
+                          "description": "Hesap aktiflik/ban durumu"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "email",
+                        "firstName",
+                        "lastName",
+                        "systemRole",
+                        "roles",
+                        "isActive"
                       ]
                     }
                   },

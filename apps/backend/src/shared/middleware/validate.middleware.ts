@@ -38,10 +38,19 @@ function validateQuery(schema: ZodSchema, req: Request, issues: ValidationIssue[
       }))
     );
   } else if (result.data && typeof result.data === 'object') {
-    for (const key of Object.keys(req.query)) {
-      delete (req.query as Record<string, any>)[key];
+    try {
+      Object.defineProperty(req, 'query', {
+        value: result.data,
+        writable: true,
+        configurable: true,
+        enumerable: true,
+      });
+    } catch {
+      for (const key of Object.keys(req.query)) {
+        delete (req.query as Record<string, any>)[key];
+      }
+      Object.assign(req.query, result.data);
     }
-    Object.assign(req.query, result.data);
   }
 }
 

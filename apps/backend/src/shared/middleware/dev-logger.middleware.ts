@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import type { Request, Response, NextFunction } from 'express';
-import { devInspectorHub } from '#shared/utils/index.js';
+import { devInspectorHub, type DevTrafficEntry } from '#shared/dev-inspector/index.js';
 
 /**
  * @module devLoggerMiddleware
@@ -9,7 +10,7 @@ import { devInspectorHub } from '#shared/utils/index.js';
  * - `res.write` ve `res.end` metodlarını monkey-patch ederek JSON, SSE ve
  *   Vercel AI SDK data-stream yanıtlarını yakalar ve birleştirir.
  * - Uint8Array / Buffer akışlarını ikili byte sayısına dönüştürmeden doğrudan UTF-8 çözer.
- * - Çıktıları bağımsız çalışan DevInspector konsol penceresine yönlendirir.
+ * - Çıktıları hem DevInspectorHub (Web SSE ve in-memory ring buffer) hem de TCP/konsola aktarır.
  * - Sadece `NODE_ENV !== 'production'` koşulunda etkindir; prodüksiyona sıfır etki eder.
  */
 
@@ -39,16 +40,9 @@ function formatJson(data: unknown): string {
   return JSON.stringify(data, null, 2);
 }
 
-/**
- * Her türlü girdi tipini (Buffer, Uint8Array, ArrayBuffer, string)
- * güvenli bir şekilde ham Buffer'a dönüştürür.
- * Uint8Array'in String(chunk) ile "48,58,34..." gibi sayılara dönüşmesini engeller.
- */
 function toBuffer(chunk: unknown, encodingOrCallback?: unknown): Buffer | null {
   if (!chunk) return null;
-  if (Buffer.isBuffer(chunk)) {
-    return chunk;
-  }
+  if (Buffer.isBuffer(chunk)) return chunk;
   if (chunk instanceof Uint8Array || ArrayBuffer.isView(chunk)) {
     return Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
   }
@@ -56,25 +50,18 @@ function toBuffer(chunk: unknown, encodingOrCallback?: unknown): Buffer | null {
     const enc = (typeof encodingOrCallback === 'string' ? encodingOrCallback : 'utf8') as BufferEncoding;
     return Buffer.from(chunk, enc);
   }
-  if (chunk instanceof ArrayBuffer) {
-    return Buffer.from(chunk);
-  }
-  return Buffer.from(String(chunk), 'utf8');
+  if (chunk instanceof ArrayBuffer) return Buffer.from(chunk);
+  return Buffer.from(JSON.stringify(chunk), 'utf8');
 }
 
-/**
- * Eğer metin yanlışlıkla byte sayıları ("48,58,34,77...") olarak serileştirilmişse,
- * bunu otomatik olarak UTF-8 metne çözer.
- */
 function tryDecodeByteString(str: string): string {
   const trimmed = str.trim();
-  // Virgülle ayrılmış en az 4 sayı dizisi (örn: 48,58,34,77...)
   if (/^\d{1,3}(,\s*\d{1,3}){3,}/.test(trimmed)) {
     try {
       const numbers = trimmed
         .split(',')
-        .map((n) => parseInt(n.trim(), 10))
-        .filter((n) => !isNaN(n));
+        .map((n) => Number.parseInt(n.trim(), 10))
+        .filter((n) => !Number.isNaN(n));
       const decoded = Buffer.from(numbers).toString('utf8');
       if (decoded.length > 0 && !decoded.includes('\ufffd')) {
         return decoded;
@@ -86,42 +73,46 @@ function tryDecodeByteString(str: string): string {
   return str;
 }
 
-/**
- * Yanıt metninin çözülememiş ham rakamlardan/baytlardan oluşup oluşmadığını denetler.
- */
 function isRawNumberDump(str: string): boolean {
-  const trimmed = str.trim();
-  return /^\d[\d,\s]{20,}$/.test(trimmed);
+  return /^\d[\d,\s]{20,}$/.test(str.trim());
 }
 
-/**
- * Vercel AI SDK data-stream protokolünü ayrıştırır (0:"metin", d:{"finishReason":...})
- */
+interface StreamMetaCollector {
+  finishReason: string;
+  usage: Record<string, unknown> | null;
+}
+
+function parseStreamLine(line: string, textDeltas: string[], meta: StreamMetaCollector): boolean {
+  if (line.startsWith('0:')) {
+    try {
+      textDeltas.push(JSON.parse(line.slice(2)));
+    } catch {
+      textDeltas.push(line.slice(2));
+    }
+    return true;
+  }
+  if (line.startsWith('d:')) {
+    try {
+      const parsed = JSON.parse(line.slice(2));
+      if (parsed.finishReason) meta.finishReason = parsed.finishReason;
+      if (parsed.usage) meta.usage = parsed.usage;
+    } catch {
+      // noop
+    }
+    return true;
+  }
+  return false;
+}
+
 function parseVercelAiStream(raw: string): { fullText: string; summary: string } | null {
   const lines = raw.split('\n');
   const textDeltas: string[] = [];
-  let finishReason = '';
-  let usage: Record<string, unknown> | null = null;
+  const meta: StreamMetaCollector = { finishReason: '', usage: null };
   let hasAiTokens = false;
 
   for (const line of lines) {
-    if (line.startsWith('0:')) {
+    if (parseStreamLine(line, textDeltas, meta)) {
       hasAiTokens = true;
-      try {
-        const text = JSON.parse(line.slice(2));
-        textDeltas.push(text);
-      } catch {
-        textDeltas.push(line.slice(2));
-      }
-    } else if (line.startsWith('d:')) {
-      hasAiTokens = true;
-      try {
-        const meta = JSON.parse(line.slice(2));
-        if (meta.finishReason) finishReason = meta.finishReason;
-        if (meta.usage) usage = meta.usage;
-      } catch {
-        // noop
-      }
     }
   }
 
@@ -129,10 +120,89 @@ function parseVercelAiStream(raw: string): { fullText: string; summary: string }
 
   const fullText = textDeltas.join('');
   let summary = `${textDeltas.length} token/chunk`;
-  if (finishReason) summary += `, Bitiş: ${finishReason}`;
-  if (usage) summary += `, Token kullanımı: ${JSON.stringify(usage)}`;
+  if (meta.finishReason) summary += `, Bitiş: ${meta.finishReason}`;
+  if (meta.usage) summary += `, Token: ${JSON.stringify(meta.usage)}`;
 
   return { fullText, summary };
+}
+
+function headerToString(val: unknown): string {
+  if (Array.isArray(val)) {
+    return val.join(', ');
+  }
+  if (typeof val === 'string') {
+    return val;
+  }
+  return JSON.stringify(val);
+}
+
+function sanitizeHeaders(headers: Record<string, unknown>): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, val] of Object.entries(headers)) {
+    if (val === undefined) continue;
+    const lowerKey = key.toLowerCase();
+    const str = headerToString(val);
+    if (lowerKey === 'authorization' || lowerKey === 'cookie') {
+      result[key] = str.length > 20 ? str.slice(0, 15) + '…[GİZLENDİ]' : '********';
+    } else {
+      result[key] = str;
+    }
+  }
+  return result;
+}
+
+function sanitizeBody(body: unknown): unknown {
+  if (!body || typeof body !== 'object') return body;
+  const copy = { ...(body as Record<string, unknown>) };
+  for (const key of Object.keys(copy)) {
+    const lk = key.toLowerCase();
+    if (lk.includes('password') || lk.includes('token') || lk.includes('secret')) {
+      copy[key] = '********';
+    }
+  }
+  return copy;
+}
+
+function shouldSkipInspection(url: string): boolean {
+  return (
+    url.startsWith('/api/dev/inspector') ||
+    url.startsWith('/dev/inspector') ||
+    url.startsWith('/dev-inspector')
+  );
+}
+
+function extractResponseDetails(rawBody: string): {
+  parsedBody: unknown;
+  resLines: string[];
+  aiStream: { fullText: string; summary: string } | null;
+} {
+  const aiStream = parseVercelAiStream(rawBody);
+  const resLines: string[] = [];
+  let parsedBody: unknown = rawBody;
+
+  if (aiStream) {
+    parsedBody = aiStream.fullText;
+    resLines.push(
+      `${MAGENTA}${BOLD}   🤖 LLM Stream Yanıtı (${aiStream.summary}):${RESET}`,
+      aiStream.fullText
+        .split('\n')
+        .map((line) => `      ${GREEN}${line}${RESET}`)
+        .join('\n'),
+    );
+  } else if (rawBody.trim().startsWith('{') || rawBody.trim().startsWith('[')) {
+    try {
+      parsedBody = JSON.parse(rawBody);
+      resLines.push(`${GREEN}   gelen yanıt (response):${RESET}\n${formatJson(parsedBody)}`);
+    } catch {
+      if (!isRawNumberDump(rawBody)) {
+        resLines.push(`${GREEN}   gelen yanıt (raw):${RESET} ${rawBody}`);
+      }
+    }
+  } else if (rawBody.trim().length > 0 && !isRawNumberDump(rawBody)) {
+    resLines.push(`${GREEN}   gelen yanıt (text):${RESET} ${rawBody}`);
+  }
+
+  return { parsedBody, resLines, aiStream };
 }
 
 export function devLoggerMiddleware(req: Request, res: Response, next: NextFunction): void {
@@ -141,39 +211,35 @@ export function devLoggerMiddleware(req: Request, res: Response, next: NextFunct
     return;
   }
 
+  // Inspector'ın kendi SSE veya UI isteklerini loglamaktan kaçın (Döngü engelleme)
+  if (shouldSkipInspection(req.originalUrl || req.url)) {
+    next();
+    return;
+  }
+
   const startTime = Date.now();
+  const id = `req_${randomUUID()}`;
+  const timestamp = new Date().toISOString();
+  const sanitizedHeaders = sanitizeHeaders(req.headers);
+  const sanitizedBody = sanitizeBody(req.body);
+
+  // 1. Terminal formatlı log satırları
   const separator = '─'.repeat(70);
+  const reqLines: string[] = [
+    `\n${DIM}${separator}${RESET}`,
+    `${BOLD}${CYAN}▶ REQ${RESET}  ${BOLD}${req.method}${RESET} ${WHITE}${req.originalUrl}${RESET} ${DIM}[${new Date().toLocaleTimeString('tr-TR')}]${RESET}`,
+  ];
 
-  // ── 1. REQUEST LOG ────────────────────────────────────────────────────────
-  const reqLines: string[] = [];
-  reqLines.push(`\n${DIM}${separator}${RESET}`);
-  reqLines.push(
-    `${BOLD}${CYAN}▶ REQ${RESET}  ${BOLD}${req.method}${RESET} ${WHITE}${req.originalUrl}${RESET} ` +
-      `${DIM}[${new Date().toLocaleTimeString('tr-TR')}]${RESET}`,
-  );
-
-  if (req.headers['x-tenant-id']) {
-    reqLines.push(`${DIM}   kiracı (tenant):${RESET} ${req.headers['x-tenant-id']}`);
+  if (sanitizedHeaders['authorization']) {
+    reqLines.push(`${DIM}   yetki (auth):${RESET}   ${sanitizedHeaders['authorization']}`);
   }
-  if (req.headers['authorization']) {
-    const auth = String(req.headers['authorization']);
-    const masked = auth.length > 25 ? auth.slice(0, 25) + '…' : auth;
-    reqLines.push(`${DIM}   yetki (auth):${RESET}   ${masked}`);
+  if (sanitizedBody && Object.keys(sanitizedBody as object).length > 0) {
+    reqLines.push(`${BLUE}   giden gövde (body):${RESET}\n${formatJson(sanitizedBody)}`);
   }
 
-  if (req.body && Object.keys(req.body).length > 0) {
-    const sanitized = { ...req.body } as Record<string, unknown>;
-    if ('password' in sanitized) sanitized['password'] = '********';
-    if ('token' in sanitized) sanitized['token'] = '********';
-    reqLines.push(`${BLUE}   giden gövde (body):${RESET}\n${formatJson(sanitized)}`);
-  }
-
-  devInspectorHub.log(reqLines.join('\n'));
-
-  // ── 2. RESPONSE INTERCEPT ────────────────────────────────────────────────
+  // 2. Response Intercept
   const originalWrite = res.write.bind(res);
   const originalEnd = res.end.bind(res);
-
   const chunks: Buffer[] = [];
 
   res.write = function (
@@ -199,49 +265,41 @@ export function devLoggerMiddleware(req: Request, res: Response, next: NextFunct
     const duration = Date.now() - startTime;
     const status = res.statusCode;
     const color = statusColor(status);
-    const resLines: string[] = [];
 
-    // Birleştirilmiş ham yanıt metni
     let rawBody = Buffer.concat(chunks).toString('utf8');
-
-    // Eğer sayısal byte dizisi ("48,58,34...") gelmişse metne çevirmeyi dene
     rawBody = tryDecodeByteString(rawBody);
 
-    // Yanıt türüne göre ayrıştırma ve biçimlendirme
-    const aiStream = parseVercelAiStream(rawBody);
-
-    if (aiStream) {
-      // 1. LLM Akışı (Vercel AI SDK / SSE stream)
-      resLines.push(`${MAGENTA}${BOLD}   🤖 LLM Stream Yanıtı (${aiStream.summary}):${RESET}`);
-      resLines.push(
-        aiStream.fullText
-          .split('\n')
-          .map((line) => `      ${GREEN}${line}${RESET}`)
-          .join('\n'),
-      );
-    } else if (rawBody.trim().startsWith('{') || rawBody.trim().startsWith('[')) {
-      // 2. Standart JSON Yanıtı
-      try {
-        const parsed = JSON.parse(rawBody);
-        resLines.push(`${GREEN}   gelen yanıt (response):${RESET}\n${formatJson(parsed)}`);
-      } catch {
-        if (!isRawNumberDump(rawBody)) {
-          resLines.push(`${GREEN}   gelen yanıt (raw):${RESET} ${rawBody}`);
-        }
-      }
-    } else if (rawBody.trim().length > 0) {
-      // 3. Düz Metin / HTML / Diğer
-      if (!isRawNumberDump(rawBody)) {
-        resLines.push(`${GREEN}   gelen yanıt (text):${RESET} ${rawBody}`);
-      }
-    }
+    const { parsedBody, resLines, aiStream } = extractResponseDetails(rawBody);
 
     resLines.push(
       `${BOLD}${color}◀ RES${RESET}  ${color}${status}${RESET} ${DIM}(${duration}ms)${RESET}`,
+      `${DIM}${separator}${RESET}\n`,
     );
-    resLines.push(`${DIM}${separator}${RESET}\n`);
 
-    devInspectorHub.log(resLines.join('\n'));
+    // 3. Yapılandırılmış veriyi DevInspectorHub'a ilet
+    const trafficEntry: DevTrafficEntry = {
+      id,
+      timestamp,
+      method: req.method,
+      url: req.originalUrl || req.url,
+      status,
+      durationMs: duration,
+      clientIp: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+      request: {
+        headers: sanitizedHeaders,
+        body: sanitizedBody,
+        query: req.query as Record<string, unknown>,
+      },
+      response: {
+        status,
+        body: parsedBody,
+        streamSummary: aiStream ? aiStream.summary : undefined,
+        isStream: Boolean(aiStream),
+      },
+      formattedText: [...reqLines, ...resLines].join('\n'),
+    };
+
+    devInspectorHub.emitTraffic(trafficEntry);
 
     return (originalEnd as Function).apply(res, [chunk, encodingOrCallback, callback]) as Response;
   } as typeof res.end;

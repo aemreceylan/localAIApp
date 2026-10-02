@@ -16,7 +16,14 @@ export class RoleController {
 
   async createRole(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const role = await roleService.createRole(req.body);
+      const { name, slug, description, permissions, baseArchetype, base_archetype } = req.body;
+      const role = await roleService.createRole({
+        name,
+        slug,
+        description,
+        permissions,
+        base_archetype: (baseArchetype || base_archetype || 'user') as any,
+      });
       res.status(201).json({
         success: true,
         message: 'Rol başarıyla oluşturuldu.',
@@ -36,6 +43,21 @@ export class RoleController {
       res.status(200).json({
         success: true,
         message: 'Rol izinleri başarıyla güncellendi.',
+        data: updated,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async setDefaultRole(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const slug = req.params.slug as string;
+      const updated = await roleService.setDefaultRole(slug);
+
+      res.status(200).json({
+        success: true,
+        message: `'${updated.name}' başarıyla yeni varsayılan kullanıcı rolü olarak belirlendi.`,
         data: updated,
       });
     } catch (err) {

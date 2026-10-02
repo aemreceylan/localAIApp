@@ -1,47 +1,75 @@
 /**
  * @file role.types.ts
- * @description Rol ve Yetkilendirme Tipi Tanımları.
- * Sistem Open/Closed prensibine tam uyumlu Resource:Action formatında modellenmiştir.
+ * @description Kurumsal Rol ve Yetkilendirme Tipi Tanımları.
+ * Sistem Open/Closed prensibine tam uyumlu 3 parçalı standartta modellenmiştir:
+ * Format: <ana_rol_arketipi>:<kaynak/kategori>:<eylem>
+ * Örnek: 'admin:user:ban', 'admin:model:manage', 'user:chat:create'
  */
 
 import type { IUser } from '#modules/auth/user.model.js';
 
+export type RoleArchetype = 'admin' | 'user';
+
 export const PERMISSIONS = {
-  // Kullanıcı Yönetimi
-  USER_READ: 'user:read',
-  USER_MANAGE_ROLES: 'user:manage_roles',
-  USER_BAN: 'user:ban',
-  USER_UNBAN: 'user:unban',
+  // ==========================================
+  // USER HAVUZU (user:*)
+  // Hem User hem Admin arketipindeki roller alabilir
+  // ==========================================
+  USER_CHAT_CREATE: 'user:chat:create',
+  USER_CHAT_HISTORY: 'user:chat:history',
+  USER_CHAT_EXPORT: 'user:chat:export',
+  USER_RAG_SEARCH: 'user:rag:search',
+  USER_RAG_READ: 'user:rag:read',
+  USER_PROMPT_READ: 'user:prompt:read',
+  USER_MODEL_USE: 'user:model:use',
+  USER_PROFILE_MANAGE: 'user:profile:manage',
 
-  // Admin Yönetimi (Yalnızca Superadmin)
-  ADMIN_CREATE: 'admin:create',
-  ADMIN_REVOKE: 'admin:revoke',
-  ADMIN_TRANSFER_OWNERSHIP: 'admin:transfer_ownership',
+  // ==========================================
+  // ADMIN HAVUZU (admin:*)
+  // YALNIZCA Admin arketipindeki roller alabilir
+  // ==========================================
+  // 1. Kullanıcı ve Yönetici Yönetimi
+  ADMIN_USER_READ: 'admin:user:read',
+  ADMIN_USER_CREATE: 'admin:user:create',
+  ADMIN_USER_BAN: 'admin:user:ban',
+  ADMIN_USER_UNBAN: 'admin:user:unban',
+  ADMIN_USER_ASSIGN_ROLE: 'admin:user:assign_role',
+  ADMIN_USER_ASSIGN_ADMIN: 'admin:user:assign_admin',
+  ADMIN_USER_OVERRIDE: 'admin:user:override',
 
-  // RAG Bilgi Bankası ve Belge Yönetimi
-  RAG_DOCUMENT_READ: 'rag:document:read',
-  RAG_DOCUMENT_UPLOAD: 'rag:document:upload',
-  RAG_DOCUMENT_UPDATE_ROLES: 'rag:document:update_roles',
-  RAG_DOCUMENT_DELETE: 'rag:document:delete',
+  // 2. Rol ve Şablon Yönetimi
+  ADMIN_ROLE_READ: 'admin:role:read',
+  ADMIN_ROLE_CREATE: 'admin:role:create',
+  ADMIN_ROLE_UPDATE: 'admin:role:update',
+  ADMIN_ROLE_DELETE: 'admin:role:delete',
+  ADMIN_ROLE_SET_DEFAULT: 'admin:role:set_default',
 
-  // Prompt ve Persona Yönetimi
-  PROMPT_READ: 'prompt:read',
-  PROMPT_CREATE: 'prompt:create',
-  PROMPT_MANAGE: 'prompt:manage',
+  // 3. RAG Bilgi Bankası ve Belge Yönetimi
+  ADMIN_RAG_UPLOAD: 'admin:rag:upload',
+  ADMIN_RAG_UPDATE_ROLES: 'admin:rag:update_roles',
+  ADMIN_RAG_DELETE: 'admin:rag:delete',
+  ADMIN_RAG_SYNC: 'admin:rag:sync',
 
-  // Model Yönetimi
-  MODEL_MANAGE: 'model:manage',
+  // 4. Prompt, Persona ve Kural Yönetimi
+  ADMIN_PROMPT_CREATE: 'admin:prompt:create',
+  ADMIN_PROMPT_MANAGE: 'admin:prompt:manage',
 
-  // Denetim Günlükleri
-  AUDIT_READ: 'audit:read',
+  // 5. Model ve Altyapı Yönetimi
+  ADMIN_MODEL_READ: 'admin:model:read',
+  ADMIN_MODEL_MANAGE: 'admin:model:manage',
+  ADMIN_MODEL_SET_DEFAULT: 'admin:model:set_default',
+
+  // 6. Denetim (Audit) ve Kök Sistem
+  ADMIN_AUDIT_READ: 'admin:audit:read',
+  ADMIN_SYSTEM_TRANSFER: 'admin:system:transfer',
 } as const;
 
-export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS] | string;
+export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS] | (string & {});
 
 /**
  * Open/Closed Prensibi Strateji Arayüzü:
  * Özel bir kaynak için yetki denetimi eklenmek istendiğinde bu arayüz uygulanır
- * ve PolicyEngine'e kaydedilir. Çekirdek kod değiştirilmez.
+ * ve PolicyEngine'e kaydedilir.
  */
 export interface IPermissionStrategy {
   can(user: IUser, permission: string, context?: any): Promise<boolean> | boolean;

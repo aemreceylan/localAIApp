@@ -1,9 +1,10 @@
 /**
  * @file role.repository.ts
- * @description Rol veri erişim katmanı.
+ * @description Kurumsal Rol ve Yetki veri erişim katmanı.
  */
 
 import { RoleModel, type IRole } from '#modules/role/role.model.js';
+import type { RoleArchetype } from '#modules/role/role.types.js';
 
 export class RoleRepository {
   async findBySlug(slug: string): Promise<IRole | null> {
@@ -16,15 +17,21 @@ export class RoleRepository {
     return await RoleModel.find({ slug: { $in: normalized } }).lean();
   }
 
+  async findDefaultRole(): Promise<IRole | null> {
+    return await RoleModel.findOne({ is_default: true }).lean();
+  }
+
   async findAll(): Promise<IRole[]> {
-    return await RoleModel.find().sort({ is_system: -1, name: 1 }).lean();
+    return await RoleModel.find().sort({ is_system: -1, is_default: -1, name: 1 }).lean();
   }
 
   async createRole(data: {
     slug: string;
     name: string;
     description?: string;
+    base_archetype: RoleArchetype;
     permissions?: string[];
+    is_default?: boolean;
     is_system?: boolean;
   }): Promise<IRole> {
     return await RoleModel.create({
@@ -37,7 +44,19 @@ export class RoleRepository {
     return await RoleModel.findOneAndUpdate(
       { slug: slug.toLowerCase() },
       { $set: { permissions } },
-      { new: true }
+      { returnDocument: 'after' }
+    ).lean();
+  }
+
+  async setDefaultRole(slug: string): Promise<IRole | null> {
+    // 1. Önceki tüm varsayılan işaretlerini kaldır
+    await RoleModel.updateMany({ is_default: true }, { $set: { is_default: false } });
+
+    // 2. Yeni hedef rolü varsayılan olarak işaretle
+    return await RoleModel.findOneAndUpdate(
+      { slug: slug.toLowerCase() },
+      { $set: { is_default: true } },
+      { returnDocument: 'after' }
     ).lean();
   }
 

@@ -83,6 +83,6 @@ export const promptQuerySchema = z.object({
     .optional(),
 });
 
-export type CreatePromptDto = z.infer<typeof createPromptSchema>;
+export type CreatePromptDto = z.input<typeof createPromptSchema>;
 export type UpdatePromptDto = z.infer<typeof updatePromptSchema>;
 export type PromptQueryDto = z.infer<typeof promptQuerySchema>;

@@ -2,15 +2,21 @@
  * @file user.model.ts
  * @description Kurumsal Kullanıcı Veri Modeli.
  * Tek kurum (On-Prem) mimarisine uygun olarak SaaS tenant bağımlılığından arındırılmıştır.
- * Çift katmanlı yetkilendirme içerir:
+ * Çift katmanlı yetkilendirme + kullanıcı bazlı istisnai yetki ezme (allow/deny override) içerir:
  * 1. system_role: Sistem seviyesi yetki ('superadmin', 'admin', 'user').
  *    - Sistemde yalnızca TEK BİR 'superadmin' bulunabilir (Partial Unique Index ile garanti edilir).
  * 2. roles: Kurum içi fonksiyonel departman/erişim rolleri (örn: ['hr'], ['developer'], ['finance']).
+ * 3. custom_permissions: Kullanıcıya özel izin ezme (allow: doğrudan eklenen, deny: rolden düşürülen).
  */
 
 import mongoose, { Schema, type Model } from 'mongoose';
 
 export type SystemRole = 'superadmin' | 'admin' | 'user';
+
+export interface IUserCustomPermissions {
+  allow: string[];
+  deny: string[];
+}
 
 export interface IUser {
   email: string;
@@ -19,6 +25,7 @@ export interface IUser {
   last_name: string;
   system_role: SystemRole;
   roles: string[];
+  custom_permissions?: IUserCustomPermissions;
   is_active: boolean;
   created_at?: Date;
   updated_at?: Date;
@@ -54,12 +61,21 @@ const userSchema = new Schema<IUser>(
       type: String,
       enum: ['superadmin', 'admin', 'user'],
       default: 'user',
-      index: true,
     },
     roles: {
       type: [String],
       default: [],
       index: true,
+    },
+    custom_permissions: {
+      allow: {
+        type: [String],
+        default: [],
+      },
+      deny: {
+        type: [String],
+        default: [],
+      },
     },
     is_active: {
       type: Boolean,
@@ -72,6 +88,15 @@ const userSchema = new Schema<IUser>(
     collection: 'users',
   }
 );
+
+userSchema.post('init', function (doc) {
+  const legacyRole = (doc as any).role;
+  if (legacyRole && (doc.system_role === 'user' || !doc.system_role)) {
+    if (legacyRole === 'superadmin' || legacyRole === 'admin') {
+      doc.system_role = legacyRole;
+    }
+  }
+});
 
 /**
  * GÜVENLİK KRİTERİ:

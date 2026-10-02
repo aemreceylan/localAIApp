@@ -9,9 +9,12 @@ import { SessionModel, type ISession } from '#modules/auth/session.model.js';
 export class AuthRepository {
   /**
    * Sistemde en az bir super admin kullanıcısı olup olmadığını denetler.
+   * Geriye dönük uyumluluk: Hem yeni system_role hem de eski role alanını kontrol eder.
    */
   async hasSuperAdmin(): Promise<boolean> {
-    const exists = await UserModel.exists({ system_role: 'superadmin' });
+    const exists = await UserModel.exists({
+      $or: [{ system_role: 'superadmin' }, { role: 'superadmin' as any }],
+    });
     return Boolean(exists);
   }
 
@@ -19,7 +22,9 @@ export class AuthRepository {
    * Sistemdeki mevcut Super Admin kullanıcısını getirir.
    */
   async findSuperAdmin(): Promise<IUser | null> {
-    return await UserModel.findOne({ system_role: 'superadmin' });
+    return await UserModel.findOne({
+      $or: [{ system_role: 'superadmin' }, { role: 'superadmin' as any }],
+    });
   }
 
   /**
@@ -70,7 +75,7 @@ export class AuthRepository {
    * Kullanıcı alanlarını günceller.
    */
   async updateUser(id: string, update: Partial<IUser>): Promise<IUser | null> {
-    return await UserModel.findByIdAndUpdate(id, { $set: update }, { new: true });
+    return await UserModel.findByIdAndUpdate(id, { $set: update }, { returnDocument: 'after' });
   }
 
   /**
@@ -80,7 +85,7 @@ export class AuthRepository {
     return await UserModel.findByIdAndUpdate(
       id,
       { $set: { system_role: systemRole } },
-      { new: true }
+      { returnDocument: 'after' }
     );
   }
 
@@ -91,7 +96,21 @@ export class AuthRepository {
     return await UserModel.findByIdAndUpdate(
       id,
       { $set: { roles } },
-      { new: true }
+      { returnDocument: 'after' }
+    );
+  }
+
+  /**
+   * Kullanıcı bazlı istisnai izinleri (allow/deny override) günceller.
+   */
+  async updateCustomPermissions(
+    id: string,
+    customPermissions: { allow: string[]; deny: string[] }
+  ): Promise<IUser | null> {
+    return await UserModel.findByIdAndUpdate(
+      id,
+      { $set: { custom_permissions: customPermissions } },
+      { returnDocument: 'after' }
     );
   }
 
@@ -102,7 +121,7 @@ export class AuthRepository {
     return await UserModel.findByIdAndUpdate(
       id,
       { $set: { is_active: isActive } },
-      { new: true }
+      { returnDocument: 'after' }
     );
   }
 

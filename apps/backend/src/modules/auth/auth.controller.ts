@@ -272,6 +272,32 @@ export class AuthController {
       next(err);
     }
   }
+
+  /**
+   * PUT /api/auth/users/:id/permissions/override
+   * Kullanıcıya özel izin ezme (allow/deny override).
+   */
+  async overridePermissions(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const targetUserId = req.params.id as string;
+      const { allow = [], deny = [] } = req.body;
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const user = await authService.overrideUserPermissions(req.user!, targetUserId, allow, deny, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Kullanıcıya özel yetki istisnaları başarıyla uygulandı.',
+        data: user,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const authController = new AuthController();

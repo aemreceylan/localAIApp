@@ -101,16 +101,28 @@ src/modules/<module-name>/
 
 ---
 
-## 4. KURUMSAL TEK ÇATI (ON-PREMISES) RBAC VE ROL BAZLI VERİ İZOLASYONU
+## 4. KURUMSAL TEK ÇATI (ON-PREMISES) RBAC, ARKETİP TAVANI VE ROL BAZLI VERİ İZOLASYONU
 
-Sistem tek kurum içi (on-premise / self-hosted) kullanım için tasarlandığından yapay SaaS multi-tenancy (`tenant_id`) soyutlamalarından tamamen arındırılmıştır. İzolasyon; kullanıcı (`user_id`), sistem rolleri (`system_role: 'superadmin' | 'admin' | 'user'`) ve departman fonksiyonel rolleri (`roles: string[]`) üzerinden sağlanır.
+Sistem tek kurum içi (on-premise / self-hosted) kullanım için tasarlandığından yapay SaaS multi-tenancy (`tenant_id`) soyutlamalarından tamamen arındırılmıştır. İzolasyon; kullanıcı (`user_id`), sistem rolleri (`system_role: 'superadmin' | 'admin' | 'user'`), ana arketip tavanı (`base_archetype: 'admin' | 'user'`), fonksiyonel departman rolleri (`roles: string[]`) ve kullanıcı bazlı yetki ezme (`custom_permissions: { allow, deny }`) üzerinden sağlanır.
 
-### 4.1. Open/Closed Prensibi (OCP) Yetkilendirme Motoru (`PolicyEngine`)
+### 4.1. 3 Seviyeli Hiyerarşi & Arketip Tavan Modeli (Permission Ceiling)
 
-1. **Genişletilebilir Politika Motoru:** İzin denetimleri doğrudan kod içine gömülü statik `if` blokları yerine `PolicyEngine.can(user, permission, context)` üzerinden işletilir. Yeni kaynak stratejileri çekirdek kod değiştirilmeden enjekte edilebilir (`IPermissionStrategy`).
-2. **Superadmin Bypass & Invariant:** Sistemde veritabanı seviyesinde tek bir Superadmin garantilenir. Superadmin tüm yetki denetimlerinden otomatik geçer (`can() -> true`).
-3. **Rol Hiyerarşisi & Atama Kuralları:** Yalnızca Superadmin başka bir kullanıcıyı `admin` yapabilir veya adminliği geri alabilir. Normal adminler standart kullanıcıları banlayabilir ve fonksiyonel roller (`hr`, `developer`, `finance`, `legal` vb.) atayabilir.
-4. **Anlık Ban & Oturum İptali:** Banlanan veya rolü değişen kullanıcının tüm oturumları `deleteAllSessionsForUser` ile veritabanından ve önbellekten anında silinir; bir sonraki istekte 401/403 ile reddedilir.
+1. **Ana Roller Birer Yetki Potansiyeli ve Arketiptir:** Hazır statik bir admin veya user rolü yoktur. Roller oluşturulurken `admin` veya `user` arketipinden türer.
+2. **Matematiksel Tavan Kontrolü:** `base_archetype: 'user'` olan bir role `admin:` ile başlayan izinler verilemez; yetki aşımı yazılımsal olarak engellenir.
+3. **Standart 3 Parçalı İzin Formatı:** `<ana_rol_arketipi>:<kaynak/kategori>:<eylem>` (Örn: `admin:user:ban`, `admin:model:manage`, `user:chat:create`, `user:rag:read`).
+4. **Admin Tarafından Belirlenen Varsayılan Rol:** Sistemde admin tarafından `is_default: true` olarak işaretlenen bir kullanıcı rolü bulunur. Yeni kaydolan/eklenen personellere bu rol otomatik atanır. Yalnızca `user` arketipine sahip roller varsayılan yapılabilir.
+5. **Kullanıcı Spesifik Yetkilendirme (Override):** Bir personele istisnai durumlarda rolünden bağımsız doğrudan yetki verilebilir (`allow`) veya rolündeki bir yetki geri alınabilir (`deny`). Deny kontrolleri allow'dan önce değerlendirilir.
+6. **Superadmin "Break-Glass" (Kök Hesap):** Superadmin günlük operasyonlarda kullanılmaz; rol verilip alınamaz, yetki ezme uygulanamaz. Yetkili yöneticilere `admin:user:assign_admin` yetkisi devredilerek kurum içi delegasyon sağlanır.
+
+### 4.2. Open/Closed Prensibi (OCP) Yetkilendirme Motoru (`PolicyEngine`)
+
+1. **5 Aşamalı Çözümleme Sırası:**
+   - 1. Hesap aktif mi? (Banlıysa `false`)
+   - 2. Superadmin mi? (Root bypass `true`)
+   - 3. Kullanıcı Deny İstisnası var mı? (`custom_permissions.deny` içindeyse `false`)
+   - 4. Kullanıcı Allow İstisnası var mı? (`custom_permissions.allow` içindeyse `true`)
+   - 5. Rol İzinleri ve Kaynak Stratejileri (`roleService.getPermissionsForRoles`)
+2. **Anlık Ban & Oturum İptali:** Banlanan veya yetkileri değişen personelin tüm oturumları `deleteAllSessionsForUser` ile anında sonlandırılır.
 
 ### 4.2. Qdrant Vektör & RAG Doküman Katmanında İzolasyon (`src/modules/rag`)
 
@@ -264,3 +276,23 @@ Platformun tüm REST API uç noktaları tip güvenli OpenAPI 3.0 standardına g�
 - **Swagger UI Web Arayüzü (`GET /api/docs`)**
 - **Ham OpenAPI JSON Çıktısı (`GET /api/docs.json`)**
 - **Statik Master Doküman (`documents/openapi.json`)**
+
+---
+
+## 14. CANLI GELİŞTİRİCİ TRAFİK VE STREAM İZLEYİCİSİ (DEV TRAFFIC & STREAM INSPECTOR)
+
+Geliştirme ortamında çalışan backend HTTP isteklerini, dönen yanıtları ve LLM akışlarını (SSE / Vercel AI SDK) gözlemlemek için harici konsol pencereleri (`cmd.exe`) açmak geliştirici deneyimini karmaşıklaştırdığından; sistem **Web Tabanlı Canlı Trafik ve Stream İzleyici** mimarisine dönüştürülmüştür.
+
+### 14.1. Mimari Prensipler ve Bileşenler
+1. **Pencere Kirliliğini Önleme:** Backend başlatıldığında harici bir CMD terminal penceresi açılmaz; tüm veriler web arayüzlerine hazır hale getirilir.
+2. **Döngüsel Bellek Tamponu (In-Memory Ring Buffer):** `DevInspectorHub` en son 100 HTTP istek ve yanıtını yapılandırılmış `DevTrafficEntry` nesneleri olarak bellekte saklar.
+3. **Gerçek Zamanlı SSE Yayını (`GET /api/dev/inspector/events`):** `EventSource` protokolüyle bağlanan tüm istemcilere anlık HTTP logları ve LLM token akışları gecikmesiz iletilir.
+4. **Döngü Engelleme (Self-Inspection Guard):** İzleyicinin kendi SSE ve log sorgulama istekleri (`/api/dev/inspector/*`, `/dev/inspector`) loglamadan hariç tutularak sonsuz döngü engellenir.
+5. **Güvenlik ve Maskeleme:** Tüm istek ve yanıtlardaki hassas veriler (`authorization`, `cookie`, `password`, `token`) otomatik olarak maskelenir. Sadece `NODE_ENV !== 'production'` ortamında aktiftir.
+
+### 14.2. API ve Test Arayüzü Uç Noktaları
+- **`GET /dev/inspector` (ve `/dev-inspector`):** Geliştiricinin tarayıcıda hemen kullanabileceği, koyu temalı, filtreleme, arama, JSON önizleme ve test butonları içeren interaktif web arayüzü.
+- **`GET /api/dev/inspector/logs`:** Bellekteki son 100 kaydı ve genel metrikleri (`totalRequests`, `errorCount`, `avgDurationMs`) döner.
+- **`DELETE /api/dev/inspector/logs`:** Bellekteki kayıt geçmişini temizler ve bağlı SSE istemcilerini sıfırlar.
+- **`GET /api/dev/inspector/events`:** `user-interface` veya harici web istemcilerinin doğrudan bağlanabileceği SSE akış uç noktası.
+

@@ -14,7 +14,7 @@ export class PromptService {
       slug: dto.slug,
       type: dto.type,
       content: dto.content,
-      allowed_roles: dto.allowedRoles,
+      ...(dto.allowedRoles ? { allowed_roles: dto.allowedRoles } : {}),
       ...(dto.isActive !== undefined ? { is_active: dto.isActive } : {}),
       ...(dto.isDefault !== undefined ? { is_default: dto.isDefault } : {}),
       ...(dto.priority !== undefined ? { priority: dto.priority } : {}),

@@ -13,6 +13,7 @@ import {
   globalErrorHandler,
   devLoggerMiddleware,
 } from '#shared/middleware/index.js';
+import { devInspectorRoutes } from '#shared/dev-inspector/index.js';
 
 const app = express();
 
@@ -38,9 +39,12 @@ app.use(
 
 app.use(express.json({ limit: '2mb' }));
 
-// Geliştirme ortamında istek/yanıt loglaması (sadece development)
+// Geliştirme ortamında istek/yanıt loglaması ve Canlı Trafik & Stream Inspector (sadece development)
 if (process.env['NODE_ENV'] !== 'production') {
   app.use(devLoggerMiddleware);
+  app.use('/api/dev/inspector', devInspectorRoutes);
+  app.use('/dev/inspector', devInspectorRoutes);
+  app.use('/dev-inspector', devInspectorRoutes);
 }
 
 // OpenAPI / Swagger Dokümantasyonu (Hem web üzerinden sunulur hem de diske kaydedilir)

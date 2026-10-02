@@ -1,6 +1,6 @@
 /**
  * @file auth.dto.ts
- * @description Kimlik doğrulama, ilk kurulum, rol yönetimi ve oturum Zod DTO şemaları.
+ * @description Kimlik doğrulama, ilk kurulum, rol yönetimi ve kullanıcı yetki ezme (override) Zod DTO şemaları.
  */
 
 import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
@@ -66,13 +66,19 @@ export const setupStatusResponseSchema = z.object({
   }),
 });
 
+export const customPermissionsSchema = z.object({
+  allow: z.array(z.string()).default([]).openapi({ description: 'Kullanıcıya özel eklenen izinler' }),
+  deny: z.array(z.string()).default([]).openapi({ description: 'Kullanıcıdan geri alınan/engellenen izinler' }),
+});
+
 export const userResponseSchema = z.object({
   id: z.string().openapi({ description: 'Kullanıcı ID (ObjectId)' }),
   email: z.string().openapi({ description: 'E-posta' }),
   firstName: z.string().openapi({ description: 'Ad' }),
   lastName: z.string().openapi({ description: 'Soyad' }),
   systemRole: z.enum(['superadmin', 'admin', 'user']).openapi({ description: 'Sistem Seviyesi Rol' }),
-  roles: z.array(z.string()).openapi({ description: 'Kurum içi departman ve fonksiyonel roller' }),
+  roles: z.array(z.string()).openapi({ description: 'Kurum içi fonksiyonel departman rolleri' }),
+  customPermissions: customPermissionsSchema.optional().openapi({ description: 'Kullanıcıya özel yetki istisnaları' }),
   isActive: z.boolean().openapi({ description: 'Hesap aktiflik/ban durumu' }),
 });
 
@@ -103,6 +109,12 @@ export const banUserSchema = z.object({
   reason: z.string().optional(),
 });
 
+export const overridePermissionsSchema = z.object({
+  targetUserId: z.string().min(1, 'Hedef kullanıcı ID zorunludur.'),
+  allow: z.array(z.string()).default([]).openapi({ description: 'İstisnai olarak verilen yetkiler' }),
+  deny: z.array(z.string()).default([]).openapi({ description: 'İstisnai olarak engellenen yetkiler' }),
+});
+
 export type SetupSuperAdminDto = z.infer<typeof setupSuperAdminSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;
 export type UserResponseDto = z.infer<typeof userResponseSchema>;
@@ -111,3 +123,4 @@ export type TransferSuperAdminDto = z.infer<typeof transferSuperAdminSchema>;
 export type AssignAdminDto = z.infer<typeof assignAdminSchema>;
 export type AssignRolesDto = z.infer<typeof assignRolesSchema>;
 export type BanUserDto = z.infer<typeof banUserSchema>;
+export type OverridePermissionsDto = z.infer<typeof overridePermissionsSchema>;

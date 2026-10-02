@@ -41,7 +41,9 @@ erDiagram
         string slug UK "Rol tekil kimligi admin user hr developer"
         string name "Rol Basligi"
         string description "Rol aciklamasi"
-        array permissions "Izin stringleri"
+        string base_archetype "admin veya user (Yetki tavan arketipi)"
+        array permissions "3 parcali izin stringleri: arketip:kategori:eylem"
+        boolean is_default "Varsayilan kullanici rolu mu (Yalnizca 1 user rolu)"
         boolean is_system "Sistemik rol mu"
         date created_at "Olusturulma tarihi"
         date updated_at "Guncellenme tarihi"
@@ -55,6 +57,7 @@ erDiagram
         string last_name "Kullanici Soyadi"
         string system_role "superadmin admin user (Tek superadmin)"
         array roles "Fonksiyonel departman rolleri hr dev vb"
+        object custom_permissions "Kullanici bazli allow ve deny istisnalari"
         boolean is_active "Hesap aktiflik ban durumu"
         date created_at "Olusturulma tarihi"
         date updated_at "Guncellenme tarihi"
@@ -146,17 +149,19 @@ erDiagram
 
 ### 3.1. `roles` (Kurumsal Rol ve Yetki Şeması)
 
-Open/Closed prensibine uygun dinamik rol tanımları.
+Open/Closed prensibine uygun, arketip tabanlı tavan havuzu (`admin` veya `user`) ile korunan dinamik rol tanımları.
 
-| Alan Adı                    | Tip           | Zorunlu? | Varsayılan | İndeks | Açıklama                                              |
-| :-------------------------- | :------------ | :------: | :--------: | :----: | :---------------------------------------------------- |
-| `_id`                       | ObjectId      |   Evet   |    auto    |   PK   | Rol benzersiz kimliği                                 |
-| `slug`                      | String (50)   |   Evet   |     -      | UNIQUE | Rol sistemik adı (`admin`, `user`, `hr`, `developer`) |
-| `name`                      | String (100)  |   Evet   |     -      |   -    | Rolün görünen adı                                     |
-| `description`               | String        |  Hayır   |    `""`    |   -    | Rol tanımı ve sorumluluk alanı                        |
-| `permissions`               | Array[String] |   Evet   |    `[]`    |   -    | Rolün sahip olduğu izinler (`rag:read`, `user:ban`)   |
-| `is_system`                 | Boolean       |   Evet   |  `false`   |   -    | Sistemik rol (silinemez)                              |
-| `created_at` / `updated_at` | Date          |   Evet   |    auto    |   -    | Zaman damgaları                                       |
+| Alan Adı                    | Tip           | Zorunlu? | Varsayılan | İndeks | Açıklama                                                                |
+| :-------------------------- | :------------ | :------: | :--------: | :----: | :---------------------------------------------------------------------- |
+| `_id`                       | ObjectId      |   Evet   |    auto    |   PK   | Rol benzersiz kimliği                                                   |
+| `slug`                      | String (50)   |   Evet   |     -      | UNIQUE | Rol sistemik kodu (`system_admin`, `default_user`, `hr`, `developer`)   |
+| `name`                      | String (100)  |   Evet   |     -      |   -    | Rolün görünen adı                                                       |
+| `description`               | String        |  Hayır   |    `""`    |   -    | Rol tanımı ve sorumluluk alanı                                          |
+| `base_archetype`            | String        |   Evet   |  `'user'`  | Index  | Ana rol arketipi (`'admin'`, `'user'`). Yetki tavanını belirler.        |
+| `permissions`               | Array[String] |   Evet   |    `[]`    |   -    | 3 parçalı izinler (`admin:user:ban`, `user:chat:create`)                 |
+| `is_default`                | Boolean       |   Evet   |  `false`   | Partial Unique | Yeni kullanıcılar için varsayılan rol mü? (Yalnızca 1 user rolü) |
+| `is_system`                 | Boolean       |   Evet   |  `false`   |   -    | Sistemik rol (silinemez)                                                |
+| `created_at` / `updated_at` | Date          |   Evet   |    auto    |   -    | Zaman damgaları                                                         |
 
 ---
 
@@ -164,16 +169,17 @@ Open/Closed prensibine uygun dinamik rol tanımları.
 
 Sistemde oturum açan personeller.
 
-| Alan Adı        | Tip               | Zorunlu? | Varsayılan | İndeks                         | Açıklama                                   |
-| :-------------- | :---------------- | :------: | :--------: | :----------------------------- | :----------------------------------------- |
-| `_id`           | ObjectId          |   Evet   |    auto    | PK                             | Kullanıcı kimliği                          |
-| `email`         | String            |   Evet   |     -      | UNIQUE                         | E-posta adresi                             |
-| `password_hash` | String            |   Evet   |     -      | -                              | Şifrelenmiş parola özeti                   |
-| `first_name`    | String            |   Evet   |     -      | -                              | Adı                                        |
-| `last_name`     | String            |   Evet   |     -      | -                              | Soyadı                                     |
-| `system_role`   | String            |   Evet   |  `'user'`  | Partial Unique (`superadmin`)  | `'superadmin'`, `'admin'`, `'user'`        |
-| `roles`         | Array[String]     |   Evet   |    `[]`    | Index                          | Fonksiyonel roller (`['hr']`, `['dev']`)   |
-| `is_active`     | Boolean           |   Evet   |   `true`   | Index                          | Hesap aktiflik durumu (Ban kontrolü)       |
+| Alan Adı             | Tip               | Zorunlu? | Varsayılan | İndeks                         | Açıklama                                                     |
+| :------------------- | :---------------- | :------: | :--------: | :----------------------------- | :----------------------------------------------------------- |
+| `_id`                | ObjectId          |   Evet   |    auto    | PK                             | Kullanıcı kimliği                                            |
+| `email`              | String            |   Evet   |     -      | UNIQUE                         | E-posta adresi                                               |
+| `password_hash`      | String            |   Evet   |     -      | -                              | Şifrelenmiş parola özeti                                     |
+| `first_name`         | String            |   Evet   |     -      | -                              | Adı                                                          |
+| `last_name`          | String            |   Evet   |     -      | -                              | Soyadı                                                       |
+| `system_role`        | String            |   Evet   |  `'user'`  | Partial Unique (`superadmin`)  | `'superadmin'`, `'admin'`, `'user'` (Root Dokunulmazlığı)    |
+| `roles`              | Array[String]     |   Evet   |    `[]`    | Index                          | Fonksiyonel departman rolleri (`['hr']`, `['developer']`)    |
+| `custom_permissions` | Object            |  Hayır   | `{allow:[], deny:[]}` | -                   | Kullanıcı spesifik yetki ezme (İstisnai allow ve deny)       |
+| `is_active`          | Boolean           |   Evet   |   `true`   | Index                          | Hesap aktiflik durumu (Ban kontrolü)                         |
 
 ---
 

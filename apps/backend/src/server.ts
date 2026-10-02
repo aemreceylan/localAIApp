@@ -24,8 +24,9 @@ async function bootstrap() {
       console.log(`[Environment] MOD: ${env.NODE_ENV}`);
       console.log(`[Docs] Swagger UI: http://${env.HOST}:${env.PORT}/api/docs`);
 
-      // Geliştirme ortamında ayrı konsolda çalışan Dev Traffic Inspector'ı hazırla
+      // Geliştirme ortamında Dev Traffic & Stream Inspector'ı hazırla
       if (env.NODE_ENV !== 'production') {
+        console.log(`[DevInspector] Canlı Trafik ve Stream İzleyici: http://${env.HOST}:${env.PORT}/dev/inspector`);
         devInspectorHub.start();
       }
     });

@@ -1,12 +1,13 @@
 /**
  * @file role.service.ts
  * @description Kurumsal Rol ve Yetki Yönetim Servisi.
- * Redis/Memory önbellekleme desteği ve varsayılan sistem rolleri tohumlamasını (seed) içerir.
+ * Redis/Memory önbellekleme desteği, arketip tabanlı tavan yetki havuzu denetimi
+ * ve varsayılan rol belirleme mantığını içerir.
  */
 
 import { roleRepository } from '#modules/role/role.repository.js';
 import { cacheService } from '#shared/cache/index.js';
-import { PERMISSIONS } from '#modules/role/role.types.js';
+import { PERMISSIONS, type RoleArchetype } from '#modules/role/role.types.js';
 import type { IRole } from '#modules/role/role.model.js';
 import { ValidationError, NotFoundError } from '#shared/errors/index.js';
 
@@ -14,82 +15,75 @@ const ROLE_CACHE_TTL_SEC = 300; // 5 Dakika
 
 export class RoleService {
   /**
-   * Sistem ilk ayağa kalktığında temel sistem ve departman rollerini tohumlar.
+   * Sistem ilk ayağa kalktığında temel sistem ve kullanıcı rollerini tohumlar.
    */
   async initDefaultRoles(): Promise<void> {
     const defaultRoles: Array<{
       slug: string;
       name: string;
       description: string;
+      base_archetype: RoleArchetype;
       permissions: string[];
+      is_default: boolean;
       is_system: boolean;
     }> = [
       {
-        slug: 'admin',
-        name: 'Kurum Yöneticisi',
-        description: 'Tüm sistem, model, prompt, RAG ve kullanıcı yönetimi yetkilerine sahiptir (Superadmin atama hariç).',
-        permissions: [
-          PERMISSIONS.USER_READ,
-          PERMISSIONS.USER_MANAGE_ROLES,
-          PERMISSIONS.USER_BAN,
-          PERMISSIONS.USER_UNBAN,
-          PERMISSIONS.RAG_DOCUMENT_READ,
-          PERMISSIONS.RAG_DOCUMENT_UPLOAD,
-          PERMISSIONS.RAG_DOCUMENT_UPDATE_ROLES,
-          PERMISSIONS.RAG_DOCUMENT_DELETE,
-          PERMISSIONS.PROMPT_READ,
-          PERMISSIONS.PROMPT_CREATE,
-          PERMISSIONS.PROMPT_MANAGE,
-          PERMISSIONS.MODEL_MANAGE,
-          PERMISSIONS.AUDIT_READ,
-        ],
+        slug: 'system_admin',
+        name: 'Sistem Yöneticisi',
+        description: 'Tüm sistem, model, prompt, RAG ve kullanıcı yönetimi yetkilerine sahip yönetici rolü.',
+        base_archetype: 'admin',
+        permissions: Object.values(PERMISSIONS),
+        is_default: false,
         is_system: true,
       },
       {
-        slug: 'user',
-        name: 'Standart Kullanıcı',
-        description: 'Genel sohbet ve izin verilen kurumsal asistanlara erişim yetkisi.',
-        permissions: [PERMISSIONS.PROMPT_READ, PERMISSIONS.RAG_DOCUMENT_READ],
+        slug: 'default_user',
+        name: 'Standart Personel',
+        description: 'Genel sohbet ve izin verilen kurumsal asistanlara erişim için varsayılan kullanıcı rolü.',
+        base_archetype: 'user',
+        permissions: [
+          PERMISSIONS.USER_CHAT_CREATE,
+          PERMISSIONS.USER_CHAT_HISTORY,
+          PERMISSIONS.USER_CHAT_EXPORT,
+          PERMISSIONS.USER_RAG_SEARCH,
+          PERMISSIONS.USER_RAG_READ,
+          PERMISSIONS.USER_PROMPT_READ,
+          PERMISSIONS.USER_MODEL_USE,
+          PERMISSIONS.USER_PROFILE_MANAGE,
+        ],
+        is_default: true,
         is_system: true,
       },
       {
         slug: 'hr',
         name: 'İnsan Kaynakları',
         description: 'İK departmanı personeli. İK odaklı RAG belgelerine ve personalara erişir.',
+        base_archetype: 'user',
         permissions: [
-          PERMISSIONS.RAG_DOCUMENT_READ,
-          PERMISSIONS.RAG_DOCUMENT_UPLOAD,
-          PERMISSIONS.PROMPT_READ,
+          PERMISSIONS.USER_CHAT_CREATE,
+          PERMISSIONS.USER_CHAT_HISTORY,
+          PERMISSIONS.USER_RAG_SEARCH,
+          PERMISSIONS.USER_RAG_READ,
+          PERMISSIONS.USER_PROMPT_READ,
+          PERMISSIONS.USER_MODEL_USE,
         ],
+        is_default: false,
         is_system: false,
       },
       {
         slug: 'developer',
         name: 'Yazılım Geliştirici',
         description: 'Mühendislik ekibi. Kodlama asistanları ve teknik dokümantasyon RAG havuzuna erişir.',
+        base_archetype: 'user',
         permissions: [
-          PERMISSIONS.RAG_DOCUMENT_READ,
-          PERMISSIONS.RAG_DOCUMENT_UPLOAD,
-          PERMISSIONS.PROMPT_READ,
+          PERMISSIONS.USER_CHAT_CREATE,
+          PERMISSIONS.USER_CHAT_HISTORY,
+          PERMISSIONS.USER_RAG_SEARCH,
+          PERMISSIONS.USER_RAG_READ,
+          PERMISSIONS.USER_PROMPT_READ,
+          PERMISSIONS.USER_MODEL_USE,
         ],
-        is_system: false,
-      },
-      {
-        slug: 'finance',
-        name: 'Finans',
-        description: 'Finans ve Muhasebe departmanı personeli.',
-        permissions: [PERMISSIONS.RAG_DOCUMENT_READ, PERMISSIONS.PROMPT_READ],
-        is_system: false,
-      },
-      {
-        slug: 'legal',
-        name: 'Hukuk',
-        description: 'Hukuk ve Uyum departmanı personeli.',
-        permissions: [
-          PERMISSIONS.RAG_DOCUMENT_READ,
-          PERMISSIONS.RAG_DOCUMENT_UPLOAD,
-          PERMISSIONS.PROMPT_READ,
-        ],
+        is_default: false,
         is_system: false,
       },
     ];
@@ -132,12 +126,56 @@ export class RoleService {
   }
 
   /**
+   * Sistemdeki varsayılan kullanıcı rolünü döner.
+   */
+  async getDefaultRole(): Promise<IRole> {
+    const defaultRole = await roleRepository.findDefaultRole();
+    if (defaultRole) {
+      return defaultRole;
+    }
+
+    const fallback = await roleRepository.findBySlug('default_user');
+    if (fallback) {
+      return fallback;
+    }
+
+    throw new NotFoundError('Sistemde tanımlı varsayılan bir kullanıcı rolü bulunamadı.');
+  }
+
+  /**
+   * Admin tarafından yeni bir varsayılan kullanıcı rolü belirlenir.
+   * GÜVENLİK: Yalnızca 'user' arketipine sahip roller varsayılan yapılabilir!
+   */
+  async setDefaultRole(slug: string): Promise<IRole> {
+    const role = await roleRepository.findBySlug(slug);
+    if (!role) {
+      throw new NotFoundError(`'${slug}' rolü bulunamadı.`);
+    }
+
+    if (role.base_archetype !== 'user') {
+      throw new ValidationError(
+        "Güvenlik Kısıtlaması: Yalnızca 'user' arketipindeki roller varsayılan kullanıcı rolü olarak belirlenebilir."
+      );
+    }
+
+    const updated = await roleRepository.setDefaultRole(slug);
+    if (!updated) {
+      throw new NotFoundError('Varsayılan rol güncellenemedi.');
+    }
+
+    await cacheService.delPattern('role:*');
+    return updated;
+  }
+
+  /**
    * Yeni bir dinamik rol tanımlar.
+   * GÜVENLİK: 'user' arketipinde bir role 'admin:' izinleri verilemez.
    */
   async createRole(data: {
     slug: string;
     name: string;
     description?: string;
+    base_archetype: RoleArchetype;
     permissions?: string[];
   }): Promise<IRole> {
     const existing = await roleRepository.findBySlug(data.slug);
@@ -145,8 +183,16 @@ export class RoleService {
       throw new ValidationError(`'${data.slug}' isimli rol zaten mevcut.`);
     }
 
+    // Yetki tavanı kuralı
+    if (data.base_archetype === 'user' && data.permissions?.some((p) => p.startsWith('admin:'))) {
+      throw new ValidationError(
+        "Yetki Tavanı İhlali: 'user' arketipindeki bir role 'admin:' seviyesinde yetki tanımlanamaz."
+      );
+    }
+
     const role = await roleRepository.createRole({
       ...data,
+      is_default: false,
       is_system: false,
     });
 
@@ -155,7 +201,8 @@ export class RoleService {
   }
 
   /**
-   * Rolün sahip olduğu izinleri günceller (Open/Closed - dinamik yetkilendirme).
+   * Rolün sahip olduğu izinleri günceller.
+   * GÜVENLİK: Rol arketip tavan kısıtlamasına uyulmalıdır.
    */
   async updateRolePermissions(slug: string, permissions: string[]): Promise<IRole> {
     const role = await roleRepository.findBySlug(slug);
@@ -163,12 +210,18 @@ export class RoleService {
       throw new NotFoundError(`'${slug}' rolü bulunamadı.`);
     }
 
-    const updated = await roleRepository.updatePermissions(slug, permissions);
-    if (!updated) {
-      throw new NotFoundError(`Rol güncellenemedi.`);
+    // Arketip tavan kontrolü
+    if (role.base_archetype === 'user' && permissions.some((p) => p.startsWith('admin:'))) {
+      throw new ValidationError(
+        "Yetki Tavanı İhlali: 'user' arketipindeki bir role 'admin:' seviyesinde yetki atanamaz."
+      );
     }
 
-    // Önbelleği temizle
+    const updated = await roleRepository.updatePermissions(slug, permissions);
+    if (!updated) {
+      throw new NotFoundError('Rol güncellenemedi.');
+    }
+
     await cacheService.delPattern('role:*');
     return updated;
   }

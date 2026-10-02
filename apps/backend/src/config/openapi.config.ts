@@ -29,10 +29,12 @@ import {
   assignAdminSchema,
   assignRolesSchema,
   banUserSchema,
+  overridePermissionsSchema,
 } from '#modules/auth/auth.dto.js';
 import {
   createRoleSchema,
   updateRolePermissionsSchema,
+  setDefaultRoleSchema,
   roleResponseSchema,
 } from '#modules/role/role.dto.js';
 
@@ -101,8 +103,10 @@ registry.register('TransferSuperAdminRequest', transferSuperAdminSchema);
 registry.register('AssignAdminRequest', assignAdminSchema);
 registry.register('AssignRolesRequest', assignRolesSchema);
 registry.register('BanUserRequest', banUserSchema);
+registry.register('OverridePermissionsRequest', overridePermissionsSchema);
 registry.register('CreateRoleRequest', createRoleSchema);
 registry.register('UpdateRolePermissionsRequest', updateRolePermissionsSchema);
+registry.register('SetDefaultRoleRequest', setDefaultRoleSchema);
 registry.register('RoleResponse', roleResponseSchema);
 
 // ==========================================
@@ -928,6 +932,77 @@ registry.registerPath({
             success: z.literal(true),
             message: z.string(),
             data: roleResponseSchema,
+          }),
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'put',
+  path: '/api/roles/{slug}/set-default',
+  tags: ['Rol ve İzin Yönetimi (OCP Engine)'],
+  summary: 'Varsayılan Kullanıcı Rolünü Belirle',
+  description: 'Yeni kaydolan veya eklenen personeller için varsayılan rolü belirler. Yalnızca user arketipindeki roller seçilebilir. (Yetki: admin:role:set_default)',
+  security: [{ bearerAuth: [] }],
+  parameters: [
+    {
+      name: 'slug',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Varsayılan yapılacak rol kodu (slug)',
+    },
+  ],
+  responses: {
+    200: {
+      description: 'Varsayılan rol başarıyla güncellendi.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+            data: roleResponseSchema,
+          }),
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'put',
+  path: '/api/auth/users/{id}/permissions/override',
+  tags: ['Kullanıcı & Kimlik Yönetimi'],
+  summary: 'Kullanıcıya Özel Yetki İstisnası Belirle (Allow / Deny Override)',
+  description: 'Belirli bir personelin rolünden bağımsız olarak yetki verilmesini (allow) veya rolündeki bir yetkisinin geri alınmasını (deny) sağlar. (Yetki: admin:user:override)',
+  security: [{ bearerAuth: [] }],
+  parameters: [
+    {
+      name: 'id',
+      in: 'path',
+      required: true,
+      schema: { type: 'string' },
+      description: 'Hedef kullanıcı ID (ObjectId)',
+    },
+  ],
+  request: {
+    body: {
+      description: 'İstisnai yetki listesi (allow ve deny)',
+      required: true,
+      content: { 'application/json': { schema: overridePermissionsSchema.omit({ targetUserId: true }) } },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Kullanıcı yetki istisnaları başarıyla uygulandı.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.literal(true),
+            message: z.string(),
+            data: userResponseSchema,
           }),
         },
       },

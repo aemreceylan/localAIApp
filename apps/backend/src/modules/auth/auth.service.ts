@@ -13,6 +13,8 @@ import {
   generateOpaqueToken,
   hashToken,
 } from '#modules/auth/auth.utils.js';
+import { PolicyEngine } from '#modules/role/policy.engine.js';
+import { PERMISSIONS } from '#modules/role/role.types.js';
 import {
   UnauthorizedError,
   ForbiddenError,
@@ -279,7 +281,7 @@ export class AuthService {
   }
 
   /**
-   * ADMİN ATAMA (Yalnızca Superadmin):
+   * ADMİN ATAMA (Superadmin veya 'admin:user:assign_admin' yetkisine sahip Yöneticiler):
    * Bir kullanıcıya 'admin' sistem rolü atar.
    */
   async assignAdmin(
@@ -287,8 +289,12 @@ export class AuthService {
     targetUserId: string,
     meta?: AuthRequestMeta
   ): Promise<UserResponseDto> {
-    if (actor.system_role !== 'superadmin') {
-      throw new ForbiddenError('Yalnızca Superadmin diğer kullanıcılara Admin rolü atayabilir.');
+    const isAuthorized =
+      actor.system_role === 'superadmin' ||
+      (await PolicyEngine.can(actor, PERMISSIONS.ADMIN_USER_ASSIGN_ADMIN));
+
+    if (!isAuthorized) {
+      throw new ForbiddenError('Diğer kullanıcılara Admin yetkisi atama izniniz bulunmamaktadır.');
     }
 
     const targetUser = await authRepository.findById(targetUserId);
@@ -322,15 +328,19 @@ export class AuthService {
   }
 
   /**
-   * ADMİN YETKİSİNİ GERİ ALMA (Yalnızca Superadmin)
+   * ADMİN YETKİSİNİ GERİ ALMA (Superadmin veya 'admin:user:assign_admin' yetkisine sahip Yöneticiler)
    */
   async revokeAdmin(
     actor: IUser,
     targetUserId: string,
     meta?: AuthRequestMeta
   ): Promise<UserResponseDto> {
-    if (actor.system_role !== 'superadmin') {
-      throw new ForbiddenError('Yalnızca Superadmin bir kullanıcının Admin yetkisini geri alabilir.');
+    const isAuthorized =
+      actor.system_role === 'superadmin' ||
+      (await PolicyEngine.can(actor, PERMISSIONS.ADMIN_USER_ASSIGN_ADMIN));
+
+    if (!isAuthorized) {
+      throw new ForbiddenError('Bir kullanıcının Admin yetkisini geri alma izniniz bulunmamaktadır.');
     }
 
     const targetUser = await authRepository.findById(targetUserId);
@@ -340,6 +350,11 @@ export class AuthService {
 
     if (targetUser.system_role === 'superadmin') {
       throw new ValidationError('Superadmin yetkisi bu işlemle geri alınamaz.');
+    }
+
+    // Normal bir admin başka bir adminin yetkisini geri alamaz (Yalnızca Superadmin)
+    if (actor.system_role !== 'superadmin' && targetUser.system_role === 'admin') {
+      throw new ForbiddenError('Mevcut bir yöneticinin adminliği yalnızca Superadmin tarafından geri alınabilir.');
     }
 
     const updated = await authRepository.updateUserSystemRole(targetUserId, 'user');
@@ -370,7 +385,7 @@ export class AuthService {
   async banUser(
     actor: IUser,
     targetUserId: string,
-    reason?: string | undefined,
+    reason?: string,
     meta?: AuthRequestMeta
   ): Promise<UserResponseDto> {
     const actorId = (actor as any)._id.toString();
@@ -457,6 +472,10 @@ export class AuthService {
       throw new NotFoundError('Kullanıcı bulunamadı.');
     }
 
+    if (targetUser.system_role === 'superadmin') {
+      throw new ForbiddenError('Superadmin hesabına rol atanamaz veya rolleri değiştirilemez.');
+    }
+
     const updated = await authRepository.updateUserRoles(targetUserId, roles);
     if (!updated) {
       throw new NotFoundError('Kullanıcı güncellenemedi.');
@@ -472,6 +491,47 @@ export class AuthService {
       targetId: targetUserId,
       targetType: 'user',
       details: { email: targetUser.email, assignedRoles: roles },
+      ...buildAuditMeta(meta),
+    });
+
+    return this.mapUserResponse(updated);
+  }
+
+  /**
+   * KULLANICI İSTİSNAİ YETKİLERİNİ GÜNCELLEME (Allow / Deny Override):
+   * Belirli bir kullanıcıya rolünden bağımsız doğrudan yetki verir veya rolündeki bir yetkiyi engeller.
+   */
+  async overrideUserPermissions(
+    actor: IUser,
+    targetUserId: string,
+    allow: string[],
+    deny: string[],
+    meta?: AuthRequestMeta
+  ): Promise<UserResponseDto> {
+    const targetUser = await authRepository.findById(targetUserId);
+    if (!targetUser) {
+      throw new NotFoundError('Kullanıcı bulunamadı.');
+    }
+
+    if (targetUser.system_role === 'superadmin') {
+      throw new ForbiddenError('Superadmin hesabı üzerinde izin ezme/override işlemi yapılamaz.');
+    }
+
+    const updated = await authRepository.updateCustomPermissions(targetUserId, { allow, deny });
+    if (!updated) {
+      throw new NotFoundError('Kullanıcı güncellenemedi.');
+    }
+
+    // Yetki değişikliğinin anında geçerli olması için oturumları ve önbelleği tazele
+    await authRepository.deleteAllSessionsForUser(targetUserId);
+    await cacheService.delPattern('role:*');
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'PERMISSIONS_OVERRIDDEN',
+      targetId: targetUserId,
+      targetType: 'user',
+      details: { email: targetUser.email, allow, deny },
       ...buildAuditMeta(meta),
     });
 
@@ -497,6 +557,7 @@ export class AuthService {
       lastName: user.last_name,
       systemRole: user.system_role,
       roles: user.roles || [],
+      customPermissions: user.custom_permissions || { allow: [], deny: [] },
       isActive: user.is_active,
     };
   }

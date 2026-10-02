@@ -9,17 +9,56 @@ import { roleService } from '#modules/role/role.service.js';
 import { PolicyEngine } from '#modules/role/policy.engine.js';
 import { PERMISSIONS } from '#modules/role/role.types.js';
 
-describe('Kurumsal RBAC, Güvenlik ve Yetkilendirme Testleri (Enterprise RBAC & Security)', () => {
+describe('Kurumsal RBAC, Arketip Tavanı ve Hiyerarşik Yetkilendirme Testleri', () => {
+  let existingSuperAdmins: any[] = [];
+
   beforeAll(async () => {
     await connectDatabase();
-    await UserModel.deleteMany({ email: { $in: ['superadmin@test.local', 'admin1@test.local', 'user1@test.local', 'user2@test.local'] } });
+    existingSuperAdmins = await UserModel.find({
+      system_role: 'superadmin',
+      email: { $ne: 'superadmin@test.local' },
+    }).lean();
+
+    if (existingSuperAdmins.length > 0) {
+      await UserModel.deleteMany({
+        _id: { $in: existingSuperAdmins.map((u) => u._id) },
+      });
+    }
+
+    await UserModel.deleteMany({
+      email: {
+        $in: [
+          'superadmin@test.local',
+          'admin1@test.local',
+          'user1@test.local',
+          'user2@test.local',
+          'delegated_admin@test.local',
+        ],
+      },
+    });
     await SessionModel.deleteMany({});
     await roleService.initDefaultRoles();
   });
 
   afterAll(async () => {
-    await UserModel.deleteMany({ email: { $in: ['superadmin@test.local', 'admin1@test.local', 'user1@test.local', 'user2@test.local'] } });
+    await UserModel.deleteMany({
+      email: {
+        $in: [
+          'superadmin@test.local',
+          'admin1@test.local',
+          'user1@test.local',
+          'user2@test.local',
+          'delegated_admin@test.local',
+        ],
+      },
+    });
+    await RoleModel.deleteMany({ slug: { $in: ['compliance-auditor', 'test-invalid-user-role', 'custom-user-default'] } });
     await SessionModel.deleteMany({});
+
+    if (existingSuperAdmins.length > 0) {
+      await UserModel.insertMany(existingSuperAdmins);
+    }
+
     await disconnectDatabase();
   });
 
@@ -67,8 +106,8 @@ describe('Kurumsal RBAC, Güvenlik ve Yetkilendirme Testleri (Enterprise RBAC & 
     const { hashPassword } = await import('#modules/auth/auth.utils.js');
     const passwordHash = await hashPassword('KullaniciSifre123!');
     const userDoc = await UserModel.create({
-      firstName: 'Ahmet',
-      lastName: 'Geliştirici',
+      first_name: 'Ahmet',
+      last_name: 'Geliştirici',
       email: 'user1@test.local',
       password_hash: passwordHash,
       system_role: 'user',
@@ -92,12 +131,11 @@ describe('Kurumsal RBAC, Güvenlik ve Yetkilendirme Testleri (Enterprise RBAC & 
   });
 
   it('4. Admin Atama Hiyerarşisi: Superadmin bir kullanıcıyı Admin yapabilmelidir', async () => {
-    // Yeni bir potansiyel admin oluştur
     const { hashPassword } = await import('#modules/auth/auth.utils.js');
     const adminPasswordHash = await hashPassword('AdminSifre123!');
     const adminUser = await UserModel.create({
-      firstName: 'Kemal',
-      lastName: 'Yönetici',
+      first_name: 'Kemal',
+      last_name: 'Yönetici',
       email: 'admin1@test.local',
       password_hash: adminPasswordHash,
       system_role: 'user',
@@ -106,7 +144,6 @@ describe('Kurumsal RBAC, Güvenlik ve Yetkilendirme Testleri (Enterprise RBAC & 
     });
     admin1Id = (adminUser._id as any).toString();
 
-    // Superadmin tokenı ile admin ata
     const res = await request(app)
       .post('/api/auth/admin/assign')
       .set('Authorization', `Bearer ${superAdminToken}`)
@@ -115,7 +152,6 @@ describe('Kurumsal RBAC, Güvenlik ve Yetkilendirme Testleri (Enterprise RBAC & 
     expect(res.status).toBe(200);
     expect(res.body.data.systemRole).toBe('admin');
 
-    // Admin kullanıcısı giriş yapsın
     const loginRes = await request(app)
       .post('/api/auth/login')
       .send({
@@ -125,42 +161,36 @@ describe('Kurumsal RBAC, Güvenlik ve Yetkilendirme Testleri (Enterprise RBAC & 
     admin1Token = loginRes.body.data.token;
   });
 
-  it('5. Yetki Yükseltme Koruması: Standart Admin başka bir Admin atayamaz (403 Forbidden)', async () => {
+  it('5. Admin Delegasyonu: Atama izni olmayan kullanıcı admin atayamaz (403 Forbidden)', async () => {
     const res = await request(app)
       .post('/api/auth/admin/assign')
-      .set('Authorization', `Bearer ${admin1Token}`)
+      .set('Authorization', `Bearer ${user1Token}`)
       .send({ targetUserId: user1Id });
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('FORBIDDEN');
   });
 
-  it('6. Admin Dokunulmazlığı: Standart Admin başka bir Admini banlayamaz (403 Forbidden)', async () => {
-    const res = await request(app)
+  it('6. Admin Dokunulmazlığı: Standart Admin kendi kendini veya Superadmini banlayamaz', async () => {
+    const resSelf = await request(app)
       .post(`/api/auth/users/${admin1Id}/ban`)
       .set('Authorization', `Bearer ${admin1Token}`)
-      .send({ reason: 'Yasadışı ban denemesi' });
+      .send({ reason: 'Kendi hesabını banlama' });
+    expect(resSelf.status).toBe(422);
 
-    expect(res.status).toBe(400); // Kendi hesabını banlayamaz
-  });
-
-  it('7. Superadmin Dokunulmazlığı: Superadmin hesabı asla banlanamaz', async () => {
-    const res = await request(app)
+    const resSuper = await request(app)
       .post(`/api/auth/users/${superAdminId}/ban`)
       .set('Authorization', `Bearer ${superAdminToken}`)
-      .send({ reason: 'Kendi hesabını banlama denemesi' });
-
-    expect(res.status).toBe(400);
+      .send({ reason: 'Superadmini banlama' });
+    expect(resSuper.status).toBe(422);
   });
 
-  it('8. Anlık Ban ve Oturum İptali (Session Invalidation): Banlanan kullanıcının tokenı anında 401/403 dönmelidir', async () => {
-    // user1 aktif iken GET /api/auth/me başarılı çalışmalı
+  it('7. Anlık Ban ve Oturum İptali (Session Invalidation)', async () => {
     const meBefore = await request(app)
       .get('/api/auth/me')
       .set('Authorization', `Bearer ${user1Token}`);
     expect(meBefore.status).toBe(200);
 
-    // Admin tarafından user1 banlansın
     const banRes = await request(app)
       .post(`/api/auth/users/${user1Id}/ban`)
       .set('Authorization', `Bearer ${superAdminToken}`)
@@ -169,15 +199,13 @@ describe('Kurumsal RBAC, Güvenlik ve Yetkilendirme Testleri (Enterprise RBAC & 
     expect(banRes.status).toBe(200);
     expect(banRes.body.data.isActive).toBe(false);
 
-    // BİR SONRAKİ İSTEKTE user1'in eski tokenı ANINDA reddedilmeli
     const meAfter = await request(app)
       .get('/api/auth/me')
       .set('Authorization', `Bearer ${user1Token}`);
-
-    expect(meAfter.status).toBe(401); // Oturum silindi / askıya alındı
+    expect(meAfter.status).toBe(401);
   });
 
-  it('9. Banlı kullanıcının giriş yapması engellenmelidir (403 Forbidden)', async () => {
+  it('8. Banlı kullanıcının giriş yapması engellenmelidir (403 Forbidden)', async () => {
     const loginRes = await request(app)
       .post('/api/auth/login')
       .send({
@@ -189,16 +217,22 @@ describe('Kurumsal RBAC, Güvenlik ve Yetkilendirme Testleri (Enterprise RBAC & 
     expect(loginRes.body.error.code).toBe('FORBIDDEN');
   });
 
-  it('10. Open/Closed (OCP) Yetki Motoru: PolicyEngine Superadmin bypass ve rol kontrollerini doğrulamalıdır', async () => {
-    const superAdminUser = await UserModel.findById(superAdminId);
-    expect(await PolicyEngine.can(superAdminUser!, 'any:custom:permission')).toBe(true);
+  it('9. Yetki Tavanı Kuralı (Ceiling): user arketipindeki bir role admin: yetkisi eklenemez (422)', async () => {
+    const res = await request(app)
+      .post('/api/roles')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({
+        slug: 'test-invalid-user-role',
+        name: 'Hatalı Rol',
+        description: 'Tavan aşım testi',
+        baseArchetype: 'user',
+        permissions: [PERMISSIONS.ADMIN_USER_BAN],
+      });
 
-    const devUser = await UserModel.findById(user1Id);
-    // user1 banlı olduğu için false dönmeli
-    expect(await PolicyEngine.can(devUser!, PERMISSIONS.PROMPT_READ)).toBe(false);
+    expect(res.status).toBe(422);
   });
 
-  it('11. Dinamik Rol Yönetimi: Yeni özel rol oluşturulabilmeli ve izinleri güncellenebilmelidir', async () => {
+  it('10. Dinamik Rol Yönetimi: admin arketipinden yeni rol türetilmeli ve izinleri güncellenebilmelidir', async () => {
     const res = await request(app)
       .post('/api/roles')
       .set('Authorization', `Bearer ${superAdminToken}`)
@@ -206,22 +240,84 @@ describe('Kurumsal RBAC, Güvenlik ve Yetkilendirme Testleri (Enterprise RBAC & 
         slug: 'compliance-auditor',
         name: 'Uyum ve Denetim Uzmanı',
         description: 'Tüm denetim loglarını inceleme yetkisi',
-        permissions: [PERMISSIONS.AUDIT_READ],
+        baseArchetype: 'admin',
+        permissions: [PERMISSIONS.ADMIN_AUDIT_READ],
       });
 
     expect(res.status).toBe(201);
     expect(res.body.data.slug).toBe('compliance-auditor');
-    expect(res.body.data.permissions).toContain(PERMISSIONS.AUDIT_READ);
+    expect(res.body.data.permissions).toContain(PERMISSIONS.ADMIN_AUDIT_READ);
 
-    // İzinleri güncelle (Open/Closed - dinamik genişleme)
     const updateRes = await request(app)
       .put('/api/roles/compliance-auditor/permissions')
       .set('Authorization', `Bearer ${superAdminToken}`)
       .send({
-        permissions: [PERMISSIONS.AUDIT_READ, PERMISSIONS.RAG_DOCUMENT_READ],
+        permissions: [PERMISSIONS.ADMIN_AUDIT_READ, PERMISSIONS.ADMIN_RAG_UPLOAD],
       });
 
     expect(updateRes.status).toBe(200);
-    expect(updateRes.body.data.permissions).toContain(PERMISSIONS.RAG_DOCUMENT_READ);
+    expect(updateRes.body.data.permissions).toContain(PERMISSIONS.ADMIN_RAG_UPLOAD);
+  });
+
+  it('11. Varsayılan Rol Yönetimi: Admin yeni bir varsayılan kullanıcı rolü belirleyebilmelidir', async () => {
+    // 1. Yeni bir user arketip rolü oluştur
+    await request(app)
+      .post('/api/roles')
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({
+        slug: 'custom-user-default',
+        name: 'Özel Varsayılan Rol',
+        baseArchetype: 'user',
+        permissions: [PERMISSIONS.USER_CHAT_CREATE, PERMISSIONS.USER_RAG_SEARCH],
+      });
+
+    // 2. Varsayılan yap
+    const res = await request(app)
+      .put('/api/roles/custom-user-default/set-default')
+      .set('Authorization', `Bearer ${superAdminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.is_default).toBe(true);
+
+    // 3. Admin arketipindeki bir rol varsayılan yapılmak istendiğinde 422 hatası almalı
+    const invalidDefaultRes = await request(app)
+      .put('/api/roles/compliance-auditor/set-default')
+      .set('Authorization', `Bearer ${superAdminToken}`);
+
+    expect(invalidDefaultRes.status).toBe(422);
+  });
+
+  it('12. Kullanıcı Spesifik Yetki Ezme (Override): Allow ve Deny öncelikleri doğrulanmalıdır', async () => {
+    // user1'in banını kaldıralım
+    await request(app)
+      .post(`/api/auth/users/${user1Id}/unban`)
+      .set('Authorization', `Bearer ${superAdminToken}`);
+
+    // user1'e özel ALLOW yetkisi verelim (örn: ADMIN_RAG_UPLOAD)
+    const overrideRes = await request(app)
+      .put(`/api/auth/users/${user1Id}/permissions/override`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({
+        allow: [PERMISSIONS.ADMIN_RAG_UPLOAD],
+        deny: [PERMISSIONS.USER_CHAT_CREATE],
+      });
+
+    expect(overrideRes.status).toBe(200);
+    expect(overrideRes.body.data.customPermissions.allow).toContain(PERMISSIONS.ADMIN_RAG_UPLOAD);
+    expect(overrideRes.body.data.customPermissions.deny).toContain(PERMISSIONS.USER_CHAT_CREATE);
+
+    const updatedUser = await UserModel.findById(user1Id);
+    // ALLOW sayesinde ADMIN_RAG_UPLOAD izni true olmalı
+    expect(await PolicyEngine.can(updatedUser!, PERMISSIONS.ADMIN_RAG_UPLOAD)).toBe(true);
+    // DENY sayesinde normalde rolünde olsa dahi USER_CHAT_CREATE false olmalı
+    expect(await PolicyEngine.can(updatedUser!, PERMISSIONS.USER_CHAT_CREATE)).toBe(false);
+
+    // Superadmin üzerinde override denenirse 403 Forbidden olmalı
+    const superOverride = await request(app)
+      .put(`/api/auth/users/${superAdminId}/permissions/override`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({ allow: [], deny: [PERMISSIONS.USER_CHAT_CREATE] });
+
+    expect(superOverride.status).toBe(403);
   });
 });
