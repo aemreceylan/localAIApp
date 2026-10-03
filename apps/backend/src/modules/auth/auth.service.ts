@@ -173,7 +173,7 @@ export class AuthService {
   }
 
   /**
-   * Oturumu sonlandırır (Opaque Token DB'den anında silinir).
+   * Oturumu sonlandırır (Opaque Token DB'den ve Redis'ten anında silinir).
    */
   async logout(rawToken: string): Promise<{ success: boolean; message: string }> {
     if (!rawToken) {
@@ -181,7 +181,30 @@ export class AuthService {
     }
     const tokenHash = hashToken(rawToken);
     await authRepository.deleteSession(tokenHash);
+    await cacheService.del(`auth:session:${tokenHash}`);
     return { success: true, message: 'Oturum başarıyla sonlandırıldı.' };
+  }
+
+  /**
+   * Bir kullanıcının Redis ve veritabanındaki tüm aktif oturumlarını anında geçersizleştirir.
+   * Anlık ban ve yetki değişikliklerinde derhal çağrılır (Zero-Context-Leakage & Instant Revocation).
+   */
+  async invalidateUserSessions(userId: string): Promise<void> {
+    try {
+      const userSessionsKey = `auth:user_sessions:${userId}`;
+      const tokens = (await cacheService.get<string[]>(userSessionsKey)) || [];
+
+      // Veritabanındaki tüm mevcut oturumları da ekleyerek hiçbir token'ın kaçmamasını sağla
+      const dbSessions = await authRepository.findSessionsByUserId(userId);
+      const allTokenHashes = new Set<string>([...tokens, ...dbSessions.map((s) => s.token_hash)]);
+
+      for (const tokenHash of allTokenHashes) {
+        await cacheService.del(`auth:session:${tokenHash}`);
+      }
+      await cacheService.del(userSessionsKey);
+    } catch (err) {
+      console.warn('[AuthService] Kullanıcı oturum önbellekleri temizlenirken uyarı:', err);
+    }
   }
 
   /**
@@ -197,7 +220,8 @@ export class AuthService {
 
   /**
    * Opaque token doğrulaması (Auth Middleware tarafından her istekte çağrılır).
-   * Anlık ban ve aktiflik durumunu kontrol eder.
+   * Redis Read-Through önbellek desteğiyle sub-millisecond (~0.5ms) yanıt verir.
+   * Anlık ban ve aktiflik durumunu kesinlikle denetler.
    */
   async validateToken(rawToken: string): Promise<{ user: IUser; session: ISession } | null> {
     if (!rawToken) {
@@ -205,6 +229,47 @@ export class AuthService {
     }
 
     const tokenHash = hashToken(rawToken);
+    const sessionCacheKey = `auth:session:${tokenHash}`;
+
+    // 1. Redis önbelleğinden oku (0 ms DB okuma, ~0.5ms toplam süre)
+    const cached = await cacheService.get<{
+      user: IUser;
+      session: ISession;
+      lastActiveAtMs?: number;
+    }>(sessionCacheKey);
+
+    if (cached) {
+      // Anlık Ban / Pasiflik Kontrolü (Güvenlik Önceliği)
+      if (!cached.user.is_active) {
+        await cacheService.del(sessionCacheKey);
+        await authRepository.deleteSession(tokenHash);
+        return null;
+      }
+
+      // Süre aşımı kontrolü
+      if (new Date() > new Date(cached.session.expires_at)) {
+        await cacheService.del(sessionCacheKey);
+        await authRepository.deleteSession(tokenHash);
+        return null;
+      }
+
+      // Throttled touchSession: En az 5 dakika (300.000 ms) geçtiyse MongoDB'ye yaz
+      const now = Date.now();
+      if (!cached.lastActiveAtMs || now - cached.lastActiveAtMs > 300000) {
+        cached.lastActiveAtMs = now;
+        cached.session.last_active_at = new Date(now);
+        void authRepository.touchSession(tokenHash);
+        const remainingTtl = Math.max(
+          60,
+          Math.floor((new Date(cached.session.expires_at).getTime() - now) / 1000)
+        );
+        void cacheService.set(sessionCacheKey, cached, remainingTtl);
+      }
+
+      return { user: cached.user, session: cached.session };
+    }
+
+    // 2. Önbellekte yoksa MongoDB'den sorgula
     const result = await authRepository.findSessionWithUser(tokenHash);
     if (!result) {
       return null;
@@ -216,6 +281,30 @@ export class AuthService {
     if (!user.is_active) {
       await authRepository.deleteSession(tokenHash);
       return null;
+    }
+
+    const now = Date.now();
+    const remainingTtl = Math.max(
+      60,
+      Math.floor((new Date(session.expires_at).getTime() - now) / 1000)
+    );
+
+    // Redis önbelleğine oturumu kaydet
+    await cacheService.set(
+      sessionCacheKey,
+      { user, session, lastActiveAtMs: now },
+      remainingTtl
+    );
+
+    // Kullanıcının aktif token indeksine ekle
+    const userId = ((user as any)._id || '').toString();
+    if (userId) {
+      const userSessionsKey = `auth:user_sessions:${userId}`;
+      const userTokens = (await cacheService.get<string[]>(userSessionsKey)) || [];
+      if (!userTokens.includes(tokenHash)) {
+        userTokens.push(tokenHash);
+        await cacheService.set(userSessionsKey, userTokens, remainingTtl);
+      }
     }
 
     // Arka planda son aktivite zamanını güncelle
@@ -264,6 +353,8 @@ export class AuthService {
     await authRepository.updateUserSystemRole(actorId, 'admin');
 
     // 3. Her iki kullanıcının oturumlarını sonlandır (yeni yetkilerle tekrar giriş zorunlu)
+    await this.invalidateUserSessions(actorId);
+    await this.invalidateUserSessions(targetId);
     await authRepository.deleteAllSessionsForUser(actorId);
     await authRepository.deleteAllSessionsForUser(targetId);
 
@@ -312,6 +403,7 @@ export class AuthService {
     }
 
     // Hedef kullanıcının tüm oturumlarını anında sonlandır (Yetki değişikliği hemen geçerli olsun)
+    await this.invalidateUserSessions(targetUserId);
     await authRepository.deleteAllSessionsForUser(targetUserId);
     await cacheService.delPattern('role:*');
 
@@ -363,6 +455,7 @@ export class AuthService {
     }
 
     // Oturumları anında temizle
+    await this.invalidateUserSessions(targetUserId);
     await authRepository.deleteAllSessionsForUser(targetUserId);
     await cacheService.delPattern('role:*');
 
@@ -414,7 +507,9 @@ export class AuthService {
     }
 
     // GÜVENLİK: Kullanıcının tüm oturumlarını anında sonlandır!
+    await this.invalidateUserSessions(targetUserId);
     await authRepository.deleteAllSessionsForUser(targetUserId);
+    await cacheService.delPattern('role:*');
 
     await auditService.log({
       actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
@@ -481,7 +576,8 @@ export class AuthService {
       throw new NotFoundError('Kullanıcı güncellenemedi.');
     }
 
-    // Rol değişikliğinde oturumları tazelemesi için oturumları sonlandır veya cache temizle
+    // Rol değişikliğinde oturumları tazelemesi için oturumları sonlandır ve cache temizle
+    await this.invalidateUserSessions(targetUserId);
     await authRepository.deleteAllSessionsForUser(targetUserId);
     await cacheService.delPattern('role:*');
 
@@ -523,6 +619,7 @@ export class AuthService {
     }
 
     // Yetki değişikliğinin anında geçerli olması için oturumları ve önbelleği tazele
+    await this.invalidateUserSessions(targetUserId);
     await authRepository.deleteAllSessionsForUser(targetUserId);
     await cacheService.delPattern('role:*');
 

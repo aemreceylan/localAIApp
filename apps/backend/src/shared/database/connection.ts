@@ -14,6 +14,9 @@ export async function connectDatabase(customUri?: string): Promise<typeof mongoo
   try {
     const conn = await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 5000,
+      maxPoolSize: 50,
+      minPoolSize: 10,
+      maxIdleTimeMS: 30000,
     });
 
     console.log(`[Database] MongoDB bağlantısı başarıyla kuruldu: ${conn.connection.host}/${conn.connection.name}`);

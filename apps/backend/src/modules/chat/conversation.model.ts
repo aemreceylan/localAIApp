@@ -14,6 +14,7 @@ import mongoose, { Schema, type Model } from 'mongoose';
  * saklar.
  */
 export interface IConversation {
+  _id?: mongoose.Types.ObjectId | string;
   user_id?: mongoose.Types.ObjectId | string;
   title: string;
   model: string;

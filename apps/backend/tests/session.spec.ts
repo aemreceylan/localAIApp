@@ -1,15 +1,32 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import app from '#app.js';
 import { connectDatabase, disconnectDatabase } from '#shared/database/index.js';
 import { ConversationModel } from '#modules/chat/conversation.model.js';
 import { MessageModel } from '#modules/chat/message.model.js';
+import { authService } from '#modules/auth/index.js';
+import { Types } from 'mongoose';
 
 describe('Sohbet Oturumları API (Chat Sessions API)', () => {
+  const testUserId = new Types.ObjectId().toString();
+
   beforeAll(async () => {
     await connectDatabase();
     await ConversationModel.deleteMany({ title: 'Mimari İstişare Oturumu' });
     await MessageModel.deleteMany({});
+
+    vi.spyOn(authService, 'validateToken').mockResolvedValue({
+      user: {
+        _id: testUserId,
+        email: 'tester@test.local',
+        system_role: 'user',
+        roles: ['developer'],
+        is_active: true,
+      } as any,
+      session: {
+        expires_at: new Date(Date.now() + 86400000),
+      } as any,
+    });
   });
 
   afterAll(async () => {
@@ -23,6 +40,7 @@ describe('Sohbet Oturumları API (Chat Sessions API)', () => {
   it('POST /api/chat/sessions yeni bir oturum oluşturmalı ve 201 dönmelidir', async () => {
     const res = await request(app)
       .post('/api/chat/sessions')
+      .set('Authorization', 'Bearer nx_test_token')
       .send({
         title: 'Mimari İstişare Oturumu',
         model: 'llama3.2:3b',
@@ -41,6 +59,7 @@ describe('Sohbet Oturumları API (Chat Sessions API)', () => {
   it('POST /api/chat/sessions model belirtilmediğinde 422 VALIDATION_ERROR dönmelidir', async () => {
     const res = await request(app)
       .post('/api/chat/sessions')
+      .set('Authorization', 'Bearer nx_test_token')
       .send({
         title: 'Model Seçilmemiş Oturum',
       });
@@ -51,7 +70,9 @@ describe('Sohbet Oturumları API (Chat Sessions API)', () => {
   });
 
   it('GET /api/chat/sessions oturumları listelemelidir', async () => {
-    const res = await request(app).get('/api/chat/sessions');
+    const res = await request(app)
+      .get('/api/chat/sessions')
+      .set('Authorization', 'Bearer nx_test_token');
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -61,7 +82,9 @@ describe('Sohbet Oturumları API (Chat Sessions API)', () => {
   });
 
   it('GET /api/chat/sessions/:id tekil oturum detayını getirmelidir', async () => {
-    const res = await request(app).get(`/api/chat/sessions/${createdSessionId}`);
+    const res = await request(app)
+      .get(`/api/chat/sessions/${createdSessionId}`)
+      .set('Authorization', 'Bearer nx_test_token');
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -70,14 +93,18 @@ describe('Sohbet Oturumları API (Chat Sessions API)', () => {
 
   it('GET /api/chat/sessions/:id bulunamayan oturum için 404 NOT_FOUND dönmelidir', async () => {
     const fakeId = '66f7d540e11893c5d808e9a2';
-    const res = await request(app).get(`/api/chat/sessions/${fakeId}`);
+    const res = await request(app)
+      .get(`/api/chat/sessions/${fakeId}`)
+      .set('Authorization', 'Bearer nx_test_token');
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('NOT_FOUND');
   });
 
   it('GET /api/chat/sessions/:id/messages başlangıçta boş mesaj listesi dönmelidir', async () => {
-    const res = await request(app).get(`/api/chat/sessions/${createdSessionId}/messages`);
+    const res = await request(app)
+      .get(`/api/chat/sessions/${createdSessionId}/messages`)
+      .set('Authorization', 'Bearer nx_test_token');
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -85,13 +112,17 @@ describe('Sohbet Oturumları API (Chat Sessions API)', () => {
   });
 
   it('DELETE /api/chat/sessions/:id oturumu başarıyla silmelidir', async () => {
-    const res = await request(app).delete(`/api/chat/sessions/${createdSessionId}`);
+    const res = await request(app)
+      .delete(`/api/chat/sessions/${createdSessionId}`)
+      .set('Authorization', 'Bearer nx_test_token');
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
     // Tekrar sorguladığımızda 404 dönmeli
-    const checkRes = await request(app).get(`/api/chat/sessions/${createdSessionId}`);
+    const checkRes = await request(app)
+      .get(`/api/chat/sessions/${createdSessionId}`)
+      .set('Authorization', 'Bearer nx_test_token');
 
     expect(checkRes.status).toBe(404);
   });

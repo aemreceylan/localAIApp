@@ -15,7 +15,7 @@ export class ChatRepository {
 
   async getConversations(user_id: string): Promise<IConversation[]> {
     if (!user_id || !Types.ObjectId.isValid(user_id)) return [];
-    return await ConversationModel.find({ user_id }).sort({ updated_at: -1 }).exec();
+    return await ConversationModel.find({ user_id }).sort({ updated_at: -1 }).lean<IConversation[]>().exec();
   }
 
   async getConversationById(
@@ -23,7 +23,7 @@ export class ChatRepository {
     user_id: string
   ): Promise<IConversation | null> {
     if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(user_id)) return null;
-    return await ConversationModel.findOne({ _id: id, user_id }).exec();
+    return await ConversationModel.findOne({ _id: id, user_id }).lean<IConversation>().exec();
   }
 
   async updateConversationTitle(
@@ -36,7 +36,7 @@ export class ChatRepository {
       { _id: id, user_id },
       { title },
       { returnDocument: 'after' }
-    ).exec();
+    ).lean<IConversation>().exec();
   }
 
   async deleteConversation(id: string, user_id: string): Promise<boolean> {
@@ -72,7 +72,7 @@ export class ChatRepository {
     conversation_id: string
   ): Promise<IMessage[]> {
     if (!Types.ObjectId.isValid(conversation_id)) return [];
-    return await MessageModel.find({ conversation_id }).sort({ created_at: 1 }).exec();
+    return await MessageModel.find({ conversation_id }).sort({ created_at: 1 }).lean<IMessage[]>().exec();
   }
 }
 

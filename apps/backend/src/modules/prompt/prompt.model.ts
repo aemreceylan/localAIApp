@@ -3,6 +3,7 @@ import mongoose, { Schema, type Model } from 'mongoose';
 export type PromptType = 'system_guardrail' | 'persona' | 'custom';
 
 export interface IPrompt {
+  _id?: mongoose.Types.ObjectId | string;
   title: string;
   slug: string;
   type: PromptType;
@@ -65,7 +66,7 @@ const promptSchema = new Schema<IPrompt>(
   }
 );
 
-promptSchema.index({ type: 1, is_active: 1 });
+promptSchema.index({ type: 1, is_active: 1, priority: 1 });
 
 export const PromptModel: Model<IPrompt> =
   mongoose.models.Prompt || mongoose.model<IPrompt>('Prompt', promptSchema);

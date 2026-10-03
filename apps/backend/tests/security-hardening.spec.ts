@@ -15,7 +15,6 @@ import app from '#app.js';
 import { connectDatabase, disconnectDatabase } from '#shared/database/index.js';
 import { authService } from '#modules/auth/index.js';
 import { ConversationModel } from '#modules/chat/conversation.model.js';
-import { MessageModel } from '#modules/chat/message.model.js';
 import { chatRepository } from '#modules/chat/chat.repository.js';
 import { Types } from 'mongoose';
 
@@ -56,7 +55,7 @@ describe('Güvenlik Sertleştirmesi ve Regresyon Testleri (Security Hardening)',
         model: 'llama3.2:3b',
       });
       await chatRepository.addMessage({
-        conversation_id: sessionB._id.toString(),
+        conversation_id: sessionB._id!.toString(),
         role: 'user',
         content: 'B kullanıcısının gizli şirket verisi',
       });
@@ -80,7 +79,7 @@ describe('Güvenlik Sertleştirmesi ve Regresyon Testleri (Security Hardening)',
 
       expect(listRes.status).toBe(200);
       const sessionIds = (listRes.body.data || []).map((s: any) => s._id);
-      expect(sessionIds).not.toContain(sessionB._id.toString());
+      expect(sessionIds).not.toContain(sessionB._id!.toString());
 
       // Kullanıcı A, B'nin oturum ID'sini doğrudan çağırsa bile 404 dönmeli
       const getRes = await request(app)

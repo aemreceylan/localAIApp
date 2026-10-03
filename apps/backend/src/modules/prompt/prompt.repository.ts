@@ -31,16 +31,16 @@ export class PromptRepository {
       query.allowed_roles = filter.roles.length > 0 ? { $in: [...filter.roles, '*'] } : '*';
     }
 
-    return await PromptModel.find(query).sort({ priority: 1, created_at: -1 }).exec();
+    return await PromptModel.find(query).sort({ priority: 1, created_at: -1 }).lean<IPrompt[]>().exec();
   }
 
   async getPromptById(id: string): Promise<IPrompt | null> {
     if (!Types.ObjectId.isValid(id)) return null;
-    return await PromptModel.findById(id).exec();
+    return await PromptModel.findById(id).lean<IPrompt>().exec();
   }
 
   async getPromptBySlug(slug: string): Promise<IPrompt | null> {
-    return await PromptModel.findOne({ slug }).exec();
+    return await PromptModel.findOne({ slug }).lean<IPrompt>().exec();
   }
 
   /**
@@ -56,7 +56,7 @@ export class PromptRepository {
       query.allowed_roles = { $in: [...roles, '*'] };
     }
 
-    return await PromptModel.find(query).sort({ priority: 1 }).exec();
+    return await PromptModel.find(query).sort({ priority: 1 }).lean<IPrompt[]>().exec();
   }
 
   /**
@@ -73,7 +73,7 @@ export class PromptRepository {
       query.allowed_roles = { $in: [...roles, '*'] };
     }
 
-    return await PromptModel.findOne(query).exec();
+    return await PromptModel.findOne(query).lean<IPrompt>().exec();
   }
 
   async updatePrompt(id: string, data: Partial<IPrompt>): Promise<IPrompt | null> {
@@ -82,7 +82,7 @@ export class PromptRepository {
       id,
       data,
       { returnDocument: 'after' }
-    ).exec();
+    ).lean<IPrompt>().exec();
   }
 
   async deletePrompt(id: string): Promise<boolean> {

@@ -31,11 +31,7 @@ export function createRateLimiter(options: RateLimiterOptions) {
     max,
     message = 'Çok fazla istek gönderildi. Lütfen bir süre sonra tekrar deneyin.',
     keyGenerator = (req: Request) => {
-      const forwarded = req.headers['x-forwarded-for'];
-      if (typeof forwarded === 'string') {
-        return forwarded.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
-      }
-      return req.socket.remoteAddress || 'unknown';
+      return req.ip || req.socket.remoteAddress || 'unknown';
     },
   } = options;
 

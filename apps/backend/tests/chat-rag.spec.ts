@@ -6,6 +6,7 @@ import { chatService } from '#modules/chat/chat.service.js';
 import { ragService } from '#modules/rag/rag.service.js';
 import { promptService } from '#modules/prompt/prompt.service.js';
 import * as aiModule from '#modules/ai/index.js';
+import { authService } from '#modules/auth/index.js';
 import type { ChatRequestDto } from '#modules/chat/chat.dto.js';
 
 vi.mock('ai', async (importOriginal) => {
@@ -132,7 +133,7 @@ describe('Chat RAG Entegrasyonu & 4. Katman Grounding Testleri', () => {
 
     // 2. Alıntılar döndürüldü mü?
     expect(result.citations).toHaveLength(1);
-    expect(result.citations[0].documentTitle).toBe('İK El Kitabı 2026');
+    expect(result.citations[0]?.documentTitle).toBe('İK El Kitabı 2026');
 
     // 3. Prompt Stacking 4. Katmanı (ragContext) formatlandı mı?
     expect(capturedSystemPromptOptions).toBeDefined();
@@ -188,9 +189,22 @@ describe('Chat RAG Entegrasyonu & 4. Katman Grounding Testleri', () => {
     });
     vi.spyOn(promptService, 'buildSystemPrompt').mockResolvedValue(undefined);
     vi.spyOn(aiModule, 'getModel').mockReturnValue({} as any);
+    vi.spyOn(authService, 'validateToken').mockResolvedValue({
+      user: {
+        _id: 'mock_user_id',
+        email: 'tester@test.local',
+        system_role: 'user',
+        roles: ['developer'],
+        is_active: true,
+      } as any,
+      session: {
+        expires_at: new Date(Date.now() + 86400000),
+      } as any,
+    });
 
     const res = await request(app)
       .post('/api/chat')
+      .set('Authorization', 'Bearer mock_token')
       .send({
         model: 'mock-provider/mock-model',
         messages: [{ role: 'user', content: 'Kurumsal izin politikası nedir?' }],

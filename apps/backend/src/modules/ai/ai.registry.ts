@@ -139,7 +139,29 @@ export class AiProviderRegistry {
   }
 
   /**
-   * Kayıtlı sağlayıcıları tarayarak anlık kullanılabilir model listesini döndürür.
+   * Model listesi için kısa süreli (60 saniye) bellek içi önbellek.
+   * Her sohbet akışında ve arayüz sorgusunda Ollama HTTP sunucusuna mükerrer istek atılmasını önler.
+   */
+  private cachedModels: Array<{
+    id: string;
+    name: string;
+    provider: string;
+    isLocal: boolean;
+    description?: string;
+    isDefault?: boolean;
+  }> | null = null;
+  private cachedModelsExpiresAt = 0;
+
+  /**
+   * Model önbelleğini temizler (yeni model indirildiğinde veya silindiğinde çağrılır).
+   */
+  public invalidateModelsCache(): void {
+    this.cachedModels = null;
+    this.cachedModelsExpiresAt = 0;
+  }
+
+  /**
+   * Kayıtlı sağlayıcıları tarayarak anlık kullanılabilir model listesini döndürür (Önbellek destekli).
    * 
    * @returns {Promise<Array<{ id: string; name: string; provider: string; isLocal: boolean; description?: string; isDefault?: boolean }>>}
    */
@@ -153,6 +175,10 @@ export class AiProviderRegistry {
       isDefault?: boolean;
     }>
   > {
+    if (this.cachedModels && Date.now() < this.cachedModelsExpiresAt) {
+      return this.cachedModels;
+    }
+
     const results: Array<{
       id: string;
       name: string;
@@ -196,10 +222,12 @@ export class AiProviderRegistry {
           provider: 'ollama',
           isLocal: true,
           description: 'Gelişmiş kurumsal açık kaynak model',
-          isDefault: false,
         }
       );
     }
+
+    this.cachedModels = results;
+    this.cachedModelsExpiresAt = Date.now() + 60000;
 
     return results;
   }

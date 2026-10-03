@@ -106,21 +106,23 @@ export class RoleService {
 
     const permissions = new Set<string>();
 
-    for (const roleSlug of roles) {
-      const cacheKey = `role:permissions:${roleSlug.toLowerCase()}`;
-      const cached = await cacheService.get<string[]>(cacheKey);
+    await Promise.all(
+      roles.map(async (roleSlug) => {
+        const cacheKey = `role:permissions:${roleSlug.toLowerCase()}`;
+        const cached = await cacheService.get<string[]>(cacheKey);
 
-      if (cached) {
-        cached.forEach((p) => permissions.add(p));
-        continue;
-      }
+        if (cached) {
+          cached.forEach((p) => permissions.add(p));
+          return;
+        }
 
-      const role = await roleRepository.findBySlug(roleSlug);
-      if (role?.permissions) {
-        role.permissions.forEach((p) => permissions.add(p));
-        await cacheService.set(cacheKey, role.permissions, ROLE_CACHE_TTL_SEC);
-      }
-    }
+        const role = await roleRepository.findBySlug(roleSlug);
+        if (role?.permissions) {
+          role.permissions.forEach((p) => permissions.add(p));
+          await cacheService.set(cacheKey, role.permissions, ROLE_CACHE_TTL_SEC);
+        }
+      })
+    );
 
     return permissions;
   }

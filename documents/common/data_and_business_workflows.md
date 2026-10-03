@@ -17,8 +17,10 @@ Platform, kurumsal güvenlik ve yüksek ölçeklenebilirlik gereksinimlerini kar
    Kullanıcılar (`users`), oturumlar (`sessions`), dinamik roller (`roles`), 4 katmanlı promptlar (`prompts`), sohbet geçmişi (`conversations`, `messages`), doküman üst verileri (`documents`) ve kuyruk ayarları (`rag_configs`) Mongoose şemaları altında tutulur. Veri erişimi **Enterprise RBAC**, **Document ACL** (`allowed_roles`) ve kullanıcı bazlı sahiplik (`user_id`) ile izole edilir.
 2. **Vektörel Arama ve Bilgi Bankası Katmanı (Qdrant Dedicated Vector DB):**  
    RAG dokümanlarından elde edilen metin parçacıklarının (chunks) vektör gömmeleri (embeddings) Qdrant üzerinde saklanır. Rol bazlı kurumsal veri izolasyonu (**Zero-Context-Leakage**), Qdrant payload filtreleri (`allowed_roles`) üzerinden matematiksel olarak garanti edilir.
-3. **Asenkron İş Kuyruğu ve Dağıtık Durum Katmanı (BullMQ & Redis):**  
-   Büyük dokümanların parçalanması, embedding çıkarımı, Ollama model indirmeleri ve API hız sınırlamaları Redis destekli BullMQ kuyrukları (`rag-ingestion-queue`) ile yönetilir. Bull-Board gösterge paneli ile anlık kuyruk izleme sağlanır.
+3. **Asenkron İş Kuyruğu, Dağıtık Önbellek ve Durum Katmanı (BullMQ & Redis):**  
+   - **Dağıtık Oturum Önbellekleme:** Opaque Bearer token doğrulamaları Redis üzerinden alt-milisaniye hızında (`auth:session:${tokenHash}`) çözümlenir; veritabanı yazma yükü `last_active_at` güncellemesinin 5 dakikada bire kısıtlanmasıyla (throttling) %99'un üzerinde azaltılır. Ban ve yetki değişikliklerinde oturum anahtarları Redis'ten anında düşürülür (Zero-Token-Leakage).
+   - **Dinamik Prompt Stacking Önbelleği:** Sistem promptları ve guardrail kuralları Redis Read-Through önbelleği (`prompt:guardrail:${rolesKey}`, `prompt:persona:id:${id}`) ile <1ms sürede derlenir. Prompt ekleme, güncelleme veya silme işlemlerinde `cacheService.delPattern('prompt:*')` ile Redis önbelleği anında geçersizleştirilir (anında yürürlüğe girme garantisi).
+   - **Dinamik Çalışma Ayarları & Kuyruk Yönetimi:** RAG çalışma ayarları (`config:rag:runtime`) Redis üzerinden hot-reload edilir; doküman parçalama ve embedding çıkarma işleri BullMQ kuyrukları (`rag-ingestion-queue`) ile yönetilir. Bull-Board gösterge paneli ile anlık kuyruk izleme sağlanır.
 
 ---
 
@@ -196,9 +198,9 @@ Sistemde oturum açan personeller.
 
 ---
 
-### 3.2.1. `sessions` (Kullanıcı Oturumları & Opaque Bearer Tokens)
+### 3.2.1. `sessions` (Kullanıcı Oturumları & Opaque Bearer Tokens - Redis Destekli)
 
-Kullanıcıların aktif oturumlarını ve anlık ban/yetki iptalini yöneten veritabanı oturum koleksiyonu.
+Kullanıcıların aktif oturumlarını ve anlık ban/yetki iptalini yöneten veritabanı oturum koleksiyonu. Performans için token doğrulamaları Redis (`auth:session:${tokenHash}`) üzerinden sub-millisecond yanıtlanır; oturum son aktivite (`last_active_at`) veritabanı yazımları 5 dakikalık zaman aralığına kısıtlanarak (throttling) I/O yükü minimize edilir. Kullanıcı banlandığında veya rol/yetkileri değiştiğinde oturum anahtarları Redis'ten anında temizlenir.
 
 | Alan Adı         | Tip               | Zorunlu? | Varsayılan | İndeks                             | Açıklama                                              |
 | :--------------- | :---------------- | :------: | :--------: | :--------------------------------- | :---------------------------------------------------- |
@@ -208,26 +210,33 @@ Kullanıcıların aktif oturumlarını ve anlık ban/yetki iptalini yöneten ver
 | `ip_address`     | String            |  Hayır   |     -      | -                                  | Oturum açılan istemci IP adresi                       |
 | `user_agent`     | String            |  Hayır   |     -      | -                                  | İstemci tarayıcı ve platform başlığı                  |
 | `expires_at`     | Date              |   Evet   |   +7 gün   | TTL Index (`expireAfterSeconds: 0`) | Süresi dolan oturumları MongoDB otomatik siler        |
-| `last_active_at` | Date              |   Evet   |    auto    | -                                  | Son HTTP isteği zaman damgası (Anlık aktivite takibi) |
+| `last_active_at` | Date              |   Evet   |    auto    | -                                  | Son HTTP isteği zaman damgası (5 dk throttled)        |
 | `created_at`     | Date              |   Evet   |    auto    | -                                  | Oturum başlangıç zamanı                               |
 
 ---
 
-### 3.3. `prompts` (Dinamik Prompt Stacking Motoru & Rol İzolasyonu)
+### 3.3. `prompts` (Dinamik Prompt Stacking Motoru & Redis Read-Through Önbellekleme)
 
-Promptlar artık oturum içine gömülü statik metinler değildir. 3 farklı tipte dinamik derlenir:
+Promptlar veritabanından her mesajda tekrar tekrar derlenmez; kurumsal güvenlik kuralları ve rol personaları Redis Read-Through önbelleği ile sub-millisecond sürede yanıtlanır.
 
-| Alan Adı        | Tip           | Zorunlu? | Varsayılan  | İndeks                | Açıklama                                           |
-| :-------------- | :------------ | :------: | :---------: | :-------------------- | :------------------------------------------------- |
-| `_id`           | ObjectId      |   Evet   |    auto     | PK                    | Prompt kimliği                                     |
-| `title`         | String (150)  |   Evet   |      -      | -                     | Başlık (Örn: "KVKK & Finansal Güvenlik Guardrail") |
-| `slug`          | String        |   Evet   |      -      | UNIQUE                | Kod içi ve API erişim slug'ı                       |
-| `type`          | String        |   Evet   | `'persona'` | Compound (`type` + `is_active`) | `'system_guardrail'`, `'persona'`, `'custom'`      |
-| `content`       | String        |   Evet   |      -      | -                     | LLM'e enjekte edilecek gerçek talimat              |
-| `allowed_roles` | Array[String] |   Evet   |  `['*']`    | Index                 | Erişebilecek roller (`['*']`, `['hr']` vb.)        |
-| `is_active`     | Boolean       |   Evet   |   `true`    | Index                 | Aktiflik anahtarı                                  |
-| `is_default`    | Boolean       |   Evet   |   `false`   | -                     | Kurum için varsayılan persona mı?                  |
-| `priority`      | Number        |   Evet   |     `0`     | -                     | Guardrail birleştirme öncelik sırası               |
+- **Bileşik İndeks (Compound Index):** `{ type: 1, is_active: 1, priority: 1 }` (Kapsamlı MongoDB taraması engellenir, index-only sorgulama).
+- **Redis Önbellek Anahtarları:**
+  - Guardrail kuralları: `prompt:guardrail:${rolesKey}`
+  - Özel Persona: `prompt:persona:id:${id}`
+  - Varsayılan Persona: `prompt:persona:default:${rolesKey}`
+- **Anında Geçersizleştirme (Instant Cache Invalidation):** Prompt ekleme (`POST`), güncelleme (`PUT`) veya silme (`DELETE`) işlemlerinde `cacheService.delPattern('prompt:*')` otomatik tetiklenir; sistem genelindeki tüm prompt önbellekleri silinir ve ilk istekte güncel veritabanı içeriği derlenir (Kural 6 & Kural 9 uyumu).
+
+| Alan Adı        | Tip           | Zorunlu? | Varsayılan  | İndeks                                            | Açıklama                                           |
+| :-------------- | :------------ | :------: | :---------: | :------------------------------------------------ | :------------------------------------------------- |
+| `_id`           | ObjectId      |   Evet   |    auto     | PK                                                | Prompt kimliği                                     |
+| `title`         | String (150)  |   Evet   |      -      | -                                                 | Başlık (Örn: "KVKK & Finansal Güvenlik Guardrail") |
+| `slug`          | String        |   Evet   |      -      | UNIQUE                                            | Kod içi ve API erişim slug'ı                       |
+| `type`          | String        |   Evet   | `'persona'` | Compound (`type` + `is_active` + `priority`)     | `'system_guardrail'`, `'persona'`, `'custom'`      |
+| `content`       | String        |   Evet   |      -      | -                                                 | LLM'e enjekte edilecek gerçek talimat              |
+| `allowed_roles` | Array[String] |   Evet   |  `['*']`    | Index                                             | Erişebilecek roller (`['*']`, `['hr']` vb.)        |
+| `is_active`     | Boolean       |   Evet   |   `true`    | Compound Index parçası                            | Aktiflik anahtarı                                  |
+| `is_default`    | Boolean       |   Evet   |   `false`   | -                                                 | Kurum için varsayılan persona mı?                  |
+| `priority`      | Number        |   Evet   |     `0`     | Compound Index parçası                            | Guardrail birleştirme öncelik sırası               |
 
 ---
 
@@ -272,10 +281,10 @@ Kurumsal dokümanların üst verileri, işlenme durumu ve rol bazlı erişim izi
 | `mime_type`     | String        |   Evet   |      -      | -                     | `application/pdf`, `text/plain`, `text/markdown` vb.   |
 | `status`        | String        |   Evet   | `'pending'` | Index                 | `'pending'`, `'processing'`, `'completed'`, `'failed'` |
 | `chunk_count`   | Number        |   Evet   |     `0`     | -                     | Qdrant'a yazılan vektör parçacığı adedi                |
-| `allowed_roles` | Array[String] |   Evet   |  `['*']`    | Index                 | Belgeyi sorgulayabilecek roller (`['*']`, `['hr']` vb.)|
-| `uploaded_by`   | ObjectId      |  Hayır   |      -      | Index                 | Dokümanı yükleyen kullanıcı kimliği (`users._id`)      |
-| `error_message` | String        |  Hayır   |   `null`    | -                     | İşleme başarısız olursa yakalanan hata mesajı          |
-| `created_at`    | Date          |   Evet   |    auto     | -                     | Yüklenme zaman damgası                                 |
+| `allowed_roles` | Array[String] |   Evet   |  `['*']`    | Compound (`allowed_roles` + `created_at`) | Belgeyi sorgulayabilecek roller (`['*']`, `['hr']` vb.)|
+| `uploaded_by`   | ObjectId      |  Hayır   |      -      | Index                                     | Dokümanı yükleyen kullanıcı kimliği (`users._id`)      |
+| `error_message` | String        |  Hayır   |   `null`    | -                                         | İşleme başarısız olursa yakalanan hata mesajı          |
+| `created_at`    | Date          |   Evet   |    auto     | Compound Index parçası                    | Yüklenme zaman damgası                                 |
 | `updated_at`    | Date          |   Evet   |    auto     | -                     | Son güncelleme zaman damgası                           |
 
 ---
@@ -332,6 +341,7 @@ sequenceDiagram
     autonumber
     actor User as Kullanıcı (UI)
     participant Gateway as Express Gateway (AuthMiddleware & PolicyEngine)
+    participant Redis as Redis Cache (auth & prompt)
     participant ChatCtrl as ChatController
     participant ChatSvc as ChatService
     participant RagSvc as RagService (Qdrant & Zero-Context-Leakage)
@@ -340,7 +350,11 @@ sequenceDiagram
     participant DB as MongoDB (Message / Conversation)
 
     User->>Gateway: POST /api/chat (Bearer Token, conversationId, messages, model, enableRag)
-    Note over Gateway: Opaque Bearer Token & User Session doğrulanır
+    Note over Gateway, Redis: Opaque Bearer Token Redis'ten <0.5ms sürede doğrulanır
+    Gateway->>Redis: GET auth:session:{tokenHash}
+    alt Oturum Redis'te mevcut değilse
+        Gateway->>DB: findSessionWithUser (Fallback) & Redis'e yaz
+    end
     Gateway->>ChatCtrl: handleChat(req, res)
     ChatCtrl->>ChatSvc: streamChat(dto, userContext)
 
@@ -354,8 +368,10 @@ sequenceDiagram
     rect rgb(240, 245, 255)
     Note over ChatSvc, PromptFacade: 4 Katmanlı Dinamik Prompt Derleme (Prompt Stacking)
     ChatSvc->>PromptFacade: buildSystemPrompt({ prompt_id, custom_instructions, userRoles, ragContext })
-    PromptFacade->>DB: 1. Aktif Kurumsal Guardrail'leri getir (priority ASC)
-    PromptFacade->>DB: 2. Seçili/Varsayılan Persona Promptunu getir
+    PromptFacade->>Redis: GET prompt:guardrail:{roles} & prompt:persona:{id}
+    alt Cache Miss (Redis'te Yoksa)
+        PromptFacade->>DB: lean() ile Mongo'dan oku & Redis'e set() et (24h TTL)
+    end
     PromptFacade-->>ChatSvc: Katman 1 + Katman 2 + Katman 3 + Katman 4 (RAG Grounding)
     end
 

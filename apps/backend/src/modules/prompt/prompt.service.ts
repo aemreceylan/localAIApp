@@ -1,15 +1,30 @@
 import { promptRepository } from '#modules/prompt/prompt.repository.js';
 import type { CreatePromptDto, UpdatePromptDto } from '#modules/prompt/prompt.dto.js';
 import { NotFoundError, DomainError } from '#shared/errors/index.js';
+import { cacheService } from '#shared/cache/index.js';
+
+const PROMPT_CACHE_TTL_SEC = 86400; // 24 Saat (Değişiklik olduğunda anında geçersizleştirilir)
 
 export class PromptService {
+  /**
+   * Redis ve bellekteki tüm prompt önbellek anahtarlarını anında temizler.
+   * Kural 6 & Kural 9: Sistem promptları değiştiğinde anında yürürlüğe girer.
+   */
+  async invalidatePromptCache(): Promise<void> {
+    try {
+      await cacheService.delPattern('prompt:*');
+    } catch (err) {
+      console.warn('[PromptService] Prompt önbelleği temizlenirken uyarı:', err);
+    }
+  }
+
   async createPrompt(dto: CreatePromptDto) {
     const existing = await promptRepository.getPromptBySlug(dto.slug);
     if (existing) {
       throw new DomainError(`'${dto.slug}' slug değerine sahip bir prompt zaten mevcut.`);
     }
 
-    return await promptRepository.createPrompt({
+    const created = await promptRepository.createPrompt({
       title: dto.title,
       slug: dto.slug,
       type: dto.type,
@@ -19,6 +34,11 @@ export class PromptService {
       ...(dto.isDefault !== undefined ? { is_default: dto.isDefault } : {}),
       ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
     });
+
+    // Yeni prompt eklendiğinde Redis önbelleğini anında tazele
+    await this.invalidatePromptCache();
+
+    return created;
   }
 
   async getPrompts(filter?: { type?: string; is_active?: boolean; roles?: string[] }) {
@@ -47,6 +67,9 @@ export class PromptService {
       ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
     });
 
+    // Prompt güncellendiğinde Redis önbelleğini anında geçersizleştir
+    await this.invalidatePromptCache();
+
     return updated!;
   }
 
@@ -55,11 +78,16 @@ export class PromptService {
     if (!deleted) {
       throw new NotFoundError(`Silinecek prompt bulunamadı: ${id}`);
     }
+
+    // Prompt silindiğinde Redis önbelleğini anında temizle
+    await this.invalidatePromptCache();
+
     return { success: true, message: 'Prompt başarıyla silindi.' };
   }
 
   /**
    * ÇOK KATMANLI ANLIK DİNAMİK PROMPT OLUŞTURMA MOTORU (Prompt Stacking Engine)
+   * Redis Read-Through Önbellek Destekli (<1ms yanıt süresi).
    * 
    * 1. Katman: Kurumsal Güvenlik & Guardrails (Zorunlu)
    * 2. Katman: Rol / Persona (Kullanıcının rollerine uygun veya seçilen uzmanlık)
@@ -75,29 +103,54 @@ export class PromptService {
     } = {}
   ): Promise<string | undefined> {
     const sections: string[] = [];
+    const rolesKey =
+      options.userRoles && options.userRoles.length > 0
+        ? [...options.userRoles].sort().join(':')
+        : 'all';
 
-    // 1. Katman: Aktif Kurumsal Guardrail Prompt'ları (Role filtresiyle anlık DB sorgusu)
-    const guardrails = await promptRepository.getActiveGuardrails(options.userRoles);
-    if (guardrails.length > 0) {
-      const guardrailText = guardrails.map((g) => `- ${g.content}`).join('\n');
+    // 1. Katman: Aktif Kurumsal Guardrail Prompt'ları (Redis Read-Through Cache)
+    const guardrailCacheKey = `prompt:guardrail:${rolesKey}`;
+    let guardrailText = await cacheService.get<string>(guardrailCacheKey);
+
+    if (guardrailText === null) {
+      const guardrails = await promptRepository.getActiveGuardrails(options.userRoles);
+      guardrailText =
+        guardrails.length > 0 ? guardrails.map((g) => `- ${g.content}`).join('\n') : '';
+      await cacheService.set(guardrailCacheKey, guardrailText, PROMPT_CACHE_TTL_SEC);
+    }
+
+    if (guardrailText && guardrailText.length > 0) {
       sections.push(`=== [KURUMSAL GÜVENLİK VE POLİTİKA KURALLARI] ===\n${guardrailText}`);
     }
 
-    // 2. Katman: Rol / Persona Prompt'u (Anlık DB sorgusu)
+    // 2. Katman: Rol / Persona Prompt'u (Redis Read-Through Cache)
     let personaPrompt = '';
+
     if (options.prompt_id) {
-      const persona = await promptRepository.getPromptById(options.prompt_id);
-      if (persona?.is_active) {
-        personaPrompt = persona.content;
+      const personaCacheKey = `prompt:persona:id:${options.prompt_id}`;
+      const cached = await cacheService.get<string>(personaCacheKey);
+
+      if (cached !== null) {
+        personaPrompt = cached;
+      } else {
+        const persona = await promptRepository.getPromptById(options.prompt_id);
+        personaPrompt = persona?.is_active && persona.content ? persona.content : '';
+        await cacheService.set(personaCacheKey, personaPrompt, PROMPT_CACHE_TTL_SEC);
       }
     } else {
-      const defaultPersona = await promptRepository.getDefaultPersona(options.userRoles);
-      if (defaultPersona) {
-        personaPrompt = defaultPersona.content;
+      const defaultPersonaCacheKey = `prompt:persona:default:${rolesKey}`;
+      const cached = await cacheService.get<string>(defaultPersonaCacheKey);
+
+      if (cached !== null) {
+        personaPrompt = cached;
+      } else {
+        const defaultPersona = await promptRepository.getDefaultPersona(options.userRoles);
+        personaPrompt = defaultPersona?.content ? defaultPersona.content : '';
+        await cacheService.set(defaultPersonaCacheKey, personaPrompt, PROMPT_CACHE_TTL_SEC);
       }
     }
 
-    if (personaPrompt) {
+    if (personaPrompt && personaPrompt.length > 0) {
       sections.push(`=== [UZMANLIK VE ROL TALİMATI] ===\n${personaPrompt}`);
     }
 

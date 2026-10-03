@@ -18,6 +18,9 @@ import { devInspectorRoutes } from '#shared/dev-inspector/index.js';
 
 const app = express();
 
+// Ters vekil (Reverse proxy: Nginx, Docker, Cloudflare) arkasında doğru istemci IP çözünürlüğü
+app.set('trust proxy', 1);
+
 app.use(
   helmet({
     contentSecurityPolicy: {

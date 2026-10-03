@@ -1,6 +1,7 @@
 import mongoose, { Schema, type Model, Types } from 'mongoose';
 
 export interface IMessage {
+  _id?: Types.ObjectId | string;
   conversation_id: Types.ObjectId;
   role: 'user' | 'assistant' | 'system';
   content: string;

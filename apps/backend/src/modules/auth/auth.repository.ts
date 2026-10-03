@@ -24,28 +24,28 @@ export class AuthRepository {
   async findSuperAdmin(): Promise<IUser | null> {
     return await UserModel.findOne({
       $or: [{ system_role: 'superadmin' }, { role: 'superadmin' as any }],
-    });
+    }).lean<IUser>();
   }
 
   /**
    * E-posta adresine göre kullanıcı arar.
    */
   async findByEmail(email: string): Promise<IUser | null> {
-    return await UserModel.findOne({ email: email.toLowerCase().trim() });
+    return await UserModel.findOne({ email: email.toLowerCase().trim() }).lean<IUser>();
   }
 
   /**
    * ID değerine göre kullanıcı arar.
    */
   async findById(id: string): Promise<IUser | null> {
-    return await UserModel.findById(id);
+    return await UserModel.findById(id).lean<IUser>();
   }
 
   /**
    * Tüm kullanıcıları listeler.
    */
   async findAllUsers(): Promise<IUser[]> {
-    return await UserModel.find().sort({ created_at: -1 });
+    return await UserModel.find().sort({ created_at: -1 }).lean<IUser[]>();
   }
 
   /**
@@ -151,23 +151,30 @@ export class AuthRepository {
    * Hashlenmiş token üzerinden aktif oturumu ve ilişkili kullanıcıyı getirir.
    */
   async findSessionWithUser(tokenHash: string): Promise<{ session: ISession; user: IUser } | null> {
-    const session = await SessionModel.findOne({ token_hash: tokenHash });
+    const session = await SessionModel.findOne({ token_hash: tokenHash }).lean<ISession>();
     if (!session) {
       return null;
     }
 
     // Süresi dolmuşsa doğrudan sil ve null dön (TTL temizliğine ek anlık garanti)
-    if (new Date() > session.expires_at) {
-      await SessionModel.deleteOne({ _id: session._id });
+    if (new Date() > new Date(session.expires_at)) {
+      await SessionModel.deleteOne({ _id: (session as any)._id });
       return null;
     }
 
-    const user = await UserModel.findById(session.user_id);
+    const user = await UserModel.findById(session.user_id).lean<IUser>();
     if (!user) {
       return null;
     }
 
     return { session, user };
+  }
+
+  /**
+   * Kullanıcıya ait tüm aktif oturumları döner.
+   */
+  async findSessionsByUserId(userId: string): Promise<ISession[]> {
+    return await SessionModel.find({ user_id: userId }).lean<ISession[]>();
   }
 
   /**

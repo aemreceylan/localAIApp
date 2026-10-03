@@ -113,6 +113,7 @@ const documentSchema = new Schema<IDocument>(
 // Çoklu alan ve sorgu indeksleri (Performans & Güvenlik)
 documentSchema.index({ status: 1, created_at: -1 });
 documentSchema.index({ allowed_roles: 1, status: 1 });
+documentSchema.index({ allowed_roles: 1, created_at: -1 });
 documentSchema.index({ uploaded_by: 1, created_at: -1 });
 
 export const DocumentModel: Model<IDocument> =

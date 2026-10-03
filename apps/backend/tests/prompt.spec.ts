@@ -6,16 +6,17 @@ import { PromptModel } from '#modules/prompt/prompt.model.js';
 import { promptService } from '#modules/prompt/prompt.service.js';
 import { ConversationModel } from '#modules/chat/conversation.model.js';
 import { authService } from '#modules/auth/index.js';
+import { cacheService } from '#shared/cache/index.js';
 
 describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   beforeAll(async () => {
     await connectDatabase();
-    await PromptModel.deleteMany({ slug: { $in: ['sec-fin-01', 'tax-expert', 'hr-persona', 'dev-persona'] } });
+    await PromptModel.deleteMany({ slug: { $in: ['sec-fin-01', 'tax-expert', 'hr-persona', 'dev-persona', 'cache-test-persona'] } });
     await ConversationModel.deleteMany({ title: 'Vergi Oturumu' });
   });
 
   afterAll(async () => {
-    await PromptModel.deleteMany({ slug: { $in: ['sec-fin-01', 'tax-expert', 'hr-persona', 'dev-persona'] } });
+    await PromptModel.deleteMany({ slug: { $in: ['sec-fin-01', 'tax-expert', 'hr-persona', 'dev-persona', 'cache-test-persona'] } });
     await ConversationModel.deleteMany({ title: 'Vergi Oturumu' });
     await disconnectDatabase();
   });
@@ -227,5 +228,47 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
       .get(`/api/prompts/${guardrailId}`)
       .set('Authorization', 'Bearer nx_live_admin_token');
     expect(check.status).toBe(404);
+  });
+
+  it('Redis Önbellekleme & Geçersizleştirme (Cache Invalidation): Prompt güncellendiğinde veya silindiğinde önbellek anında temizlenmelidir', async () => {
+    // 1. Önce prompt oluştur ve buildSystemPrompt ile önbelleğe alınmasını sağla
+    const testPrompt = await promptService.createPrompt({
+      title: 'Önbellek Test Persona',
+      slug: 'cache-test-persona',
+      type: 'persona',
+      content: 'İlk versiyon içerik.',
+      isActive: true,
+    });
+
+    const testPromptId = testPrompt._id!.toString();
+
+    const initialBuilt = await promptService.buildSystemPrompt({ prompt_id: testPromptId });
+    expect(initialBuilt).toContain('İlk versiyon içerik.');
+
+    // Redis / cache içinde saklandığını doğrula
+    const cachedPersona = await cacheService.get<string>(`prompt:persona:id:${testPromptId}`);
+    expect(cachedPersona).toBe('İlk versiyon içerik.');
+
+    // 2. Prompt içeriğini güncelle
+    await promptService.updatePrompt(testPromptId, {
+      content: 'İkinci ve güncel versiyon içerik.',
+    });
+
+    // Önbelleğin temizlendiğini doğrula
+    const afterUpdateCached = await cacheService.get<string>(`prompt:persona:id:${testPromptId}`);
+    expect(afterUpdateCached).toBeNull();
+
+    // buildSystemPrompt çağrıldığında yeni içeriğin derlendiğini ve tekrar önbelleklendiğini doğrula
+    const updatedBuilt = await promptService.buildSystemPrompt({ prompt_id: testPromptId });
+    expect(updatedBuilt).toContain('İkinci ve güncel versiyon içerik.');
+    expect(updatedBuilt).not.toContain('İlk versiyon içerik.');
+
+    const reCached = await cacheService.get<string>(`prompt:persona:id:${testPromptId}`);
+    expect(reCached).toBe('İkinci ve güncel versiyon içerik.');
+
+    // 3. Prompt silindiğinde de önbelleğin temizlendiğini doğrula
+    await promptService.deletePrompt(testPromptId);
+    const afterDeleteCached = await cacheService.get<string>(`prompt:persona:id:${testPromptId}`);
+    expect(afterDeleteCached).toBeNull();
   });
 });
