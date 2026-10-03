@@ -3,6 +3,8 @@
  * @description Sohbet akışı, oturumlar, mesajlar ve LLM modellerine ilişkin tip tanımları.
  */
 
+import type { RagCitation } from '#types/rag.types';
+
 export type Role = 'user' | 'assistant' | 'system';
 
 export interface ChatMessage {
@@ -17,7 +19,7 @@ export interface ChatMessage {
     speedTokensPerSec?: number;
     costEstimate?: string;
   };
-  citations?: string[]; // Referans verilen Citation ID listesi
+  citations?: RagCitation[]; // Modelin yararlandığı onaylı RAG referans alıntıları
 }
 
 export interface ChatSession {

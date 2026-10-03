@@ -20,7 +20,7 @@ import { useResizable } from '#hooks/useResizable';
 import { getSessions, getSessionMessages, createSession, deleteSession } from '#services/chatService';
 import { getPrompts } from '#services/promptService';
 import type { ChatSession, PersonaPrompt } from '#types/chat.types';
-import type { CitationItem } from '#types/rag.types';
+import type { PromptDockSendMessageOptions } from '#components/chat/PromptDock';
 
 // RAG çekmecesinin sohbet alanını sıkıştıracağı maksimum genişlik (bu eşikten sonra chat sabit kalır, çekmece overlay olarak taşar)
 const RAG_SQUEEZE_THRESHOLD = 420;
@@ -29,6 +29,7 @@ function MainApp(): React.ReactElement {
   const { isAuthenticated, isLoading, isSetupRequired } = useAuth();
 
   const [isRAGOpen, setIsRAGOpen] = useState<boolean>(false);
+  const [isRagEnabled, setIsRagEnabled] = useState<boolean>(true);
   const [selectedCitationId, setSelectedCitationId] = useState<string | number | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
 
@@ -37,7 +38,6 @@ function MainApp(): React.ReactElement {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [personas, setPersonas] = useState<PersonaPrompt[]>([]);
   const [selectedPersonaId, setSelectedPersonaId] = useState<string>('');
-  const [citations, setCitations] = useState<CitationItem[]>([]);
 
   // Kenar Çubuğu Durumu
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
@@ -76,6 +76,8 @@ function MainApp(): React.ReactElement {
   const {
     messages,
     setMessages,
+    activeCitations,
+    setActiveCitations,
     isStreaming,
     sendMessage,
     abort,
@@ -126,6 +128,13 @@ function MainApp(): React.ReactElement {
       try {
         const sessionMessages = await getSessionMessages(sessionId);
         setMessages(sessionMessages || []);
+        // Son asistan mesajındaki alıntıları çekmeceye yükle
+        const lastAsst = [...(sessionMessages || [])].reverse().find((m) => m.role === 'assistant');
+        if (lastAsst?.citations) {
+          setActiveCitations(lastAsst.citations);
+        } else {
+          setActiveCitations([]);
+        }
         const targetSession = sessions.find((s) => s._id === sessionId);
         if (targetSession?.model) {
           setSelectedModel(targetSession.model);
@@ -134,7 +143,7 @@ function MainApp(): React.ReactElement {
         console.warn('[App] Oturum mesajları yüklenemedi:', err);
       }
     },
-    [sessions, setSelectedModel, setMessages]
+    [sessions, setSelectedModel, setMessages, setActiveCitations]
   );
 
   // Oturum silme işlemi
@@ -167,11 +176,10 @@ function MainApp(): React.ReactElement {
   const handleNewChat = useCallback(() => {
     clearMessages();
     setActiveSessionId(null);
-    setCitations([]);
   }, [clearMessages]);
 
   const handleSendMessage = useCallback(
-    async (content: string, options?: { promptId?: string }) => {
+    async (content: string, options?: PromptDockSendMessageOptions) => {
       let currentSessionId = activeSessionId;
       const targetModel = selectedModel || availableModels[0]?.id || '';
 
@@ -196,10 +204,13 @@ function MainApp(): React.ReactElement {
         conversationId: currentSessionId || undefined,
         model: targetModel,
         promptId: options?.promptId || selectedPersonaId,
+        enableRag: options?.enableRag ?? isRagEnabled,
+        ragDocumentIds: options?.ragDocumentIds,
       });
     },
-    [activeSessionId, selectedModel, availableModels, selectedPersonaId, sendMessage]
+    [activeSessionId, selectedModel, availableModels, selectedPersonaId, sendMessage, isRagEnabled]
   );
+
 
   const activeSessionTitle = useMemo(() => {
     if (!activeSessionId) return 'Yeni Sohbet';
@@ -266,7 +277,7 @@ function MainApp(): React.ReactElement {
             onShareChat={() => setIsShareModalOpen(true)}
             isRAGOpen={isRAGOpen}
             onToggleRAG={() => setIsRAGOpen((prev) => !prev)}
-            ragCount={citations.length}
+            ragCount={activeCitations.length}
           />
 
           <ChatStream
@@ -278,6 +289,8 @@ function MainApp(): React.ReactElement {
             personas={personas}
             selectedPersonaId={selectedPersonaId}
             onSelectPersona={setSelectedPersonaId}
+            enableRag={isRagEnabled}
+            onToggleRag={() => setIsRagEnabled((prev) => !prev)}
           />
         </div>
 
@@ -296,10 +309,11 @@ function MainApp(): React.ReactElement {
           onClose={() => setIsRAGOpen(false)}
           width={ragDrawerWidth}
           onResizerMouseDown={handleRAGResize}
-          citations={citations}
+          citations={activeCitations}
           selectedCitationId={selectedCitationId}
           isOverlay={isRAGOverlay}
         />
+
       </div>
 
       {/* Paylaşım Modalı */}

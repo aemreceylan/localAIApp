@@ -6,6 +6,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import type { ChatMessage } from '#types/chat.types';
+import type { RagCitation } from '#types/rag.types';
 import { streamChat } from '#services/chatService';
 
 export interface UseChatStreamOptions {
@@ -19,7 +20,10 @@ export interface SendMessageOptions {
   model?: string;
   promptId?: string;
   customInstructions?: string;
-  citations?: string[];
+  citations?: RagCitation[];
+  enableRag?: boolean;
+  ragDocumentIds?: string[];
+  ragScoreThreshold?: number;
 }
 
 export function useChatStream({
@@ -28,6 +32,7 @@ export function useChatStream({
   defaultModel = '',
 }: UseChatStreamOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [activeCitations, setActiveCitations] = useState<RagCitation[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,6 +94,9 @@ export function useChatStream({
           model: activeModel,
           promptId: options.promptId,
           customInstructions: options.customInstructions,
+          enableRag: options.enableRag,
+          ragDocumentIds: options.ragDocumentIds,
+          ragScoreThreshold: options.ragScoreThreshold,
         },
         {
           onChunk: (token) => {
@@ -99,6 +107,18 @@ export function useChatStream({
                   : msg
               )
             );
+          },
+          onCitations: (incomingCitations) => {
+            if (incomingCitations && incomingCitations.length > 0) {
+              setActiveCitations(incomingCitations);
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessageId
+                    ? { ...msg, citations: incomingCitations }
+                    : msg
+                )
+              );
+            }
           },
           onFinish: (_fullText, metadata) => {
             setIsStreaming(false);
@@ -147,12 +167,15 @@ export function useChatStream({
   const clearMessages = useCallback(() => {
     abort();
     setMessages([]);
+    setActiveCitations([]);
     setError(null);
   }, [abort]);
 
   return {
     messages,
     setMessages,
+    activeCitations,
+    setActiveCitations,
     isStreaming,
     error,
     sendMessage,
@@ -160,3 +183,4 @@ export function useChatStream({
     clearMessages,
   };
 }
+

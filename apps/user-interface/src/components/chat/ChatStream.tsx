@@ -8,18 +8,20 @@
 import React, { useEffect, useRef } from 'react';
 import type { ChatMessage, PersonaPrompt } from '#types/chat.types';
 import { MessageBubble } from '#components/chat/MessageBubble';
-import { PromptDock } from '#components/chat/PromptDock';
+import { PromptDock, type PromptDockSendMessageOptions } from '#components/chat/PromptDock';
 
 export interface ChatStreamProps {
   messages: ChatMessage[];
   isStreaming: boolean;
-  onSendMessage: (content: string, options?: { promptId?: string }) => void;
+  onSendMessage: (content: string, options?: PromptDockSendMessageOptions) => void;
   onStopStreaming: () => void;
   onOpenCitation?: (citationId: string | number) => void;
   onRegenerate?: () => void;
   personas?: PersonaPrompt[];
   selectedPersonaId?: string;
   onSelectPersona?: (personaId: string) => void;
+  enableRag?: boolean;
+  onToggleRag?: () => void;
 }
 
 const STARTER_PROMPTS = [
@@ -38,7 +40,10 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
   personas = [],
   selectedPersonaId,
   onSelectPersona,
+  enableRag = true,
+  onToggleRag,
 }) => {
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Yeni mesaj veya token geldiğinde pürüzsüz aşağı kaydır
@@ -112,7 +117,10 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
         personas={personas}
         selectedPersonaId={selectedPersonaId}
         onSelectPersona={onSelectPersona}
+        enableRag={enableRag}
+        onToggleRag={onToggleRag}
       />
     </div>
   );
 };
+

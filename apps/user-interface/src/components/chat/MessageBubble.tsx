@@ -112,6 +112,36 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
         </div>
 
+        {/* Backend Qdrant'tan Doğrulanmış Kaynak Alıntıları (Citations) */}
+        {message.citations && message.citations.length > 0 && (
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-1.5">
+            <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <span className="text-brand-600 dark:text-brand-400">§</span>
+              <span>Kullanılan Kaynaklar ({message.citations.length})</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {message.citations.map((cite, idx) => (
+                <button
+                  key={`${cite.documentId}-${cite.chunkIndex}-${idx}`}
+                  type="button"
+                  onClick={() => onOpenCitation?.(`cite-${idx + 1}`)}
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800/80 hover:bg-brand-50 dark:hover:bg-brand-950/40 text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-brand-400 border border-slate-200 dark:border-slate-700 text-[11px] transition-colors group cursor-pointer"
+                  title={`${cite.documentTitle || 'Doküman'} (Eşleşme: %${Math.round(cite.score * 100)})`}
+                >
+                  <span className="font-mono text-brand-600 dark:text-brand-400 font-bold">[{idx + 1}]</span>
+                  <span className="max-w-[130px] truncate">{cite.documentTitle || 'Doküman'}</span>
+                  {cite.pageNumber !== undefined && cite.pageNumber !== null && (
+                    <span className="text-slate-400 text-[10px] font-mono">s.{cite.pageNumber}</span>
+                  )}
+                  <span className="text-[10px] font-mono px-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-medium">
+                    %{Math.round(cite.score * 100)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Alt Aksiyon Butonları (Yalnızca içerik varsa gösterilir) */}
         {message.content && (
           <div className="flex items-center gap-2 pt-1 text-xs text-slate-400 select-none">

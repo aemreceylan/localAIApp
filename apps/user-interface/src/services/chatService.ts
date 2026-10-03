@@ -6,6 +6,7 @@
 
 import { apiFetch } from '#services/apiClient';
 import type { ChatMessage, ChatSession } from '#types/chat.types';
+import type { RagCitation } from '#types/rag.types';
 
 export interface SendMessagePayload {
   conversationId?: string;
@@ -14,10 +15,14 @@ export interface SendMessagePayload {
   promptId?: string;
   customInstructions?: string;
   temperature?: number;
+  enableRag?: boolean;
+  ragDocumentIds?: string[];
+  ragScoreThreshold?: number;
 }
 
 export interface StreamCallbacks {
   onChunk: (chunk: string) => void;
+  onCitations?: (citations: RagCitation[]) => void;
   onFinish?: (fullText: string, metadata?: { latencyMs?: number; tokens?: number }) => void;
   onError?: (error: Error) => void;
 }
@@ -47,21 +52,6 @@ function parseSseDataToken(raw: string): string | null {
   }
 }
 
-/**
- * Gelen akış satırından metin token'ını ayıklar.
- */
-function extractTokenFromLine(line: string): string | null {
-  const trimmed = line.trim();
-  if (!trimmed) return null;
-
-  if (trimmed.startsWith('0:')) {
-    return parseVercelDataToken(trimmed.substring(2));
-  }
-  if (trimmed.startsWith('data:')) {
-    return parseSseDataToken(trimmed.substring(5).trim());
-  }
-  return null;
-}
 
 /**
  * Hata yanıtından açıklayıcı hata iletisini çıkarır.
@@ -77,13 +67,9 @@ async function extractErrorMessage(response: Response): Promise<string> {
 }
 
 /**
- * Sohbet streaming isteği için gerekli başlıkları (tenant ve auth token) üretir.
+ * Sohbet streaming isteği için gerekli başlıkları (Opaque Bearer token) üretir.
  */
 function getChatHeaders(): Record<string, string> {
-  const tenantId =
-    typeof window !== 'undefined' && window.localStorage
-      ? window.localStorage.getItem('nexus_tenant_id') || 'default-tenant'
-      : 'default-tenant';
   const token =
     typeof window !== 'undefined' && window.localStorage
       ? window.localStorage.getItem('nexus_token')
@@ -91,7 +77,6 @@ function getChatHeaders(): Record<string, string> {
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'x-tenant-id': tenantId,
   };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -100,11 +85,12 @@ function getChatHeaders(): Record<string, string> {
 }
 
 /**
- * ReadableStream akışını okuyup token bazlı ayrıştırır.
+ * ReadableStream akışını okuyup token ve RAG alıntılarını (citations) ayrıştırır.
  */
 async function readResponseStream(
   reader: ReadableStreamDefaultReader<Uint8Array>,
-  onChunk: (token: string) => void
+  onChunk: (token: string) => void,
+  onCitations?: (citations: RagCitation[]) => void
 ): Promise<string> {
   const decoder = new TextDecoder('utf-8');
   let fullResponseText = '';
@@ -119,10 +105,43 @@ async function readResponseStream(
     buffer = lines.pop() || '';
 
     for (const line of lines) {
-      const token = extractTokenFromLine(line);
-      if (token) {
-        fullResponseText += token;
-        onChunk(token);
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      // 1. Text token (0:"...")
+      if (trimmed.startsWith('0:')) {
+        const token = parseVercelDataToken(trimmed.substring(2));
+        if (token) {
+          fullResponseText += token;
+          onChunk(token);
+        }
+        continue;
+      }
+
+      // 2. Data part veya Message Annotation (2:[...] veya 8:[...])
+      if (trimmed.startsWith('8:') || trimmed.startsWith('2:')) {
+        try {
+          const rawData = trimmed.substring(2);
+          const parsed = JSON.parse(rawData);
+          const items = Array.isArray(parsed) ? parsed : [parsed];
+          for (const item of items) {
+            if (item && item.type === 'rag-citations' && Array.isArray(item.citations)) {
+              onCitations?.(item.citations);
+            }
+          }
+        } catch {
+          // JSON parse hatası metin akışını bozmaz
+        }
+        continue;
+      }
+
+      // 3. Klasik SSE formatı (data: ...)
+      if (trimmed.startsWith('data:')) {
+        const token = parseSseDataToken(trimmed.substring(5).trim());
+        if (token) {
+          fullResponseText += token;
+          onChunk(token);
+        }
       }
     }
   }
@@ -132,7 +151,7 @@ async function readResponseStream(
 
 /**
  * Backend /api/chat uç noktasına canlı streaming isteği atar.
- * Vercel AI SDK Data Stream protokolünü (0:"token") çözümleyerek onChunk geri çağrısına iletir.
+ * Vercel AI SDK Data Stream protokolünü çözümleyerek onChunk ve onCitations geri çağrılarına iletir.
  */
 export async function streamChat(
   payload: SendMessagePayload,
@@ -158,7 +177,11 @@ export async function streamChat(
       throw new Error('Yanıtta okunabilir akış (ReadableStream) bulunamadı.');
     }
 
-    const fullResponseText = await readResponseStream(response.body.getReader(), callbacks.onChunk);
+    const fullResponseText = await readResponseStream(
+      response.body.getReader(),
+      callbacks.onChunk,
+      callbacks.onCitations
+    );
 
     const latencyMs = Date.now() - startTime;
     callbacks.onFinish?.(fullResponseText, {
