@@ -141,6 +141,19 @@ erDiagram
         string text "Orijinal Parca Metni"
         object metadata "Sayfa No Baslik Bolum"
     }
+
+    RAG_SETTINGS {
+        string id PK
+        string key UK "rag_ingestion_settings"
+        int concurrency "Worker eszamanli dokuman kapasitesi"
+        int attempts "Tekrar deneme sayisi"
+        int backoff_delay_ms "Ustel geri cekilme baslangic suresi ms"
+        int chunk_size "Parcalama karakter boyutu"
+        int chunk_overlap "Ortusme karakter boyutu"
+        int remove_on_complete_count "Tamamlanan is saklama limiti"
+        int remove_on_fail_count "Basarisiz is saklama limiti"
+        date updated_at "Guncellenme tarihi"
+    }
 ```
 
 ---

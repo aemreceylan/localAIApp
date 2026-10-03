@@ -4,6 +4,7 @@ import { connectDatabase, disconnectDatabase } from "#shared/database/index.js";
 import { cacheService } from "#shared/cache/index.js";
 import { roleService } from "#modules/role/index.js";
 import { devInspectorHub } from "#shared/utils/index.js";
+import { ragWorker, ragQueue, ragConfigService } from "#modules/rag/index.js";
 
 const PORT = env.PORT;
 
@@ -18,11 +19,16 @@ async function bootstrap() {
     // 3. Varsayılan kurumsal sistem ve departman rollerini tohumla (seed)
     await roleService.initDefaultRoles();
 
-    // 3. HTTP sunucusu başlatma
+    // 4. RAG Dinamik Çalışma Ayarlarını Yükle ve Arka Plan Worker'ı Başlat
+    await ragConfigService.initializeRuntimeConfig();
+    ragWorker.start();
+
+    // 5. HTTP sunucusu başlatma
     const server = app.listen(PORT, env.HOST, () => {
       console.log(`[Backend API] Sunucu ${PORT} portunda başarıyla başlatıldı.`);
       console.log(`[Environment] MOD: ${env.NODE_ENV}`);
       console.log(`[Docs] Swagger UI: http://${env.HOST}:${env.PORT}/api/docs`);
+      console.log(`[Bull-Board] Kuyruk İzleme Paneli: http://${env.HOST}:${env.PORT}/admin/queues`);
 
       // Geliştirme ortamında Dev Traffic & Stream Inspector'ı hazırla
       if (env.NODE_ENV !== 'production') {
@@ -37,6 +43,10 @@ async function bootstrap() {
       if (env.NODE_ENV !== 'production') {
         devInspectorHub.stop();
       }
+
+      // RAG Worker ve Queue bağlantılarını kapat
+      await ragWorker.close();
+      await ragQueue.close();
 
       server.close(async () => {
         console.log("🛑 [Backend API] Tüm aktif HTTP bağlantıları sonlandırıldı.");

@@ -11,6 +11,7 @@
     "types": ["node"],
 
     // Other Outputs
+    "noEmit": true,
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,

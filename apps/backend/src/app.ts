@@ -8,6 +8,7 @@ import { chatRoutes } from '#modules/chat/index.js';
 import { promptRoutes } from '#modules/prompt/index.js';
 import { authRoutes, optionalAuth } from '#modules/auth/index.js';
 import { roleRoutes } from '#modules/role/index.js';
+import { adminRagRoutes, ragRoutes, bullBoardRouter } from '#modules/rag/index.js';
 import {
   notFoundHandler,
   globalErrorHandler,
@@ -68,11 +69,16 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
+// Bull-Board Kuyruk Yönetim Paneli
+app.use('/admin/queues', bullBoardRouter);
+
 // API Rotaları
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/chat', optionalAuth, chatRoutes);
 app.use('/api/prompts', optionalAuth, promptRoutes);
+app.use('/api/rag', ragRoutes);
+app.use('/api/admin/rag', adminRagRoutes);
 
 // 404 & Global Error Handling
 app.use(notFoundHandler);
