@@ -30,7 +30,7 @@ const STARTER_PROMPTS = [
   'Qdrant vektör veritabanında saklanan hibrit arama koleksiyonlarının sayfa numarası ve chunk skorlarını listele.',
 ];
 
-export const ChatStream: React.FC<ChatStreamProps> = ({
+const ChatStreamComponent: React.FC<ChatStreamProps> = ({
   messages,
   isStreaming,
   onSendMessage,
@@ -123,4 +123,6 @@ export const ChatStream: React.FC<ChatStreamProps> = ({
     </div>
   );
 };
+
+export const ChatStream = React.memo(ChatStreamComponent);
 

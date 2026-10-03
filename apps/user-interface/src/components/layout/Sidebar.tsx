@@ -31,7 +31,7 @@ function getUserRoleLabel(role?: string): string {
   return 'Kullanıcı';
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+const SidebarComponent: React.FC<SidebarProps> = ({
   isCollapsed,
   onToggleCollapse,
   width,
@@ -421,3 +421,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+
+export const Sidebar = React.memo(SidebarComponent);

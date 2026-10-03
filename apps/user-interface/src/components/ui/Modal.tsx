@@ -24,7 +24,7 @@ const maxWidthMap = {
   xl: 'max-w-xl',
 };
 
-export const Modal: React.FC<ModalProps> = ({
+const ModalComponent: React.FC<ModalProps> = ({
   isOpen,
   onClose,
   title,
@@ -118,3 +118,5 @@ export const Modal: React.FC<ModalProps> = ({
     </dialog>
   );
 };
+
+export const Modal = React.memo(ModalComponent);

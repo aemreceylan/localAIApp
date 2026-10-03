@@ -5,7 +5,7 @@
  * @design-token stitch_design_preview.html satır 418-448
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { useAutoResizeTextarea } from '#hooks/useAutoResizeTextarea';
 import type { PersonaPrompt } from '#types/chat.types';
 import { uploadDocument } from '#services/ragService';
@@ -34,7 +34,7 @@ interface AttachedFileItem {
   error?: string | null;
 }
 
-export const PromptDock: React.FC<PromptDockProps> = ({
+const PromptDockComponent: React.FC<PromptDockProps> = ({
   onSendMessage,
   isStreaming,
   onStopStreaming,
@@ -55,14 +55,7 @@ export const PromptDock: React.FC<PromptDockProps> = ({
     maxHeight: 180,
   });
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (!input.trim() || isStreaming) return;
 
     // Yüklemesi tamamlanmış doküman ID'lerini topla
@@ -79,9 +72,16 @@ export const PromptDock: React.FC<PromptDockProps> = ({
     setInput('');
     // Gönderimden sonra ekli dosyaları temizle
     setAttachedFiles([]);
-  };
+  }, [input, isStreaming, attachedFiles, onSendMessage, selectedPersonaId, enableRag]);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  }, [handleSend]);
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -121,10 +121,15 @@ export const PromptDock: React.FC<PromptDockProps> = ({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+  }, []);
 
-  const selectedPersona = personas.find((p) => p._id === selectedPersonaId);
-  const estimatedTokens = Math.max(1, Math.round(input.length / 4));
+  const selectedPersona = useMemo(() => {
+    return personas.find((p) => p._id === selectedPersonaId);
+  }, [personas, selectedPersonaId]);
+
+  const estimatedTokens = useMemo(() => {
+    return Math.max(1, Math.round(input.length / 4));
+  }, [input]);
 
   return (
     <div className="p-4 bg-gradient-to-t from-white via-white dark:from-slate-950 dark:via-slate-950 to-transparent shrink-0">
@@ -327,3 +332,5 @@ export const PromptDock: React.FC<PromptDockProps> = ({
     </div>
   );
 };
+
+export const PromptDock = React.memo(PromptDockComponent);

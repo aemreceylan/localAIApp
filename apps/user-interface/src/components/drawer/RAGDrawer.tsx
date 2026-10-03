@@ -21,7 +21,7 @@ export interface RAGDrawerProps {
   isOverlay?: boolean;
 }
 
-export const RAGDrawer: React.FC<RAGDrawerProps> = ({
+const RAGDrawerComponent: React.FC<RAGDrawerProps> = ({
   isOpen,
   onClose,
   width,
@@ -260,4 +260,6 @@ export const RAGDrawer: React.FC<RAGDrawerProps> = ({
     </aside>
   );
 };
+
+export const RAGDrawer = React.memo(RAGDrawerComponent);
 

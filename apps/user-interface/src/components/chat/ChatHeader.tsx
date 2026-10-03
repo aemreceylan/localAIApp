@@ -5,7 +5,7 @@
  * @design-token stitch_design_preview.html satır 311-346
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Dropdown, type DropdownItem } from '#components/ui/Dropdown';
 import type { LLMModel } from '#types/chat.types';
 
@@ -25,6 +25,8 @@ export interface ChatHeaderProps {
   isRAGOpen: boolean;
   onToggleRAG: () => void;
   ragCount?: number;
+  viewMode?: 'chat' | 'side-by-side';
+  onToggleViewMode?: () => void;
 }
 
 function resolveModelDisplayName(modelId: string, isLoading: boolean): string {
@@ -34,7 +36,7 @@ function resolveModelDisplayName(modelId: string, isLoading: boolean): string {
   return isLoading ? 'Modeller Yükleniyor...' : 'Model Seçiniz';
 }
 
-export const ChatHeader: React.FC<ChatHeaderProps> = ({
+const ChatHeaderComponent: React.FC<ChatHeaderProps> = ({
   isSidebarCollapsed,
   onExpandSidebar,
   selectedModel,
@@ -47,23 +49,31 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isRAGOpen,
   onToggleRAG,
   ragCount = 0,
+  viewMode = 'chat',
+  onToggleViewMode,
 }) => {
-  const currentModel = availableModels.find(
-    (m) => m.id === selectedModel || m.name === selectedModel
-  ) || {
-    id: selectedModel,
-    name: resolveModelDisplayName(selectedModel, isModelsLoading),
-    provider: 'ollama' as const,
-    isLocal: true,
-  };
+  const currentModel = useMemo(() => {
+    return (
+      availableModels.find(
+        (m) => m.id === selectedModel || m.name === selectedModel
+      ) || {
+        id: selectedModel,
+        name: resolveModelDisplayName(selectedModel, isModelsLoading),
+        provider: 'ollama' as const,
+        isLocal: true,
+      }
+    );
+  }, [availableModels, selectedModel, isModelsLoading]);
 
-  const dropdownItems: DropdownItem[] = availableModels.map((m) => ({
-    id: m.id,
-    label: m.name,
-    badge: m.isLocal ? 'Yerel' : 'Bulut',
-    description: m.description,
-    onClick: () => onSelectModel(m.id),
-  }));
+  const dropdownItems: DropdownItem[] = useMemo(() => {
+    return availableModels.map((m) => ({
+      id: m.id,
+      label: m.name,
+      badge: m.isLocal ? 'Yerel' : 'Bulut',
+      description: m.description,
+      onClick: () => onSelectModel(m.id),
+    }));
+  }, [availableModels, onSelectModel]);
 
   return (
     <div className="h-13 px-5 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white/70 dark:bg-slate-900/70 backdrop-blur-md shrink-0 z-10 transition-colors">
@@ -133,6 +143,32 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
 
       {/* Sağ Aksiyon Butonları */}
       <div className="flex items-center gap-2 text-xs shrink-0">
+        {/* Yan Yana Model Kıyaslama (Side-by-Side Arena) Butonu */}
+        {onToggleViewMode && (
+          <button
+            type="button"
+            onClick={onToggleViewMode}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
+              viewMode === 'side-by-side'
+                ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
+                : 'border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+            }`}
+            title="Yan Yana Çoklu Model Kıyaslama (Side-by-Side Arena)"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
+              />
+            </svg>
+            <span className="hidden sm:inline">
+              {viewMode === 'side-by-side' ? 'Sohbete Dön' : 'Kıyasla'}
+            </span>
+          </button>
+        )}
+
         {/* Sohbeti Paylaş */}
         <button
           type="button"
@@ -179,3 +215,5 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
     </div>
   );
 };
+
+export const ChatHeader = React.memo(ChatHeaderComponent);

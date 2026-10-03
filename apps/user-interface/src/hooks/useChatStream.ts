@@ -87,6 +87,28 @@ export function useChatStream({
 
       const targetConversationId = options.conversationId || conversationId;
 
+      // requestAnimationFrame tabanlı yüksek performanslı token tamponu (Micro-Batching)
+      let pendingTokenBuffer = '';
+      let rafHandle: number | null = null;
+
+      const flushTokenBuffer = () => {
+        if (pendingTokenBuffer) {
+          const bufferedTokens = pendingTokenBuffer;
+          pendingTokenBuffer = '';
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessageId
+                ? { ...msg, content: msg.content + bufferedTokens }
+                : msg
+            )
+          );
+        }
+        if (rafHandle !== null) {
+          cancelAnimationFrame(rafHandle);
+          rafHandle = null;
+        }
+      };
+
       await streamChat(
         {
           conversationId: targetConversationId,
@@ -100,13 +122,13 @@ export function useChatStream({
         },
         {
           onChunk: (token) => {
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessageId
-                  ? { ...msg, content: msg.content + token }
-                  : msg
-              )
-            );
+            pendingTokenBuffer += token;
+            if (rafHandle === null) {
+              rafHandle = requestAnimationFrame(() => {
+                rafHandle = null;
+                flushTokenBuffer();
+              });
+            }
           },
           onCitations: (incomingCitations) => {
             if (incomingCitations && incomingCitations.length > 0) {
@@ -121,6 +143,7 @@ export function useChatStream({
             }
           },
           onFinish: (_fullText, metadata) => {
+            flushTokenBuffer();
             setIsStreaming(false);
             abortControllerRef.current = null;
             if (metadata) {
@@ -140,6 +163,7 @@ export function useChatStream({
             }
           },
           onError: (err) => {
+            flushTokenBuffer();
             setIsStreaming(false);
             abortControllerRef.current = null;
             setError(err.message);

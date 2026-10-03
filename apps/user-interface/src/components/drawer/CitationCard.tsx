@@ -15,7 +15,7 @@ export interface CitationCardProps {
   onOpenDocument?: (docId: string) => void;
 }
 
-export const CitationCard: React.FC<CitationCardProps> = ({
+const CitationCardComponent: React.FC<CitationCardProps> = ({
   citation,
   index = 0,
   isSelected = false,
@@ -134,6 +134,8 @@ export const CitationCard: React.FC<CitationCardProps> = ({
     </div>
   );
 };
+
+export const CitationCard = React.memo(CitationCardComponent);
 
 
 /**

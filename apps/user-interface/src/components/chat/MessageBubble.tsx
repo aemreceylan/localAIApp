@@ -6,7 +6,7 @@
  * @design-token stitch_design_preview.html satır 348-415
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type { ChatMessage } from '#types/chat.types';
 
 export interface MessageBubbleProps {
@@ -17,7 +17,7 @@ export interface MessageBubbleProps {
   onRegenerate?: () => void;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({
+const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
   message,
   userName = 'Ahmet Emre',
   isStreaming = false,
@@ -28,21 +28,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [copiedCodeIndex, setCopiedCodeIndex] = useState<number | null>(null);
   const [copiedMessage, setCopiedMessage] = useState(false);
 
-  const handleCopyMessage = () => {
+  const handleCopyMessage = useCallback(() => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(message.content);
       setCopiedMessage(true);
       setTimeout(() => setCopiedMessage(false), 1500);
     }
-  };
+  }, [message.content]);
 
-  const handleCopyCode = (code: string, index: number) => {
+  const handleCopyCode = useCallback((code: string, index: number) => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(code);
       setCopiedCodeIndex(index);
       setTimeout(() => setCopiedCodeIndex(null), 1500);
     }
-  };
+  }, []);
+
+  const formattedContent = useMemo(() => {
+    return renderContentWithFormatting(
+      message.content,
+      onOpenCitation,
+      handleCopyCode,
+      copiedCodeIndex
+    );
+  }, [message.content, onOpenCitation, handleCopyCode, copiedCodeIndex]);
 
   // 1. KULLANICI MESAJI (Sağa Yaslı)
   if (isUser) {
@@ -101,7 +110,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             </div>
           ) : (
             <>
-              {renderContentWithFormatting(message.content, onOpenCitation, handleCopyCode, copiedCodeIndex)}
+              {formattedContent}
               {isStreaming && (
                 <span
                   className="inline-block w-1.5 h-4 ml-1 -mb-0.5 bg-brand-500 animate-pulse rounded-xs"
@@ -177,6 +186,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     </div>
   );
 };
+
+export const MessageBubble = React.memo(MessageBubbleComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.isStreaming === nextProps.isStreaming &&
+    prevProps.userName === nextProps.userName &&
+    prevProps.message.id === nextProps.message.id &&
+    prevProps.message.content === nextProps.message.content &&
+    prevProps.message.citations?.length === nextProps.message.citations?.length &&
+    prevProps.message.metrics?.latencyMs === nextProps.message.metrics?.latencyMs &&
+    prevProps.onOpenCitation === nextProps.onOpenCitation &&
+    prevProps.onRegenerate === nextProps.onRegenerate
+  );
+});
 
 /**
  * İçerikteki kod bloklarını ve [1] RAG referans rozetlerini süzerek render eder.

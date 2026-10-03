@@ -12,6 +12,7 @@ import { LoginView } from '#components/auth/LoginView';
 import { UserLayout } from '#components/layout/UserLayout';
 import { ChatHeader } from '#components/chat/ChatHeader';
 import { ChatStream } from '#components/chat/ChatStream';
+import { SideBySide } from '#components/chat/SideBySide';
 import { RAGDrawer } from '#components/drawer/RAGDrawer';
 import { ShareModal } from '#components/modal/ShareModal';
 import { useChatStream } from '#hooks/useChatStream';
@@ -32,6 +33,11 @@ function MainApp(): React.ReactElement {
   const [isRagEnabled, setIsRagEnabled] = useState<boolean>(true);
   const [selectedCitationId, setSelectedCitationId] = useState<string | number | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+  const [viewMode, setViewMode] = useState<'chat' | 'side-by-side'>('chat');
+
+  const toggleViewMode = useCallback(() => {
+    setViewMode((prev) => (prev === 'chat' ? 'side-by-side' : 'chat'));
+  }, []);
 
   // Oturum ve Persona Yönetimi (Canlı API)
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -278,20 +284,26 @@ function MainApp(): React.ReactElement {
             isRAGOpen={isRAGOpen}
             onToggleRAG={() => setIsRAGOpen((prev) => !prev)}
             ragCount={activeCitations.length}
+            viewMode={viewMode}
+            onToggleViewMode={toggleViewMode}
           />
 
-          <ChatStream
-            messages={messages}
-            isStreaming={isStreaming}
-            onSendMessage={handleSendMessage}
-            onStopStreaming={abort}
-            onOpenCitation={handleOpenCitation}
-            personas={personas}
-            selectedPersonaId={selectedPersonaId}
-            onSelectPersona={setSelectedPersonaId}
-            enableRag={isRagEnabled}
-            onToggleRag={() => setIsRagEnabled((prev) => !prev)}
-          />
+          {viewMode === 'side-by-side' ? (
+            <SideBySide availableModels={availableModels} />
+          ) : (
+            <ChatStream
+              messages={messages}
+              isStreaming={isStreaming}
+              onSendMessage={handleSendMessage}
+              onStopStreaming={abort}
+              onOpenCitation={handleOpenCitation}
+              personas={personas}
+              selectedPersonaId={selectedPersonaId}
+              onSelectPersona={setSelectedPersonaId}
+              enableRag={isRagEnabled}
+              onToggleRag={() => setIsRagEnabled((prev) => !prev)}
+            />
+          )}
         </div>
 
         {/* RAG Flex Sıkıştırma Tutucusu (Chat alanının daralmasını sağlayan ve eşikte sabitleyen görünmez blok) */}
