@@ -167,7 +167,9 @@ AppError (Soyut Ana Hata - statusCode, code, isOperational, details)
 
 ---
 
-## 5. Güvenlik Kuralları (AppSec & Defense-in-Depth)
+## 5. Güvenlik Kuralları (AppSec, Defense-in-Depth & Continuous Security Review)
+
+> **Zorunlu İlke (Security-by-Design):** Backend üzerinde geliştirilen veya düzenlenen her API rotası, controller, servis ve repository katmanında güvenlik kontrolleri kodlama anında eşzamanlı olarak yapılır. Hiçbir uç nokta kimlik doğrulama, izin ve BOLA/IDOR kontrolü yapılmadan bırakılamaz.
 
 - **Hız Sınırlayıcı (Rate Limiter - `#shared/middleware/rate-limiter.middleware.ts`):** Sıfır dış bağımlılıklı bellek içi Kayan Pencere (Sliding Window) algoritması:
   - Giriş (`/api/auth/login`): IP bazlı dakikada maks. 10 deneme (kaba kuvvet/brute-force engelleme).

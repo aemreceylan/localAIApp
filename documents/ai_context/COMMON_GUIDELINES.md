@@ -89,6 +89,15 @@
    - Tespit edilen kod kokuları (code smells) veya güvenlik uyarıları derhal refactor edilerek kod temizliği garanti altına alınır.
 5. **Standart Subpath Imports (#*) & Modül Çözünürlüğü:**
    - Kod tabanında kırılgan ve derin göreceli import'lar (`../../`) yerine ECMAScript & Node.js standart subpath import tanımlayıcıları (`#config/*`, `#modules/*`, `#shared/*`, `#*`) zorunlu kılınmıştır.
+6. **Her Kod Yazımında Eşzamanlı Güvenlik Denetimi (Security-by-Design & Code Review Checklist):**
+   - AI veya geliştirici kod yazarken güvenliği sonradan eklenecek bir lüks değil, kodun ayrılmaz bir parçası olarak ele alır. Yazılan veya değiştirilen her parça için şu kontroller zorunludur:
+     - **AuthN / AuthZ Koruması:** Yeni veya değişen uç noktalar korunmasız bırakılamaz (`requireAuth`, `requirePermission`).
+     - **BOLA / IDOR İzolasyonu:** URL veya istek gövdesindeki ID'lere körü körüne güvenilmez; kaynaklar daima doğrulanmış oturumdaki `req.user._id` ve `tenant_id` filtresiyle sorgulanır.
+     - **İstemci Başlık Güvensizliği (Header Spoofing):** İstemci tarafından manipüle edilebilecek `x-user-id`, `x-role` vb. başlıklara asla doğrudan güvenilemez.
+     - **Girdi Doğrulama ve Tip Sınırları:** Tüm controller ve servis girdileri Zod DTO şemaları ile taranır; ReDoS riskli regex'lerden kaçınılır.
+     - **Dosya Yükleme Güvenliği:** Yüklenen dosyaların hem dosya uzantısı hem de gerçek MIME tipi birlikte doğrulanır (`EXTENSION_MIME_MAP`), yürütülebilir dosyalar engellenir.
+     - **Hassas Bilgi ve Token İzolasyonu:** Şifreler, JWT'ler, API anahtarları asla loglanmaz veya istemciye açık olarak sızdırılamaz.
+     - **Kaba Kuvvet ve Hız Sınırlama (Rate Limiting):** Brute-force saldırılarına açık uç noktalarda (login, setup, LLM akışları) hız sınırlayıcı middleware uygulanır.
 
 ---
 

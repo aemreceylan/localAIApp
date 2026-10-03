@@ -85,3 +85,5 @@ localAIApp/
 6. **Dinamik Prompt Stacking:** Kurumsal guardrail, persona ve kullanıcı ek talimatı anlık olarak birleştirilir; prompt güncellemeleri anında tüm aktif oturumlara yansır.
 7. **Standart Subpath Imports (#*):** Backend modül erişimlerinde Node.js native ESM `#modules/*`, `#config/*`, `#shared/*` zorunludur.
 8. **Canlı OpenAPI 3.0 Dokümantasyonu:** Zod DTO'lar ile Swagger UI (`/api/docs`) ve master dosya (`documents/openapi.json`) canlı tutulur.
+9. **Eşzamanlı Güvenlik Denetimi (Security-by-Design & Continuous Security Review):** Geliştirilen veya güncellenen her kod parçası (API uç noktaları, servisler, repository'ler, frontend bileşenleri/formları) eşzamanlı güvenlik testinden (BOLA/IDOR, kimlik doğrulama/yetkilendirme guard'ları, header spoofing önleme, katı girdi doğrulama, dosya yükleme kontrolü, hassas veri maskeleme, rate limiting) geçirilir ve güvenliği sağlanmadan kod teslim edilmez.
+
