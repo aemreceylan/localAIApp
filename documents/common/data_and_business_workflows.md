@@ -14,11 +14,11 @@
 Platform, kurumsal güvenlik ve yüksek ölçeklenebilirlik gereksinimlerini karşılamak amacıyla **3 katmanlı hibrit bir veri mimarisi** üzerine inşa edilmiştir:
 
 1. **İlişkisel/Operasyonel Doküman Katmanı (MongoDB & Mongoose):**  
-   Kiracılar (Tenants), kullanıcılar, roller, dinamik promptlar, sohbet geçmişi ve doküman üst verileri (metadataları) Mongoose şemaları altında tutulur. Tüm koleksiyonlarda **Row-Level Security (RLS)** esasıyla `tenant_id` mantıksal izolasyonu uygulanır.
+   Kullanıcılar (`users`), oturumlar (`sessions`), dinamik roller (`roles`), 4 katmanlı promptlar (`prompts`), sohbet geçmişi (`conversations`, `messages`), doküman üst verileri (`documents`) ve kuyruk ayarları (`rag_configs`) Mongoose şemaları altında tutulur. Veri erişimi **Enterprise RBAC**, **Document ACL** (`allowed_roles`) ve kullanıcı bazlı sahiplik (`user_id`) ile izole edilir.
 2. **Vektörel Arama ve Bilgi Bankası Katmanı (Qdrant Dedicated Vector DB):**  
-   RAG dokümanlarından elde edilen metin parçacıklarının (chunks) vektör gömmeleri (embeddings) Qdrant üzerinde saklanır. Çok kiracılı veri izolasyonu, Qdrant payload filtreleri üzerinden sağlanır.
+   RAG dokümanlarından elde edilen metin parçacıklarının (chunks) vektör gömmeleri (embeddings) Qdrant üzerinde saklanır. Rol bazlı kurumsal veri izolasyonu (**Zero-Context-Leakage**), Qdrant payload filtreleri (`allowed_roles`) üzerinden matematiksel olarak garanti edilir.
 3. **Asenkron İş Kuyruğu ve Dağıtık Durum Katmanı (BullMQ & Redis):**  
-   Büyük dokümanların parçalanması, embedding çıkarımı, Ollama model indirmeleri ve API hız sınırlamaları Redis destekli BullMQ kuyrukları ile yönetilir.
+   Büyük dokümanların parçalanması, embedding çıkarımı, Ollama model indirmeleri ve API hız sınırlamaları Redis destekli BullMQ kuyrukları (`rag-ingestion-queue`) ile yönetilir. Bull-Board gösterge paneli ile anlık kuyruk izleme sağlanır.
 
 ---
 
@@ -258,43 +258,66 @@ Promptlar artık oturum içine gömülü statik metinler değildir. 3 farklı ti
 
 ---
 
-### 3.6. `documents` (RAG Bilgi Bankası Üst Verileri)
+### 3.6. `documents` (RAG Bilgi Bankası Üst Verileri & Document ACL)
 
-| Alan Adı        | Tip      | Zorunlu? | Varsayılan  |              İndeks               | Açıklama                                               |
-| :-------------- | :------- | :------: | :---------: | :-------------------------------: | :----------------------------------------------------- |
-| `_id`           | ObjectId |   Evet   |    auto     |                PK                 | Doküman kimliği                                        |
-| `tenant_id`     | String   |   Evet   |      -      | Compound (`tenant_id` + `status`) | Kiracı izolasyon anahtarı                              |
-| `title`         | String   |   Evet   |      -      |                 -                 | Doküman başlığı                                        |
-| `file_name`     | String   |   Evet   |      -      |                 -                 | Orijinal dosya adı                                     |
-| `file_path`     | String   |   Evet   |      -      |                 -                 | Sunucu yerel depolama dosya yolu                       |
-| `file_size`     | Number   |   Evet   |      -      |                 -                 | Bayt cinsinden boyut                                   |
-| `mime_type`     | String   |   Evet   |      -      |                 -                 | `application/pdf`, `text/markdown` vb.                 |
-| `status`        | String   |   Evet   | `'pending'` |               Index               | `'pending'`, `'processing'`, `'completed'`, `'failed'` |
-| `chunk_count`   | Number   |   Evet   |     `0`     |                 -                 | Qdrant'a yazılan vektör parçası adedi                  |
-| `error_message` | String   |  Hayır   |   `null`    |                 -                 | Başarısızlık durumunda hata logu                       |
+Kurumsal dokümanların üst verileri, işlenme durumu ve rol bazlı erişim izinleri (Document ACL).
+
+| Alan Adı        | Tip           | Zorunlu? | Varsayılan  | İndeks                | Açıklama                                               |
+| :-------------- | :------------ | :------: | :---------: | :-------------------- | :----------------------------------------------------- |
+| `_id`           | ObjectId      |   Evet   |    auto     | PK                    | Doküman kimliği                                        |
+| `title`         | String (200)  |   Evet   |      -      | -                     | Doküman başlığı                                        |
+| `file_name`     | String        |   Evet   |      -      | -                     | Orijinal dosya adı (UUID ile güvenli saklanır)         |
+| `file_path`     | String        |   Evet   |      -      | -                     | Sunucu yerel depolama dosya yolu (`uploads/rag/`)      |
+| `file_size`     | Number        |   Evet   |      -      | -                     | Bayt cinsinden dosya boyutu (Maks 25MB)                |
+| `mime_type`     | String        |   Evet   |      -      | -                     | `application/pdf`, `text/plain`, `text/markdown` vb.   |
+| `status`        | String        |   Evet   | `'pending'` | Index                 | `'pending'`, `'processing'`, `'completed'`, `'failed'` |
+| `chunk_count`   | Number        |   Evet   |     `0`     | -                     | Qdrant'a yazılan vektör parçacığı adedi                |
+| `allowed_roles` | Array[String] |   Evet   |  `['*']`    | Index                 | Belgeyi sorgulayabilecek roller (`['*']`, `['hr']` vb.)|
+| `uploaded_by`   | ObjectId      |  Hayır   |      -      | Index                 | Dokümanı yükleyen kullanıcı kimliği (`users._id`)      |
+| `error_message` | String        |  Hayır   |   `null`    | -                     | İşleme başarısız olursa yakalanan hata mesajı          |
+| `created_at`    | Date          |   Evet   |    auto     | -                     | Yüklenme zaman damgası                                 |
+| `updated_at`    | Date          |   Evet   |    auto     | -                     | Son güncelleme zaman damgası                           |
 
 ---
 
 ### 3.7. Qdrant Vektör Koleksiyonu Şeması (`rag_documents_vectors`)
 
-Qdrant üzerinde her vektör kaydı bir `Point` nesnesidir:
+Qdrant üzerinde her vektör kaydı bir `Point` nesnesidir ve Zero-Context-Leakage prensibiyle filtrelenir:
 
 - **Point ID:** UUIDv4 formatında benzersiz parça kimliği.
-- **Vector:** Model embedding çıktısı (örn: 1536 float değerleri).
+- **Vector:** Model embedding çıktısı (örn: 1536 veya 768 float değerleri).
 - **Payload (Filtrelenebilir Meta Veri):**
   ```json
   {
-    "tenant_id": "tenant_123",
-    "document_id": "66f91a2b...",
+    "document_id": "66f91a2b8e3a...",
+    "allowed_roles": ["hr", "finance"],
     "chunk_index": 4,
-    "text": "Kurumumuz bünyesinde veri güvenliği...",
+    "text": "Kurumumuz bünyesinde veri güvenliği ve yıllık izin devir şartları...",
     "metadata": {
-      "filename": "guvenlik_kilavuzu.pdf",
+      "filename": "ik_el_kitabi_2026.pdf",
       "page_number": 12,
-      "section": "Gizlilik Prensipleri"
+      "chunk_char_count": 450
     }
   }
   ```
+
+---
+
+### 3.8. `rag_configs` (Dinamik BullMQ & Ingestion Ayarları - Hot-Reload)
+
+Sistem yöneticisinin backend'i yeniden başlatmadan BullMQ iş kuyruğu parametrelerini anlık güncelleyebilmesini sağlayan ayar tablosu (`key: 'rag_ingestion_settings'`).
+
+| Alan Adı                   | Tip      | Zorunlu? | Varsayılan | İndeks | Açıklama                                                  |
+| :------------------------- | :------- | :------: | :--------: | :----: | :-------------------------------------------------------- |
+| `_id`                      | ObjectId |   Evet   |    auto    |   PK   | Kayıt kimliği                                             |
+| `key`                      | String   |   Evet   |    auto    | UNIQUE | Tekil ayar anahtarı (`'rag_ingestion_settings'`)          |
+| `concurrency`              | Number   |   Evet   |    `2`     |   -    | BullMQ Worker anlık eşzamanlı doküman işleme kapasitesi   |
+| `attempts`                 | Number   |   Evet   |    `3`     |   -    | Başarısız olan doküman indeksleme işlerinin tekrar sayısı |
+| `backoff_delay_ms`         | Number   |   Evet   |   `2000`   |   -    | Üstel geri çekilme (exponential backoff) başlangıç süresi |
+| `chunk_size`               | Number   |   Evet   |   `800`    |   -    | Metin parçalama (chunking) karakter hedef boyutu          |
+| `remove_on_complete_count` | Number   |   Evet   |   `1000`   |   -    | Başarıyla tamamlanan işlerin Redis'te saklanma limiti     |
+| `remove_on_fail_count`     | Number   |   Evet   |   `5000`   |   -    | Hata alan işlerin Redis'te saklanma limiti                |
+| `updated_at`               | Date     |   Evet   |    auto    |   -    | Son güncelleme tarihi                                     |
 
 ---
 
@@ -302,42 +325,50 @@ Qdrant üzerinde her vektör kaydı bir `Point` nesnesidir:
 
 ### 4.1. Akış 1: LLM Mesaj Gönderimi & Dinamik Prompt Stacking Akışı
 
-Kullanıcı bir mesaj gönderdiğinde sistemin yanıt üretme, güvenlik guardrail'lerini uygulama ve veritabanına yazma sırası:
+Kullanıcı bir mesaj gönderdiğinde sistemin yanıt üretme, güvenlik guardrail'lerini uygulama, RAG grounding ve veritabanına yazma sırası:
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as Kullanıcı (UI)
-    participant Gateway as Express Gateway (Auth/RLS Middleware)
+    participant Gateway as Express Gateway (AuthMiddleware & PolicyEngine)
     participant ChatCtrl as ChatController
     participant ChatSvc as ChatService
+    participant RagSvc as RagService (Qdrant & Zero-Context-Leakage)
     participant PromptFacade as PromptService (Facade)
-    participant AIProvider as AIProviderService (Ollama / OpenAI)
+    participant AIProvider as AIProviderService (Vercel AI SDK)
     participant DB as MongoDB (Message / Conversation)
 
-    User->>Gateway: POST /api/chat (tenant_id, conversation_id, content, model)
-    Note over Gateway: Auth Token & Tenant RLS Context doğrulanır
-    Gateway->>ChatCtrl: handleSendMessage(req)
-    ChatCtrl->>ChatSvc: sendMessage(tenant_id, conversation_id, dto)
+    User->>Gateway: POST /api/chat (Bearer Token, conversationId, messages, model, enableRag)
+    Note over Gateway: Opaque Bearer Token & User Session doğrulanır
+    Gateway->>ChatCtrl: handleChat(req, res)
+    ChatCtrl->>ChatSvc: streamChat(dto, userContext)
 
-    rect rgb(240, 245, 255)
-    Note over ChatSvc, PromptFacade: Çok Katmanlı Dinamik Prompt Derleme
-    ChatSvc->>PromptFacade: buildSystemInstruction(tenant_id, prompt_id, custom_instructions)
-    PromptFacade->>DB: 1. Aktif Kurumsal Guardrail'leri getir (priority ASC)
-    PromptFacade->>DB: 2. Seçili/Varsayılan Persona Promptunu getir
-    PromptFacade-->>ChatSvc: Katman 1 + Katman 2 + Katman 3 Birleşik Sistem Metni
+    alt enableRag: true ise
+        Note over ChatSvc, RagSvc: Semantik Bilgi Bankası Araması
+        ChatSvc->>RagSvc: queryKnowledge({ query: lastUserMessage, limit: 5 }, userContext)
+        RagSvc->>RagSvc: Qdrant Rol Filtreli Benzerlik Araması (Zero-Context-Leakage)
+        RagSvc-->>ChatSvc: Doğrulanmış Alıntılar (Citations)
     end
 
-    ChatSvc->>DB: Son N mesajı geçmiş olarak çek (Context Window)
-    ChatSvc->>AIProvider: streamChat(model, combinedSystemPrompt, messagesHistory)
-    AIProvider-->>User: Server-Sent Events (SSE) Token Akışı Başlar...
-    AIProvider-->>User: Token 1, Token 2, Token 3...
-    AIProvider-->>ChatSvc: Akış Tamamlandı (Tam Yanıt Metni)
+    rect rgb(240, 245, 255)
+    Note over ChatSvc, PromptFacade: 4 Katmanlı Dinamik Prompt Derleme (Prompt Stacking)
+    ChatSvc->>PromptFacade: buildSystemPrompt({ prompt_id, custom_instructions, userRoles, ragContext })
+    PromptFacade->>DB: 1. Aktif Kurumsal Guardrail'leri getir (priority ASC)
+    PromptFacade->>DB: 2. Seçili/Varsayılan Persona Promptunu getir
+    PromptFacade-->>ChatSvc: Katman 1 + Katman 2 + Katman 3 + Katman 4 (RAG Grounding)
+    end
 
-    ChatSvc->>DB: User Mesajını Kaydet (role: 'user')
-    ChatSvc->>DB: Assistant Yanıtını Kaydet (role: 'assistant')
-    ChatSvc->>DB: Conversation.updated_at güncelle
-    ChatSvc-->>User: SSE Bitiş Olayı ([DONE])
+    ChatSvc->>AIProvider: streamText({ model, system: finalPrompt, messages })
+    AIProvider-->>User: Server-Sent Events (SSE) Token Akışı Başlar...
+    ChatCtrl-->>User: StreamData ile rag-citations annotasyonu iletilir
+
+    AIProvider-->>ChatSvc: onFinish (Tam Asistan Metni)
+    opt conversationId mevcutsa
+        ChatSvc->>DB: User Mesajını Kaydet (role: 'user')
+        ChatSvc->>DB: Assistant Yanıtını Kaydet (role: 'assistant')
+        ChatSvc->>DB: Conversation.updated_at güncelle
+    end
 ```
 
 ---
@@ -354,29 +385,26 @@ sequenceDiagram
     participant DB as MongoDB (Document)
     participant Queue as BullMQ Ingestion Queue (Redis)
     participant Worker as BullMQ Ingestion Worker
-    participant AIEmbed as Embedding Servisi
-    participant Qdrant as Qdrant Vektör DB
-    participant SSE as SSE Notification Channel
+    participant AIEmbed as Embedding Servisi (Vercel AI SDK)
+    participant Qdrant as Qdrant Vektör DB (REST)
 
-    Admin->>API: POST /api/rag/upload (Multipart File + Metadata)
-    API->>API: Disk / Temporary Storage'a kaydet & MIME kontrolü
-    API->>DB: Document kaydı oluştur (status: 'pending')
-    API->>Queue: Yeni iş ekle (Job: { documentId, tenantId, filePath })
+    Admin->>API: POST /api/rag/upload (Multipart File + title + allowed_roles)
+    API->>API: Disk Depolamaya UUID ile kaydet & MIME/Kota kontrolü (Maks 25MB)
+    API->>DB: Document kaydı oluştur (status: 'pending', allowed_roles)
+    API->>Queue: Yeni iş ekle (Job: { documentId, filePath, originalFileName, mimeType })
     API-->>Admin: 202 Accepted (Document ID & Durum: PENDING)
 
     rect rgb(245, 255, 245)
-    Note over Queue, Worker: Asenkron Arka Plan İşlemi
-    Queue->>Worker: Job tetiklenir (Concurrency Control: 2-3)
+    Note over Queue, Worker: Asenkron Arka Plan İşlemi (Concurrency Control)
+    Queue->>Worker: Job tetiklenir (rag-ingestion-queue)
     Worker->>DB: Status -> 'processing' olarak güncelle
-    Worker->>Worker: Metin Çıkarıcı (PDF / DOCX / TXT Parser)
-    Worker->>Worker: Recursive Character Splitting (Örn: 800 token chunk + 100 overlap)
-    Worker->>AIEmbed: embedMany(chunks) -> Vektör dizileri üret
-    AIEmbed-->>Worker: Vektör embedding matrisi döner
-    Worker->>Qdrant: Batch Upsert Points (Payload: { tenant_id, document_id, text, metadata })
-    Qdrant-->>Worker: Index OK
+    Worker->>Worker: Metin Çıkarıcı (PdfExtractor / PlainTextExtractor / Registry)
+    Worker->>Worker: Recursive Character Splitting (800 char chunk + 150 overlap)
+    Worker->>AIEmbed: generateEmbeddings(chunks) -> Vercel AI SDK
+    AIEmbed-->>Worker: Cosine normalizasyonlu float dizileri döner
+    Worker->>Qdrant: Batch Upsert Points (Payload: { document_id, allowed_roles, text, metadata })
+    Qdrant-->>Worker: Upsert OK
     Worker->>DB: Status -> 'completed', chunk_count -> N güncelle
-    Worker->>SSE: Yayınla: document_processed (status: completed)
-    SSE-->>Admin: UI'da bildirim gösterilir ve durum yeşile döner
     end
 ```
 
@@ -415,34 +443,37 @@ flowchart TD
 
 ---
 
-### 4.4. Akış 4: Multi-Tenant Row-Level Security (RLS) Karar Akışı
+### 4.4. Akış 4: Kurumsal RBAC, Policy Engine & Zero-Context-Leakage Karar Akışı
 
-Gelen her isteğin yetkisiz kiracıların verilerine erişmesini engelleyen güvenlik akışı:
+Gelen her isteğin yetkisiz departman veya kullanıcı verilerine erişmesini engelleyen güvenlik akışı:
 
 ```mermaid
 flowchart TD
-    Req["Gelen HTTP İsteği"] --> MW1["Auth ve JWT Middleware"]
-    MW1 --> MW2["Tenant Context Middleware"]
-    MW2 --> SetCtx["AsyncLocalStorage Context: tenant_id belirlenir"]
+    Req["Gelen HTTP İsteği"] --> MW1["AuthMiddleware: Opaque Bearer Token Doğrulaması"]
+    MW1 --> MW2["Aktif Session & User Çözümleme"]
+    MW2 --> BanCheck{"Hesap Aktif mi? (is_active)"}
+    BanCheck -- Hayır --> 403Ban["403 FORBIDDEN (Hesap Askıya Alındı)"]
+    BanCheck -- Evet --> PolicyCheck{"PolicyEngine: İzin Denetimi"}
 
-    SetCtx --> ModService["İlgili Modül Servisi (chat, prompt, rag vb.)"]
-    ModService --> ModRepo["Modül Repository Katmanı"]
-
-    subgraph Mongo_RLS ["Mongoose Global Tenant Plugin Katmanı"]
-        ModRepo --> QueryHook["pre('find') Kancası Tetiklenir"]
-        QueryHook --> InjectFilter["Otomatik Filtre: tenant_id veya is_global"]
-        InjectFilter --> MongoExec["MongoDB Sorgusu Çalıştırılır"]
+    subgraph Policy_Engine ["PolicyEngine.can(user, requiredPermission)"]
+        PolicyCheck --> SuperCheck{"system_role == 'superadmin'?"}
+        SuperCheck -- Evet --> Granted["İZİN VERİLDİ (Koşulsuz)"]
+        SuperCheck -- Hayır --> DenyOverride{"direct_permissions.deny listesinde var mı?"}
+        DenyOverride -- Evet --> Denied["REDDEDİLDİ (Explicit Deny)"]
+        DenyOverride -- Hayır --> RoleCheck{"Rol İzinleri Havuzunda (Union) var mı?"}
+        RoleCheck -- Evet --> Granted
+        RoleCheck -- Hayır --> AllowOverride{"direct_permissions.allow listesinde var mı?"}
+        AllowOverride -- Evet --> Granted
+        AllowOverride -- Hayır --> Denied
     end
 
-    subgraph Qdrant_RLS ["Qdrant Vektör Güvenlik Katmanı"]
-        ModRepo --> QdrantSearch["search veya scroll Çağrısı"]
-        QdrantSearch --> InjectQdrantFilter["Payload Filtresi: tenant_id eşleşmesi"]
-        InjectQdrantFilter --> QdrantExec["Qdrant Arama Çalıştırılır"]
-    end
+    Granted --> ModAction["İlgili Modül İş Mantığı Çalıştırılır"]
 
-    MongoExec --> Result["Yalnızca Kiracının Kendi Verileri Döner"]
-    QdrantExec --> Result
-    Result --> Res["Güvenli HTTP Yanıtı"]
+    subgraph Zero_Context_Leakage ["RAG Bilgi Bankası Zero-Context-Leakage Filtresi"]
+        ModAction --> QdrantSearch["Qdrant searchWithRoleFilter"]
+        QdrantSearch --> RoleACL{"Kullanıcı Superadmin mi?"}
+        RoleACL -- Evet --> AllDocs["Tüm Doküman Vektörlerinde Ara"]
+    end
 ```
 
 ---

@@ -3,9 +3,9 @@
 > **DOKÜMAN TİPİ:** Alt Proje Özel Mimari Spesifikasyonu (`apps/backend`)  
 > **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)  
 > **İlişkili Dokümanlar:** [Ortak PRD v2.1.0](../common/prd.md), [Veritabanı ve İş Akış Şemaları](../common/data_and_business_workflows.md), [OpenAPI 3.0 Dokümanı](../openapi.json)  
-> **Sürüm:** v1.2.0  
+> **Sürüm:** v1.3.0  
 > **Hazırlayan:** Chief System Architect & Security Lead  
-> **Tarih:** Eylül 2026  
+> **Tarih:** Ekim 2026  
 
 ---
 
@@ -148,28 +148,28 @@ Kullanıcıların yüklediği yüksek boyutlu dokümanların işlenmesi ana sunu
 ### 5.1. Doküman İşleme Akış Şeması (RAG Ingestion Pipeline)
 
 ```
-[User UI] ──(1) HTTP Upload (Multer % Progress)──> [RAG Controller]
-                                                         │
-                                               (2) Save File & Create DB Record (Status: PENDING)
-                                                         │
-                                                         ▼
-                                            [BullMQ Queue (Redis)]
-                                                         │
-                                                         ▼
-                                                [BullMQ Worker]
-                                                         │
-                        ┌────────────────────────────────┴────────────────────────────────┐
-                        │ - Text Extraction (PDF/DOCX)                                     │
-                        │ - Chunking Strategy (Recursive Character Splitter)              │
-                        │ - Vercel AI SDK (`embedMany`) -> Generate Vector Embeddings     │
-                        │ - Save Vectors to Qdrant (with tenant_id payload)               │
-                        │ - Update Job Progress (job.updateProgress(%))                   │
-                        └────────────────────────────────┬────────────────────────────────┘
-                                                         │
-                                               (3) Update DB (Status: COMPLETED)
-                                                         │
-                                                         ▼
-                                            [SSE Notification to UI]
+[User / Admin UI] ──(1) HTTP Upload (Multer % Progress)──> [RAG Controller]
+                                                                  │
+                                                        (2) Save File & Create DB Record (Status: PENDING)
+                                                                  │
+                                                                  ▼
+                                                     [BullMQ Queue (Redis)]
+                                                                  │
+                                                                  ▼
+                                                         [BullMQ Worker]
+                                                                  │
+                                ┌─────────────────────────────────┴─────────────────────────────────┐
+                                │ - Text Extraction (PdfExtractor / PlainTextExtractor / Registry)   │
+                                │ - Chunking Strategy (RecursiveCharacterChunker - 800 char/150 ov) │
+                                │ - Vercel AI SDK (`generateEmbeddings`) -> 768/1536d Cosine Vector │
+                                │ - Save Vectors to Qdrant (with allowed_roles Document ACL payload) │
+                                │ - Update Job Progress (job.updateProgress(%))                    │
+                                └─────────────────────────────────┬─────────────────────────────────┘
+                                                                  │
+                                                        (3) Update DB (Status: COMPLETED, chunk_count)
+                                                                  │
+                                                                  ▼
+                                                     [Bull-Board & Real-Time Monitoring]
 ```
 
 ### 5.2. Kuyruk, Performans ve Kaynak Yönetimi Stratejileri
@@ -182,11 +182,46 @@ Kullanıcıların yüklediği yüksek boyutlu dokümanların işlenmesi ana sunu
 - Dış LLM sağlayıcılarının (OpenAI, Anthropic) veya yerel embedding modellerinin dakikalık istek limitlerine (RPM/TPM) takılmamak için BullMQ kuyruk seviyesinde `limiter` konfigürasyonu uygulanır.
 
 #### 5.2.3. Redis Bellek Yönetimi ve Temizlik (Job Pruning)
-- Tamamlanan ve başarısız olan işlerin metadatalarının Redis belleğini doldurarak sunucuyu Out-Of-Memory (OOM) durumuna düşürmemesi için otomatik silme politikası eklenir.
+- Tamamlanan (`removeOnComplete: 1000`) ve başarısız olan (`removeOnFail: 5000`) işlerin metadatalarının Redis belleğini doldurarak sunucuyu Out-Of-Memory (OOM) durumuna düşürmemesi için otomatik silme politikası eklenir.
 
 #### 5.2.4. Dosya Boyutuna Göre Önceliklendirme (Priority Queueing)
 - Küçük boyutlu dokümanların (1-2 sayfalık PDF/sözleşmeler) büyük dokümanların arkasında beklemesini önlemek adına dinamik önceliklendirme uygulanır:
   $$\text{Priority Score} = \max(1, 1000 - \text{DosyaBoyutuKB})$$
+
+### 5.3. Metin Çıkarıcılar ve Genişletilebilir Kayıtçı Mimarisi (`ExtractorRegistry`)
+- **Open/Closed İlkesi:** Yeni bir dosya formatı (DOCX, HTML, EPUB) eklendiğinde mevcut kod değiştirilmez; `IDocumentExtractor` arayüzünü uygulayan yeni bir extractor yazılıp `extractorRegistry.register(extractor)` ile sisteme tanıtılır.
+- **Mevcut Çıkarıcılar:**
+  - `PlainTextExtractor`: `.txt`, `.md`, `.csv`, `.json` formatlarını UTF-8 güvenli ve satır sonu normalizasyonu ile işler.
+  - `PdfExtractor`: `pdf-parse` motoru ile çok sayfalı PDF belgelerini ayrıştırır; sayfa sayısını ve sayfa bazlı metin haritasını (`metadata.page_number`) çıkarır.
+
+### 5.4. Rekürsif Karakter Parçalama & Üst Boyut Normalizasyonu (`RecursiveChunker`)
+- Doğal metin sınırlarını (paragraf `\n\n`, satır `\n`, cümle `. `, sözcük ` `) hiyerarşik olarak tarayan `RecursiveChunker` motoru kullanılır.
+- Chunk boyutu ve örtüşme değerleri dinamik ayarlanabilir (varsayılan: `chunkSize: 800`, `chunkOverlap: 150` karakter).
+- Her parça için üst veri (sayfa numarası, kaynak doküman ID, parça sıra indeksi) korunur.
+
+### 5.5. Vercel AI SDK Embedding & Qdrant Vektör Adaptörü
+- **Vektör Üretimi (`embedding.service.ts`):** Vercel AI SDK `embed` ve `embedMany` fonksiyonları kullanılarak metin parçacıkları kosinüs normalizasyonlu float vektörlerine dönüştürülür.
+- **Qdrant Adaptörü (`qdrant.adapter.ts`):** 
+  - Koleksiyon (`rag_documents_vectors`) yoksa otomatik oluşturulur (`Cosine` metriği ile).
+  - Vektör parçaları `allowed_roles` payload'u ile saklanır.
+  - **Zero-Context-Leakage Arama (`searchWithRoleFilter`):** Kullanıcının rolleri ile Qdrant payload'ı eşleştirilir; yetkisiz rollerin parçaları matematiksel olarak sorgu sonucuna dahil edilmez.
+  - **Memory Fallback:** Test ve acil durumlarda Qdrant'a ulaşılamazsa bellek içi (in-memory) kosinüs benzerliği devreye girer.
+
+### 5.6. Dinamik BullMQ Yapılandırma ve Çalışma Zamanı Hot-Reload (`rag-config.service.ts`)
+- BullMQ worker concurrency, tekrar deneme sayısı (`attempts`), üstel geri çekilme (`backoff_delay_ms`), `chunk_size` ve `chunk_overlap` değerleri MongoDB `rag_configs` koleksiyonunda saklanır.
+- Yönetici REST API (`PUT /api/admin/rag/config`) üzerinden ayar güncellediğinde, backend sunucusu yeniden başlatılmadan çalışma zamanında (hot-reload) `worker.concurrency` ve kuyruk parametreleri güncellenir.
+
+### 5.7. Bull-Board Express Gösterge Paneli (`/admin/queues`)
+- `@bull-board/express` ve `BullMQAdapter` entegrasyonu ile Express çatısı altında canlı kuyruk yönetim paneli sunulur.
+- Yöneticiler kuyruktaki aktif, bekleyen, tamamlanan ve başarısız işleri grafiksel olarak izleyebilir, hatalı işleri tekrar deneyebilir (retry) veya kuyruğu temizleyebilir.
+
+### 5.8. RAG Chat Grounding ve Canlı Citations Akışı (`chat.service.ts`)
+- Sohbet isteğinde `enableRag: true` geldiğinde:
+  1. Son kullanıcı mesajı `ragService.queryKnowledge` ile aranır.
+  2. Kullanıcının rolleri doğrulanarak yalnızca erişim izni olan belgelerden alıntılar (`citations`) getirilir.
+  3. Doküman adları (`documentTitle`), sayfa numaraları ve güven skorları birleştirilerek Prompt Stacking 4. Katmanına (`ragContext`) enjekte edilir.
+  4. Vercel AI SDK `StreamData.appendMessageAnnotation` ile istemciye SSE akışında ilk veri olarak `rag-citations` annotasyonu aktarılır.
+  5. Yanıt başlığına `x-nexusai-citations-count` eklenerek arayüzün anlık alıntı sayısını doğrudan okuyabilmesi sağlanır.
 
 ---
 
@@ -261,10 +296,11 @@ Kurumsal platformda hiçbir veritabanı şemasında (Mongoose/MongoDB), TypeScri
 
 ## 12. ÇOK BOYUTLU DİNAMİK PROMPT MOTORU (PROMPT STACKING & REAL-TIME ASSEMBLY)
 
-Sistem promptları tek bir metin alanı olarak `Conversation` koleksiyonuna gömülü statik bir yapıda tutulamaz.
-1. **Katman 1 - Kurumsal Güvenlik & İlke Kuralları (`system_guardrail`):** Tenant bazlı, `priority` sırasına göre anlık sorgulanır.
-2. **Katman 2 - Uzmanlık Rolü / Persona (`persona`):** Sohbet oturumunun bağlı olduğu veya varsayılan atanan rol direktifi.
-3. **Katman 3 - Oturuma Özel Ek Talimatlar (`custom_instructions`):** Kullanıcının ilgili oturuma özel eklediği yönergeler.
+Sistem promptları tek bir metin alanı olarak `Conversation` koleksiyonuna gömülü statik bir yapıda tutulamaz. Her mesajda dinamik olarak 4 katman derlenir:
+1. **Katman 1 - Kurumsal Güvenlik & İlke Kuralları (`system_guardrail`):** Kullanıcının rollerine göre filtrelenen, `priority` sırasına göre anlık sorgulanan katı güvenlik ve politika kuralları.
+2. **Katman 2 - Uzmanlık Rolü / Persona (`persona`):** Sohbet oturumunun bağlı olduğu veya varsayılan atanan uzmanlık talimatı (Örn: Hukuk Danışmanı, Kıdemli Yazılımcı).
+3. **Katman 3 - Oturuma Özel Ek Talimatlar (`custom_instructions`):** Kullanıcının ilgili oturuma özel anlık veya kalıcı eklediği serbest yönergeler (Örn: "Her zaman Türkçe ve maddeler halinde açıkla").
+4. **Katman 4 - Kurumsal Bilgi Bankası ve Belge Alıntıları (`ragContext` - Grounding):** RAG aktif olduğunda kullanıcının sorusuna en yakın doğrulanmış belge parçacıkları ve alıntıları (Citations).
 - **Gerçek Zamanlı Güncelleme:** Yönetici prompt güncellediği anda yeni deploy gerekmeksizin sonraki ilk mesajda tüm oturumlarda yürürlüğe girer.
 
 ---
