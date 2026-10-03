@@ -20,9 +20,22 @@ import {
   requirePermission,
 } from '#modules/auth/auth.middleware.js';
 import { PERMISSIONS } from '#modules/role/role.types.js';
-import { validateRequest } from '#shared/middleware/index.js';
+import { validateRequest, createRateLimiter } from '#shared/middleware/index.js';
 
 const router = Router();
+
+// Hız Sınırlayıcılar (Brute-Force & DoS Savunması)
+const loginRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: 'Çok fazla giriş denemesi yapıldı. Lütfen 1 dakika sonra tekrar deneyin.',
+});
+
+const setupRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: 'Çok fazla kurulum isteği gönderildi. Lütfen bir süre sonra tekrar deneyin.',
+});
 
 // 1. İlk Kurulum Durumu Sorgusu (Public)
 router.get('/setup-status', (req, res, next) => {
@@ -32,6 +45,7 @@ router.get('/setup-status', (req, res, next) => {
 // 2. İlk Super Admin Kaydı (Tek Seferlik Kurulum)
 router.post(
   '/setup',
+  setupRateLimiter,
   validateRequest({ body: setupSuperAdminSchema }),
   (req, res, next) => {
     authController.setupSuperAdmin(req, res, next);
@@ -41,6 +55,7 @@ router.post(
 // 3. Kullanıcı Girişi (Public)
 router.post(
   '/login',
+  loginRateLimiter,
   validateRequest({ body: loginSchema }),
   (req, res, next) => {
     authController.login(req, res, next);
@@ -48,7 +63,7 @@ router.post(
 );
 
 // 4. Çıkış Yapma (Logout)
-router.post('/logout', (req, res, next) => {
+router.post('/logout', requireAuth, (req, res, next) => {
   authController.logout(req, res, next);
 });
 

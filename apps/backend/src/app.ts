@@ -6,8 +6,8 @@ import { env } from '#config/env.config.js';
 import { generateOpenApiDocument, saveOpenApiDocument } from '#config/openapi.config.js';
 import { chatRoutes } from '#modules/chat/index.js';
 import { promptRoutes } from '#modules/prompt/index.js';
-import { authRoutes, optionalAuth } from '#modules/auth/index.js';
-import { roleRoutes } from '#modules/role/index.js';
+import { authRoutes, requireAuth, requirePermission } from '#modules/auth/index.js';
+import { roleRoutes, PERMISSIONS } from '#modules/role/index.js';
 import { adminRagRoutes, ragRoutes, bullBoardRouter } from '#modules/rag/index.js';
 import {
   notFoundHandler,
@@ -69,14 +69,14 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
-// Bull-Board Kuyruk Yönetim Paneli
-app.use('/admin/queues', bullBoardRouter);
+// Bull-Board Kuyruk Yönetim Paneli (Yalnızca yetkili Admin erişimi)
+app.use('/admin/queues', requireAuth, requirePermission(PERMISSIONS.ADMIN_RAG_SYNC), bullBoardRouter);
 
 // API Rotaları
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
-app.use('/api/chat', optionalAuth, chatRoutes);
-app.use('/api/prompts', optionalAuth, promptRoutes);
+app.use('/api/chat', requireAuth, chatRoutes);
+app.use('/api/prompts', requireAuth, promptRoutes);
 app.use('/api/rag', ragRoutes);
 app.use('/api/admin/rag', adminRagRoutes);
 

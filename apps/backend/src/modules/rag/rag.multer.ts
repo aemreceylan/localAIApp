@@ -23,27 +23,27 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
+const EXTENSION_MIME_MAP: Record<string, string[]> = {
+  '.pdf': ['application/pdf'],
+  '.txt': ['text/plain'],
+  '.md': ['text/markdown', 'text/x-markdown', 'text/plain'],
+  '.markdown': ['text/markdown', 'text/x-markdown', 'text/plain'],
+  '.csv': ['text/csv', 'text/plain', 'application/vnd.ms-excel'],
+  '.tsv': ['text/tab-separated-values', 'text/plain'],
+  '.json': ['application/json', 'text/plain'],
+};
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => {
     cb(null, UPLOAD_DIR);
   },
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const safeName = `${randomUUID()}${ext}`;
+    const safeExt = Object.hasOwn(EXTENSION_MIME_MAP, ext) ? ext : '.txt';
+    const safeName = `${randomUUID()}${safeExt}`;
     cb(null, safeName);
   },
 });
-
-const ALLOWED_EXTENSIONS = new Set(['.pdf', '.txt', '.md', '.markdown', '.csv', '.tsv', '.json']);
-const ALLOWED_MIME_TYPES = new Set([
-  'application/pdf',
-  'text/plain',
-  'text/markdown',
-  'text/x-markdown',
-  'text/csv',
-  'text/tab-separated-values',
-  'application/json',
-]);
 
 const fileFilter = (
   _req: any,
@@ -53,12 +53,14 @@ const fileFilter = (
   const ext = path.extname(file.originalname).toLowerCase();
   const mime = file.mimetype.toLowerCase();
 
-  if (ALLOWED_EXTENSIONS.has(ext) || ALLOWED_MIME_TYPES.has(mime)) {
+  const allowedMimes = EXTENSION_MIME_MAP[ext];
+  // Hem uzantı beyaz listede olmalı HEM de MIME türü o uzantıyla uyuşmalı (AND prensibi)
+  if (allowedMimes && (allowedMimes.includes(mime) || mime === 'application/octet-stream')) {
     cb(null, true);
   } else {
     cb(
       new ValidationError(
-        `Desteklenmeyen dosya formatı: '${ext || mime}'. Desteklenen formatlar: PDF (.pdf), Metin (.txt, .md, .csv, .json).`
+        `Desteklenmeyen veya geçersiz dosya formatı: '${ext || mime}'. Desteklenen formatlar: PDF (.pdf), Metin (.txt, .md, .csv, .tsv, .json).`
       )
     );
   }

@@ -1,10 +1,14 @@
 import type { Request, Response, NextFunction } from 'express';
 import { StreamData } from 'ai';
 import { chatService } from '#modules/chat/chat.service.js';
+import { UnauthorizedError } from '#shared/errors/index.js';
 
 export class ChatController {
-  private getUserId(req: Request): string | undefined {
-    return (req.user as any)?._id?.toString() || (req.headers['x-user-id'] as string) || undefined;
+  private getUserId(req: Request): string {
+    if (!req.user || !(req.user as any)._id) {
+      throw new UnauthorizedError('Bu işlem için geçerli bir kullanıcı oturumu gereklidir.');
+    }
+    return (req.user as any)._id.toString();
   }
 
   /**

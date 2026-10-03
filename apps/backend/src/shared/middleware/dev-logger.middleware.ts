@@ -143,7 +143,7 @@ function sanitizeHeaders(headers: Record<string, unknown>): Record<string, strin
     const lowerKey = key.toLowerCase();
     const str = headerToString(val);
     if (lowerKey === 'authorization' || lowerKey === 'cookie') {
-      result[key] = str.length > 20 ? str.slice(0, 15) + '…[GİZLENDİ]' : '********';
+      result[key] = str.toLowerCase().startsWith('bearer ') ? 'Bearer ********' : '********';
     } else {
       result[key] = str;
     }

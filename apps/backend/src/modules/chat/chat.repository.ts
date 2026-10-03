@@ -13,50 +13,35 @@ export class ChatRepository {
     return await ConversationModel.create(data);
   }
 
-  async getConversations(user_id?: string): Promise<IConversation[]> {
-    const filter: Record<string, unknown> = {};
-    if (user_id) {
-      filter.user_id = user_id;
-    }
-    return await ConversationModel.find(filter).sort({ updated_at: -1 }).exec();
+  async getConversations(user_id: string): Promise<IConversation[]> {
+    if (!user_id || !Types.ObjectId.isValid(user_id)) return [];
+    return await ConversationModel.find({ user_id }).sort({ updated_at: -1 }).exec();
   }
 
   async getConversationById(
     id: string,
-    user_id?: string
+    user_id: string
   ): Promise<IConversation | null> {
-    if (!Types.ObjectId.isValid(id)) return null;
-    const filter: Record<string, unknown> = { _id: id };
-    if (user_id) {
-      filter.user_id = user_id;
-    }
-    return await ConversationModel.findOne(filter).exec();
+    if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(user_id)) return null;
+    return await ConversationModel.findOne({ _id: id, user_id }).exec();
   }
 
   async updateConversationTitle(
     id: string,
     title: string,
-    user_id?: string
+    user_id: string
   ): Promise<IConversation | null> {
-    if (!Types.ObjectId.isValid(id)) return null;
-    const filter: Record<string, unknown> = { _id: id };
-    if (user_id) {
-      filter.user_id = user_id;
-    }
+    if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(user_id)) return null;
     return await ConversationModel.findOneAndUpdate(
-      filter,
+      { _id: id, user_id },
       { title },
       { returnDocument: 'after' }
     ).exec();
   }
 
-  async deleteConversation(id: string, user_id?: string): Promise<boolean> {
-    if (!Types.ObjectId.isValid(id)) return false;
-    const filter: Record<string, unknown> = { _id: id };
-    if (user_id) {
-      filter.user_id = user_id;
-    }
-    const deleted = await ConversationModel.findOneAndDelete(filter).exec();
+  async deleteConversation(id: string, user_id: string): Promise<boolean> {
+    if (!Types.ObjectId.isValid(id) || !Types.ObjectId.isValid(user_id)) return false;
+    const deleted = await ConversationModel.findOneAndDelete({ _id: id, user_id }).exec();
     if (deleted) {
       await MessageModel.deleteMany({ conversation_id: id }).exec();
       return true;

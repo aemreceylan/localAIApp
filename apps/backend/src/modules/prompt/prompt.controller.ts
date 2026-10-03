@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { promptService } from '#modules/prompt/prompt.service.js';
+import { ForbiddenError } from '#shared/errors/index.js';
 
 export class PromptController {
   async createPrompt(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -26,7 +27,7 @@ export class PromptController {
       const activeFilter = isActive ?? is_active;
       // Superadmin ve admin tüm promptları görebilir; diğer kullanıcılar sadece rollerine uygun olanları görür
       const isPrivileged = req.user?.system_role === 'superadmin' || req.user?.system_role === 'admin';
-      const userRoles = isPrivileged ? undefined : req.user?.roles;
+      const userRoles = isPrivileged ? undefined : (req.user?.roles || []);
 
       const prompts = await promptService.getPrompts({
         ...(type ? { type } : {}),
@@ -46,6 +47,16 @@ export class PromptController {
   async getPromptById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const prompt = await promptService.getPromptById(req.params.id as string);
+
+      const isPrivileged = req.user?.system_role === 'superadmin' || req.user?.system_role === 'admin';
+      if (!isPrivileged) {
+        const allowedRoles = prompt.allowed_roles || ['*'];
+        const userRoles = req.user?.roles || [];
+        const hasAccess = allowedRoles.includes('*') || userRoles.some((r) => allowedRoles.includes(r));
+        if (!hasAccess) {
+          throw new ForbiddenError('Bu prompt şablonunu görüntüleme yetkiniz bulunmamaktadır.');
+        }
+      }
 
       res.status(200).json({
         success: true,

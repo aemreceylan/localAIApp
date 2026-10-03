@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import app from '#app.js';
 import { connectDatabase, disconnectDatabase } from '#shared/database/index.js';
 import { PromptModel } from '#modules/prompt/prompt.model.js';
 import { promptService } from '#modules/prompt/prompt.service.js';
 import { ConversationModel } from '#modules/chat/conversation.model.js';
+import { authService } from '#modules/auth/index.js';
 
 describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   beforeAll(async () => {
@@ -19,12 +20,45 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
     await disconnectDatabase();
   });
 
+  beforeEach(() => {
+    vi.spyOn(authService, 'validateToken').mockResolvedValue({
+      user: {
+        _id: '66f7d540e11893c5d808e9a1',
+        email: 'superadmin@test.local',
+        system_role: 'superadmin',
+        roles: ['admin'],
+        is_active: true,
+      } as any,
+      session: {} as any,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   let guardrailId: string;
   let personaId: string;
+
+  it('Token olmadığında POST /api/prompts 401 UNAUTHORIZED dönmelidir', async () => {
+    vi.restoreAllMocks();
+    const res = await request(app)
+      .post('/api/prompts')
+      .send({
+        title: 'Yetkisiz Prompt',
+        slug: 'unauth-prompt',
+        type: 'custom',
+        content: 'Bu istek reddedilmelidir.',
+      });
+
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
 
   it('POST /api/prompts yeni bir kurumsal guardrail promptu oluşturmalı (201)', async () => {
     const res = await request(app)
       .post('/api/prompts')
+      .set('Authorization', 'Bearer nx_live_admin_token')
       .send({
         title: 'Finansal Gizlilik Kuralı',
         slug: 'sec-fin-01',
@@ -46,6 +80,7 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   it('POST /api/prompts varsayılan uzmanlık personasi oluşturmalı (201)', async () => {
     const res = await request(app)
       .post('/api/prompts')
+      .set('Authorization', 'Bearer nx_live_admin_token')
       .send({
         title: 'Kıdemli Vergi Uzmanı',
         slug: 'tax-expert',
@@ -66,6 +101,7 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   it('POST /api/prompts aynı slug ile kayıt oluşturulmak istendiğinde 400 DOMAIN_ERROR dönmelidir', async () => {
     const res = await request(app)
       .post('/api/prompts')
+      .set('Authorization', 'Bearer nx_live_admin_token')
       .send({
         title: 'Tekrar Eden Slug',
         slug: 'sec-fin-01',
@@ -78,7 +114,9 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   });
 
   it('GET /api/prompts promptları listelemelidir', async () => {
-    const res = await request(app).get('/api/prompts');
+    const res = await request(app)
+      .get('/api/prompts')
+      .set('Authorization', 'Bearer nx_live_admin_token');
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
@@ -89,7 +127,9 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   });
 
   it('GET /api/prompts?type=persona filtrelemeyi doğru yapmalıdır', async () => {
-    const res = await request(app).get('/api/prompts?type=persona');
+    const res = await request(app)
+      .get('/api/prompts?type=persona')
+      .set('Authorization', 'Bearer nx_live_admin_token');
 
     expect(res.status).toBe(200);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);
@@ -97,7 +137,9 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   });
 
   it('GET /api/prompts/:id tekil prompt detayını getirmelidir', async () => {
-    const res = await request(app).get(`/api/prompts/${personaId}`);
+    const res = await request(app)
+      .get(`/api/prompts/${personaId}`)
+      .set('Authorization', 'Bearer nx_live_admin_token');
 
     expect(res.status).toBe(200);
     expect(res.body.data._id).toBe(personaId);
@@ -107,6 +149,7 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   it('PUT /api/prompts/:id içeriği ve aktifliği güncelleyebilmelidir', async () => {
     const res = await request(app)
       .put(`/api/prompts/${personaId}`)
+      .set('Authorization', 'Bearer nx_live_admin_token')
       .send({
         title: 'Baş Danışman & Vergi Uzmanı',
         content: 'Sen uluslararası vergi hukuku ve denetim uzmanısın.',
@@ -159,6 +202,7 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   it('POST /api/chat/sessions oturum oluştururken promptId ve customInstructions bağlanabilmelidir', async () => {
     const res = await request(app)
       .post('/api/chat/sessions')
+      .set('Authorization', 'Bearer nx_live_admin_token')
       .send({
         title: 'Vergi Oturumu',
         model: 'llama3.2:3b',
@@ -172,12 +216,16 @@ describe('Prompt Yönetimi ve Stacking Motoru API (Prompt API)', () => {
   });
 
   it('DELETE /api/prompts/:id promptu başarıyla silmelidir', async () => {
-    const res = await request(app).delete(`/api/prompts/${guardrailId}`);
+    const res = await request(app)
+      .delete(`/api/prompts/${guardrailId}`)
+      .set('Authorization', 'Bearer nx_live_admin_token');
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
-    const check = await request(app).get(`/api/prompts/${guardrailId}`);
+    const check = await request(app)
+      .get(`/api/prompts/${guardrailId}`)
+      .set('Authorization', 'Bearer nx_live_admin_token');
     expect(check.status).toBe(404);
   });
 });

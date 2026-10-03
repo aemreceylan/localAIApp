@@ -21,9 +21,12 @@ export class ChatService {
   /**
    * Yeni bir sohbet oturumu oluşturur. Model seçimi zorunludur.
    */
-  async createSession(dto: CreateSessionDto, user_id?: string) {
+  async createSession(dto: CreateSessionDto, user_id: string) {
+    if (!user_id) {
+      throw new ValidationError('Oturum oluşturmak için kullanıcı kimliği zorunludur.');
+    }
     return await chatRepository.createConversation({
-      ...(user_id ? { user_id } : {}),
+      user_id,
       title: dto.title || 'Yeni Sohbet',
       model: dto.model,
       ...(dto.promptId ? { prompt_id: dto.promptId } : {}),
@@ -34,14 +37,15 @@ export class ChatService {
   /**
    * Kullanıcıya ait oturumları listeler.
    */
-  async getSessions(user_id?: string) {
+  async getSessions(user_id: string) {
+    if (!user_id) return [];
     return await chatRepository.getConversations(user_id);
   }
 
   /**
    * Tekil oturum detayını getirir.
    */
-  async getSessionById(id: string, user_id?: string) {
+  async getSessionById(id: string, user_id: string) {
     const session = await chatRepository.getConversationById(id, user_id);
     if (!session) {
       throw new NotFoundError(`Sohbet oturumu bulunamadı: ${id}`);
@@ -52,7 +56,7 @@ export class ChatService {
   /**
    * Oturumu ve mesajlarını siler.
    */
-  async deleteSession(id: string, user_id?: string) {
+  async deleteSession(id: string, user_id: string) {
     const deleted = await chatRepository.deleteConversation(id, user_id);
     if (!deleted) {
       throw new NotFoundError(`Silinecek sohbet oturumu bulunamadı: ${id}`);
@@ -63,7 +67,7 @@ export class ChatService {
   /**
    * Oturuma ait mesaj geçmişini getirir.
    */
-  async getSessionMessages(conversationId: string, user_id?: string) {
+  async getSessionMessages(conversationId: string, user_id: string) {
     await this.getSessionById(conversationId, user_id);
     return await chatRepository.getMessagesByConversationId(conversationId);
   }
@@ -89,7 +93,7 @@ export class ChatService {
    */
   private async processSessionContext(
     conversationId: string,
-    user_id?: string,
+    user_id: string,
     lastUserMessage?: ChatMessageDto
   ): Promise<SessionContext> {
     const session = await this.getSessionById(conversationId, user_id);
@@ -153,13 +157,17 @@ export class ChatService {
    */
   async streamChat(
     dto: ChatRequestDto,
-    user?: { id?: string | undefined; roles?: string[] | undefined; system_role?: string | undefined } | undefined
+    user: { id: string; roles?: string[] | undefined; system_role?: string | undefined }
   ): Promise<StreamChatResult> {
+    if (!user || !user.id) {
+      throw new ValidationError('Sohbet akışı için geçerli bir kullanıcı kimliği zorunludur.');
+    }
+
     let sessionContext: SessionContext | undefined;
 
     if (dto.conversationId) {
       const lastUserMessage = dto.messages.at(-1);
-      sessionContext = await this.processSessionContext(dto.conversationId, user?.id, lastUserMessage);
+      sessionContext = await this.processSessionContext(dto.conversationId, user.id, lastUserMessage);
     }
 
     let selectedModel = dto.model || sessionContext?.model;

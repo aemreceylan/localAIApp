@@ -32,13 +32,16 @@ export const requireAuth = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new UnauthorizedError('Bu işlem için kimlik doğrulama belirteci (Bearer Token) gereklidir.');
+    let rawToken: string | undefined;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      rawToken = authHeader.slice(7).trim();
+    } else if (typeof req.query['token'] === 'string' && req.query['token'].trim()) {
+      rawToken = req.query['token'].trim();
     }
 
-    const rawToken = authHeader.slice(7).trim();
     if (!rawToken) {
-      throw new UnauthorizedError('Geçersiz kimlik doğrulama belirteci formatı.');
+      throw new UnauthorizedError('Bu işlem için kimlik doğrulama belirteci (Bearer Token) gereklidir.');
     }
 
     const result = await authService.validateToken(rawToken);
@@ -112,15 +115,20 @@ export const optionalAuth = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
+    let rawToken: string | undefined;
+
     if (authHeader?.startsWith('Bearer ')) {
-      const rawToken = authHeader.slice(7).trim();
-      if (rawToken) {
-        const result = await authService.validateToken(rawToken);
-        if (result) {
-          req.user = result.user as any;
-          req.rawToken = rawToken;
-          req.headers['x-user-id'] = ((result.user as any)._id || '').toString();
-        }
+      rawToken = authHeader.slice(7).trim();
+    } else if (typeof req.query['token'] === 'string' && req.query['token'].trim()) {
+      rawToken = req.query['token'].trim();
+    }
+
+    if (rawToken) {
+      const result = await authService.validateToken(rawToken);
+      if (result) {
+        req.user = result.user as any;
+        req.rawToken = rawToken;
+        req.headers['x-user-id'] = ((result.user as any)._id || '').toString();
       }
     }
     next();

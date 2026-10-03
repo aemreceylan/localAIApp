@@ -1,14 +1,23 @@
 import { Router } from 'express';
 import { chatController } from '#modules/chat/chat.controller.js';
 import { chatRequestSchema, createSessionSchema } from '#modules/chat/chat.dto.js';
-import { validateRequest } from '#shared/middleware/index.js';
+import { validateRequest, createRateLimiter } from '#shared/middleware/index.js';
 import { idParamSchema } from '#shared/validation/index.js';
 
 const router = Router();
 
+// Canlı LLM Akışı Hız Sınırlayıcı (Kullanıcı bazlı dakikada 30 istek)
+const chatStreamRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Kısa süre içinde çok fazla sohbet isteği gönderildi. Lütfen bir süre sonra tekrar deneyin.',
+  keyGenerator: (req) => (req.user as any)?._id?.toString() || req.ip || 'anonymous',
+});
+
 // 1. Canlı LLM Akışı (Streaming & Persistence - Gövde doğrulaması)
 router.post(
   '/',
+  chatStreamRateLimiter,
   validateRequest({ body: chatRequestSchema }),
   (req, res, next) => {
     chatController.handleChat(req, res, next);

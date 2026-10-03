@@ -97,7 +97,7 @@ export class AuthController {
    */
   async getCurrentUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = ((req.user as any)?._id || req.headers['x-user-id'] || '').toString();
+      const userId = ((req.user as any)?._id || '').toString();
       const userProfile = await authService.getCurrentUser(userId);
 
       res.status(200).json({

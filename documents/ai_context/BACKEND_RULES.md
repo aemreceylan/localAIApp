@@ -167,12 +167,19 @@ AppError (Soyut Ana Hata - statusCode, code, isOperational, details)
 
 ---
 
-## 5. Güvenlik Kuralları
+## 5. Güvenlik Kuralları (AppSec & Defense-in-Depth)
 
-- **Rate Limiting (`shared/middleware/rate-limiter.ts`):** IP bazlı dakikada maks. 100 istek; kullanıcı bazlı dakikada maks. 20 chat isteği (`rate-limiter-flexible` & Redis).
-- **Payload Sınırları:** JSON body `express.json({ limit: '2mb' })`; Multer ile maks. 20MB.
-- **Security Headers:** `helmet` zorunlu, katı CORS.
-- **LLM Dayanıklılık:** Exponential Backoff (3 deneme) ve Circuit Breaker (5 hatada 30 sn kesinti).
+- **Hız Sınırlayıcı (Rate Limiter - `#shared/middleware/rate-limiter.middleware.ts`):** Sıfır dış bağımlılıklı bellek içi Kayan Pencere (Sliding Window) algoritması:
+  - Giriş (`/api/auth/login`): IP bazlı dakikada maks. 10 deneme (kaba kuvvet/brute-force engelleme).
+  - İlk Kurulum (`/api/auth/setup`): IP bazlı dakikada maks. 5 deneme.
+  - Canlı LLM Akışı (`/api/chat`): Kullanıcı bazlı dakikada maks. 30 akış isteği.
+  - Sınır aşıldığında HTTP 429 Too Many Requests ve `Retry-After` başlığı döndürülür.
+- **Yönetim Paneli & Kuyruk Koruması:** Bull-Board (`/admin/queues`) rotası `requireAuth` ve `requirePermission(PERMISSIONS.ADMIN_RAG_SYNC)` güvenlik katmanlarıyla korunur; yetkisiz erişime kapalıdır.
+- **Sohbet & BOLA/IDOR İzolasyonu:** `/api/chat` uç noktası `requireAuth` zorunludur. `x-user-id` gibi sahte istemci başlıkları asla kabul edilmez; tüm oturumlar doğrulanmış `req.user._id` üzerinden izole edilir.
+- **Prompt & Guardrail Koruma:** `/api/prompts` uç noktası `requireAuth` zorunludur. Ekleme, güncelleme ve silme işlemleri `admin:prompt:create` ve `admin:prompt:manage` izinlerine bağlıdır; sistem guardrail'lerinin zehirlenmesi matematiksel olarak engellenir.
+- **Multer Dosya Yükleme & Kesin Doğrulama:** `EXTENSION_MIME_MAP` ile hem uzantı hem de MIME türü birlikte (`&&`) doğrulanır; `.exe`, `.sh` vb. yürütülebilir dosyalar kabul edilmez; diske daima güvenli uzantıyla yazılır.
+- **Security Headers:** `helmet` zorunlu, katı CORS (Allow-Credentials).
+- **Hassas Başlık Maskeleme:** Log ve Dev Inspector kayıtlarında `authorization` ve `cookie` başlıkları tam maskelenir (`Bearer ********`).
 
 ---
 

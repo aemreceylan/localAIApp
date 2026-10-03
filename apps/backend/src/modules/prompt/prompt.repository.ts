@@ -27,8 +27,8 @@ export class PromptRepository {
     if (filter?.type) query.type = filter.type;
     if (filter?.is_active !== undefined) query.is_active = filter.is_active;
 
-    if (filter?.roles && filter.roles.length > 0) {
-      query.allowed_roles = { $in: [...filter.roles, '*'] };
+    if (filter?.roles !== undefined) {
+      query.allowed_roles = filter.roles.length > 0 ? { $in: [...filter.roles, '*'] } : '*';
     }
 
     return await PromptModel.find(query).sort({ priority: 1, created_at: -1 }).exec();
