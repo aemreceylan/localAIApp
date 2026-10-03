@@ -270,24 +270,35 @@ export class QdrantAdapter {
     vector: number[],
     userRoles: string[],
     isSuperAdmin: boolean,
-    options: { limit?: number; scoreThreshold?: number } = {}
+    options: { limit?: number; scoreThreshold?: number; documentIds?: string[] } = {}
   ): Promise<QdrantSearchResult[]> {
     const limit = Math.min(20, Math.max(1, options.limit || 5));
     const scoreThreshold = options.scoreThreshold ?? 0.5;
+    const documentIds = options.documentIds;
 
-    // Zero-Context-Leakage Filtresi
+    // Zero-Context-Leakage & Doküman Filtresi
     let filter: Record<string, any> | undefined;
-    if (!isSuperAdmin) {
-      filter = {
-        should: [
+    const mustConditions: Array<Record<string, any>> = [];
+
+    if (documentIds && documentIds.length > 0) {
+      mustConditions.push({ key: 'document_id', match: { any: documentIds } });
+    }
+
+    if (mustConditions.length > 0 || !isSuperAdmin) {
+      filter = {};
+      if (mustConditions.length > 0) {
+        filter['must'] = mustConditions;
+      }
+      if (!isSuperAdmin) {
+        filter['should'] = [
           { key: 'allowed_roles', match: { any: userRoles } },
           { key: 'allowed_roles', match: { value: '*' } },
-        ],
-      };
+        ];
+      }
     }
 
     if (this.isMemoryFallbackActive) {
-      return this.searchInMemory(vector, userRoles, isSuperAdmin, limit, scoreThreshold);
+      return this.searchInMemory(vector, userRoles, isSuperAdmin, limit, scoreThreshold, documentIds);
     }
 
     try {
@@ -304,7 +315,7 @@ export class QdrantAdapter {
           limit,
           score_threshold: scoreThreshold,
           with_payload: true,
-          filter,
+          ...(filter ? { filter } : {}),
         }),
       });
 
@@ -315,7 +326,7 @@ export class QdrantAdapter {
       }));
     } catch (err) {
       console.warn('[Qdrant] Vektör arama hatası, memory fallback deneniyor:', err);
-      return this.searchInMemory(vector, userRoles, isSuperAdmin, limit, scoreThreshold);
+      return this.searchInMemory(vector, userRoles, isSuperAdmin, limit, scoreThreshold, documentIds);
     }
   }
 
@@ -392,11 +403,17 @@ export class QdrantAdapter {
     userRoles: string[],
     isSuperAdmin: boolean,
     limit: number,
-    scoreThreshold: number
+    scoreThreshold: number,
+    documentIds?: string[]
   ): QdrantSearchResult[] {
     const results: QdrantSearchResult[] = [];
 
     for (const [id, point] of this.memoryStore.entries()) {
+      // 0. Doküman ID filtresi (opsiyonel)
+      if (documentIds && documentIds.length > 0 && !documentIds.includes(point.payload.document_id)) {
+        continue;
+      }
+
       // 1. Rol filtresi (Zero-Context-Leakage)
       if (!isSuperAdmin) {
         const roles = point.payload.allowed_roles;

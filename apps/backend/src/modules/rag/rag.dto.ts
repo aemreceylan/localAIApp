@@ -139,6 +139,13 @@ export const ragQuerySchema = z.object({
       description: 'Minimum benzerlik cosine skoru (0.0 - 1.0)',
       example: 0.65,
     }),
+  document_ids: z
+    .array(z.string())
+    .optional()
+    .openapi({
+      description: 'Aramanın sınırlandırılacağı belirli doküman ID listesi (opsiyonel)',
+      example: ['66f7d540e11893c5d808e9a2'],
+    }),
 });
 
 /**

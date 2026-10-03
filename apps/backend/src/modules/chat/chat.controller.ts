@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { StreamData } from 'ai';
 import { chatService } from '#modules/chat/chat.service.js';
 
 export class ChatController {
@@ -7,18 +8,34 @@ export class ChatController {
   }
 
   /**
-   * Canlı LLM sohbet akışını yönetir (opsiyonel oturum kaydı ile).
+   * Canlı LLM sohbet akışını yönetir (opsiyonel oturum kaydı ve RAG grounding ile).
    */
   async handleChat(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = this.getUserId(req);
-      const streamResult = await chatService.streamChat(req.body, {
+      const { streamResult, citations } = await chatService.streamChat(req.body, {
         id: userId,
         roles: req.user?.roles,
+        system_role: req.user?.system_role,
       });
 
+      // Varsa RAG alıntı adet bilgisini HTTP response header'ına ekle
+      if (citations && citations.length > 0) {
+        res.setHeader('x-nexusai-citations-count', citations.length.toString());
+      }
+
+      // Vercel AI SDK StreamData ile alıntıları mesaj annotasyonu olarak istemciye ilet
+      const streamData = new StreamData();
+      if (citations && citations.length > 0) {
+        streamData.appendMessageAnnotation({
+          type: 'rag-citations',
+          citations: citations as any,
+        });
+      }
+      void streamData.close();
+
       // Vercel AI SDK Data Stream Protokolü ile Express yanıtına canlı akış bağlama
-      streamResult.pipeDataStreamToResponse(res);
+      streamResult.pipeDataStreamToResponse(res, { data: streamData });
     } catch (error) {
       next(error);
     }

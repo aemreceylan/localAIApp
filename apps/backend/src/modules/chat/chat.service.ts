@@ -3,12 +3,18 @@ import { getModel, aiProviderRegistry } from '#modules/ai/index.js';
 import { LLMProviderError, NotFoundError, ValidationError } from '#shared/errors/index.js';
 import { chatRepository } from '#modules/chat/chat.repository.js';
 import { promptService } from '#modules/prompt/index.js';
+import { ragService, type RagCitation } from '#modules/rag/index.js';
 import type { ChatMessageDto, ChatRequestDto, CreateSessionDto } from '#modules/chat/chat.dto.js';
 
 interface SessionContext {
   promptId: string | undefined;
   customInstructions: string | undefined;
   model: string | undefined;
+}
+
+export interface StreamChatResult {
+  streamResult: ReturnType<typeof streamText>;
+  citations: RagCitation[];
 }
 
 export class ChatService {
@@ -109,7 +115,8 @@ export class ChatService {
   private async resolveSessionPrompt(
     dto: ChatRequestDto,
     userRoles?: string[],
-    sessionContext?: SessionContext
+    sessionContext?: SessionContext,
+    ragContext?: string
   ): Promise<string | undefined> {
     const promptId = dto.promptId || sessionContext?.promptId;
     const customInstructions = dto.customInstructions || sessionContext?.customInstructions;
@@ -118,6 +125,7 @@ export class ChatService {
       ...(promptId ? { prompt_id: promptId } : {}),
       ...(customInstructions ? { custom_instructions: customInstructions } : {}),
       ...(userRoles ? { userRoles } : {}),
+      ...(ragContext ? { ragContext } : {}),
     });
   }
 
@@ -140,12 +148,13 @@ export class ChatService {
   }
 
   /**
-   * Kullanıcı mesajlarını alır, opsiyonel olarak DB'ye kaydeder ve LLM üzerinden canlı akış başlatır.
+   * Kullanıcı mesajlarını alır, opsiyonel RAG bilgi bankası aramasını yürütür,
+   * Prompt Stacking ile sistem talimatını derler ve LLM üzerinden canlı akış başlatır.
    */
   async streamChat(
     dto: ChatRequestDto,
-    user?: { id?: string | undefined; roles?: string[] | undefined } | undefined
-  ) {
+    user?: { id?: string | undefined; roles?: string[] | undefined; system_role?: string | undefined } | undefined
+  ): Promise<StreamChatResult> {
     let sessionContext: SessionContext | undefined;
 
     if (dto.conversationId) {
@@ -173,11 +182,56 @@ export class ChatService {
       }
     }
 
+    // RAG Bilgi Bankası Semantik Arama (4. Katman Grounding)
+    let citations: RagCitation[] = [];
+    let ragContext: string | undefined;
+
+    if (dto.enableRag) {
+      const lastUserMessage = [...dto.messages].reverse().find((m) => m.role === 'user')?.content;
+      if (lastUserMessage && lastUserMessage.trim().length > 0) {
+        try {
+          const userContext: any = {
+            _id: user?.id,
+            roles: user?.roles || [],
+            system_role: user?.system_role || 'user',
+          };
+
+          const queryInput = {
+            query: lastUserMessage,
+            limit: 5,
+            score_threshold: dto.ragScoreThreshold ?? 0.5,
+            ...(dto.ragDocumentIds && dto.ragDocumentIds.length > 0 ? { document_ids: dto.ragDocumentIds } : {}),
+          };
+
+          const ragResult = await ragService.queryKnowledge(queryInput, userContext);
+          citations = ragResult.citations;
+
+          if (citations.length > 0) {
+            ragContext = citations
+              .map((c, index) => {
+                const docTitle = c.documentTitle ? ` - ${c.documentTitle}` : '';
+                const pageInfo = c.pageNumber ? ` (Sayfa: ${c.pageNumber})` : '';
+                const scorePercent = (c.score * 100).toFixed(1);
+                return `[REFERANS ${index + 1}${docTitle}${pageInfo} | Güven: %${scorePercent}]\n${c.text}`;
+              })
+              .join('\n\n');
+          }
+        } catch (ragError) {
+          console.warn('[ChatService] RAG bilgi bankası sorgulanırken hata oluştu:', ragError);
+        }
+      }
+    }
+
     try {
       const model = getModel(selectedModel);
-      const finalSystemPrompt = await this.resolveSessionPrompt(dto, user?.roles, sessionContext);
+      const finalSystemPrompt = await this.resolveSessionPrompt(
+        dto,
+        user?.roles,
+        sessionContext,
+        ragContext
+      );
 
-      return streamText({
+      const streamResult = streamText({
         model,
         messages: dto.messages,
         ...(finalSystemPrompt ? { system: finalSystemPrompt } : {}),
@@ -188,6 +242,11 @@ export class ChatService {
           }
         },
       });
+
+      return {
+        streamResult,
+        citations,
+      };
     } catch (error) {
       if (error instanceof ValidationError) throw error;
       const message =

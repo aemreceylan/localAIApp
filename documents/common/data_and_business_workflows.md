@@ -382,35 +382,35 @@ sequenceDiagram
 
 ---
 
-### 4.3. Akış 3: RAG Destekli Chat Arama ve Yanıt Üretimi (Retrieval Flow)
+### 4.3. Akış 3: RAG Destekli Chat Arama ve Yanıt Üretimi (Retrieval Flow & Grounding)
 
-Kullanıcı RAG aramasını aktif ederek bir soru sorduğunda Qdrant ve LLM entegrasyonu:
+Kullanıcı RAG aramasını aktif ederek (`enableRag: true`) bir soru sorduğunda Qdrant, Zero-Context-Leakage ve LLM entegrasyonu:
 
 ```mermaid
 flowchart TD
-    A["Kullanıcı Sorusu (Örn: 2026 Bütçe Raporu Özeti)"] --> B["Chat Controller / Service"]
-    B --> C{"RAG Aktif mi?"}
+    A["Kullanıcı Mesajı (POST /api/chat)"] --> B["Chat Controller / Service"]
+    B --> C{"enableRag Aktif mi?"}
     C -- Hayır --> D["Standart LLM İstek Akışına Devam Et"]
-    C -- Evet --> E["Soru için Embedding Vektörü Üret (embed)"]
-    E --> F["Qdrant Similarity Search Sorgusu Gönder"]
+    C -- Evet --> E["Son Kullanıcı Mesajı için Embedding Üret (Vercel AI SDK)"]
+    E --> F["Qdrant Similarity Search Sorgusu (searchWithRoleFilter)"]
 
-    subgraph Qdrant_RLS_Filtreleme ["Qdrant Multi-Tenancy Güvenlik Filtresi"]
-        F --> G["Filtre: must tenant_id eşleşmesi"]
-        G --> H["Kosinüs Benzerliği Hesapla - Top-K En Alakalı Parçalar"]
+    subgraph Qdrant_RBAC_Filtreleme ["Qdrant Zero-Context-Leakage Güvenlik Filtresi"]
+        F --> G["Filtre: userRoles VEYA allowed_roles='*' (Superadmin bypass)"]
+        G --> H["Kosinüs Benzerliği Hesapla - Top-K (Score >= Threshold)"]
     end
 
-    H --> I["Alakalı Parçaları Metin Olarak Birleştir: Context Bloğu"]
-    I --> J["Prompt Stacking Motoru: Context Enjeksiyonu"]
+    H --> I["Alakalı Parçaları Alıntıya (Citation) Dönüştür & Doküman Başlıklarını Eşle"]
+    I --> J["Prompt Stacking Motoru: 4. Katman RAG Grounding Context Enjeksiyonu"]
 
-    subgraph Prompt_Derleme ["Nihai İstem"]
-        J --> K["1. Kurumsal Guardrail Kuralları"]
-        K --> L["2. Seçili Persona"]
-        L --> M["3. Doküman Bağlamı Metni"]
-        M --> N["4. Kullanıcı Sorusu ve Sohbet Geçmişi"]
+    subgraph Prompt_Derleme ["Nihai Sistem İstemi (Prompt Stacking)"]
+        J --> K["1. Katman: Kurumsal Guardrail Güvenlik Kuralları"]
+        K --> L["2. Katman: Rol / Persona Uzmanlık Talimatı"]
+        L --> M["3. Katman: Kullanıcı Özel Ek Talimatı"]
+        M --> N["4. Katman: Kurumsal Bilgi Bankası ve Belge Alıntıları"]
     end
 
-    N --> O["LLM Sağlayıcıya İlet (Ollama / OpenAI)"]
-    O --> P["SSE ile İstemciye Streaming Yanıt"]
+    N --> O["LLM Sağlayıcıya İlet (streamText)"]
+    O --> P["Vercel AI SDK DataStream ile Streaming Yanıt + rag-citations Annotasyonu"]
 ```
 
 ---
@@ -455,13 +455,12 @@ flowchart TD
 
 | İsteyen Modül | Hedef Modül | İzin Verilen Facade Metodu / Event                                              | Gerekçe / Kullanım Amacı                                       |
 | :------------ | :---------- | :------------------------------------------------------------------------------ | :------------------------------------------------------------- |
-| `chat`        | `prompt`    | `promptService.buildSystemInstruction(tenantId, promptId, custom)`              | Çok katmanlı promptu anlık derlemek                            |
-| `chat`        | `auth`      | `authService.validateUser(userId, tenantId)`                                    | Kullanıcının aktifliğini ve kiracı yetkisini denetlemek        |
-| `chat`        | `ai`        | `aiProviderService.streamText(model, prompt, messages)`                         | LLM çıkarımını başlatmak                                       |
-| `chat`        | `rag`       | `ragService.queryContext(tenantId, query, topK)`                                | RAG destekli sohbette benzer doküman parçalarını getirmek      |
-| `rag`         | `ai`        | `aiProviderService.embedMany(texts)`                                            | Chunk parçaları için embedding vektörleri üretmek              |
-| `tenant`      | `prompt`    | `Event: tenant.created` $\rightarrow$ `promptService.createDefaultPrompts()`    | Yeni kurum açıldığında varsayılan persona ve kuralları üretmek |
-| `tenant`      | `chat`      | `Event: tenant.suspended` $\rightarrow$ `chatService.terminateActiveSessions()` | Kurum askıya alındığında aktif bağlantıları kesmek             |
+| `chat`        | `prompt`    | `promptService.buildSystemPrompt({ prompt_id, custom_instructions, userRoles, ragContext })` | Çok katmanlı (4 katman) promptu anlık derlemek                 |
+| `chat`        | `auth`      | `authMiddleware` / `IUser`                                                      | Kullanıcının aktifliğini ve rol/yetki matrisini denetlemek     |
+| `chat`        | `ai`        | `streamText({ model, messages, system })` / `getModel(selectedModel)`           | LLM çıkarımını başlatmak                                       |
+| `chat`        | `rag`       | `ragService.queryKnowledge(queryInput, userContext)`                            | RAG destekli sohbette benzer doküman parçalarını getirmek      |
+| `rag`         | `ai`        | `embeddingService.generateQueryEmbedding(text)` / `generateEmbeddings(texts)`   | Chunk ve sorgular için embedding vektörleri üretmek            |
+| `rag`         | `prompt`    | N/A (Tamamen izole)                                                             | -                                                              |
 
 ---
 

@@ -67,6 +67,28 @@ export const chatRequestSchema = z.object({
       description: 'Kullanıcının anlık veya oturuma özel ek talimatı (3. Katman)',
       example: 'Her zaman maddeler halinde ve Türkçe özetle.',
     }),
+  enableRag: z
+    .boolean()
+    .optional()
+    .openapi({
+      description: 'Kurumsal RAG bilgi bankası semantik arama desteğini etkinleştirir (4. Katman)',
+      example: true,
+    }),
+  ragDocumentIds: z
+    .array(z.string())
+    .optional()
+    .openapi({
+      description: 'Aramanın sınırlandırılacağı belirli doküman ID listesi (opsiyonel)',
+    }),
+  ragScoreThreshold: z
+    .number()
+    .min(0)
+    .max(1)
+    .optional()
+    .openapi({
+      description: 'RAG anlamsal benzerlik eşik değeri (0.0 - 1.0)',
+      example: 0.55,
+    }),
 });
 
 export const createSessionSchema = z.object({

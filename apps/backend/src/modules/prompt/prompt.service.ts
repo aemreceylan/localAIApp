@@ -64,12 +64,14 @@ export class PromptService {
    * 1. Katman: Kurumsal Güvenlik & Guardrails (Zorunlu)
    * 2. Katman: Rol / Persona (Kullanıcının rollerine uygun veya seçilen uzmanlık)
    * 3. Katman: Kullanıcı Özel Talimatı (Opsiyonel)
+   * 4. Katman: Kurumsal Bilgi Bankası ve Belge Alıntıları (RAG Grounding - Opsiyonel)
    */
   async buildSystemPrompt(
     options: {
       prompt_id?: string;
       custom_instructions?: string;
       userRoles?: string[];
+      ragContext?: string;
     } = {}
   ): Promise<string | undefined> {
     const sections: string[] = [];
@@ -102,6 +104,11 @@ export class PromptService {
     // 3. Katman: Kullanıcı Özel Talimatı (Opsiyonel)
     if (options.custom_instructions && options.custom_instructions.trim() !== '') {
       sections.push(`=== [KULLANICI EK TALİMATI] ===\n${options.custom_instructions.trim()}`);
+    }
+
+    // 4. Katman: Kurumsal Bilgi Bankası ve Belge Alıntıları (RAG Grounding)
+    if (options.ragContext && options.ragContext.trim() !== '') {
+      sections.push(`=== [KURUMSAL BİLGİ BANKASI VE ONAYLI REFERANS BELGELER (RAG)] ===\n${options.ragContext.trim()}`);
     }
 
     if (sections.length === 0) {

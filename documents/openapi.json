@@ -145,6 +145,25 @@
             "maxLength": 2000,
             "description": "Kullanıcının anlık veya oturuma özel ek talimatı (3. Katman)",
             "example": "Her zaman maddeler halinde ve Türkçe özetle."
+          },
+          "enableRag": {
+            "type": "boolean",
+            "description": "Kurumsal RAG bilgi bankası semantik arama desteğini etkinleştirir (4. Katman)",
+            "example": true
+          },
+          "ragDocumentIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Aramanın sınırlandırılacağı belirli doküman ID listesi (opsiyonel)"
+          },
+          "ragScoreThreshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "RAG anlamsal benzerlik eşik değeri (0.0 - 1.0)",
+            "example": 0.55
           }
         },
         "required": [
@@ -945,6 +964,25 @@
                     "maxLength": 2000,
                     "description": "Kullanıcının anlık veya oturuma özel ek talimatı (3. Katman)",
                     "example": "Her zaman maddeler halinde ve Türkçe özetle."
+                  },
+                  "enableRag": {
+                    "type": "boolean",
+                    "description": "Kurumsal RAG bilgi bankası semantik arama desteğini etkinleştirir (4. Katman)",
+                    "example": true
+                  },
+                  "ragDocumentIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Aramanın sınırlandırılacağı belirli doküman ID listesi (opsiyonel)"
+                  },
+                  "ragScoreThreshold": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "RAG anlamsal benzerlik eşik değeri (0.0 - 1.0)",
+                    "example": 0.55
                   }
                 },
                 "required": [

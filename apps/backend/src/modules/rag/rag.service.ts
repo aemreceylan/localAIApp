@@ -22,10 +22,11 @@ import type {
   ListDocumentsQueryInput,
   RagQueryInput,
 } from './rag.dto.js';
-import type { IDocument, DocumentProcessingStatus } from './document.model.js';
+import { DocumentModel, type IDocument, type DocumentProcessingStatus } from './document.model.js';
 
 export interface RagCitation {
   documentId: string;
+  documentTitle?: string;
   chunkIndex: number;
   text: string;
   score: number;
@@ -184,7 +185,7 @@ export class RagService {
     queryInput: RagQueryInput,
     user: IUser
   ): Promise<RagQueryResult> {
-    const { query, limit = 5, score_threshold = 0.5 } = queryInput;
+    const { query, limit = 5, score_threshold = 0.5, document_ids } = queryInput;
 
     // 1. Kullanıcı arama metninden embedding vektörü üret
     const queryVector = await embeddingService.generateQueryEmbedding(query);
@@ -193,7 +194,7 @@ export class RagService {
     const isSuperAdmin = user.system_role === 'superadmin';
     const userRoles = user.roles || [];
 
-    // 3. Qdrant'ta rol filtreli benzerlik araması yap
+    // 3. Qdrant'ta rol filtreli ve opsiyonel doküman filtreli benzerlik araması yap
     const searchResults: QdrantSearchResult[] = await qdrantAdapter.searchWithRoleFilter(
       queryVector,
       userRoles,
@@ -201,10 +202,25 @@ export class RagService {
       {
         limit,
         scoreThreshold: score_threshold,
+        ...(document_ids && document_ids.length > 0 ? { documentIds: document_ids } : {}),
       }
     );
 
-    // 4. Sonuçları alıntı (citation) formatına dönüştür
+    // 4. Eşleşen doküman başlıklarını MongoDB'den toplu olarak çek
+    const uniqueDocIds = [...new Set(searchResults.map((r) => r.payload.document_id))];
+    const docTitlesMap = new Map<string, string>();
+    if (uniqueDocIds.length > 0) {
+      try {
+        const docs = await DocumentModel.find({ _id: { $in: uniqueDocIds } }, { title: 1 }).lean();
+        for (const doc of docs) {
+          docTitlesMap.set(doc._id.toString(), doc.title);
+        }
+      } catch {
+        // DB sorgusu başarısız olsa dahi citation akışı kesilmez
+      }
+    }
+
+    // 5. Sonuçları alıntı (citation) formatına dönüştür
     const citations: RagCitation[] = searchResults.map((res) => {
       const pageNumber = typeof res.payload.metadata?.['page_number'] === 'number'
         ? (res.payload.metadata['page_number'] as number)
@@ -216,6 +232,11 @@ export class RagService {
         text: res.payload.text,
         score: res.score,
       };
+
+      const docTitle = docTitlesMap.get(res.payload.document_id);
+      if (docTitle) {
+        citation.documentTitle = docTitle;
+      }
 
       if (pageNumber !== undefined) {
         citation.pageNumber = pageNumber;
