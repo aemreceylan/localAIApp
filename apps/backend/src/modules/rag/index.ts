@@ -7,3 +7,4 @@
 export * from '#modules/rag/document.model.js';
 export * from '#modules/rag/rag.dto.js';
 export * from '#modules/rag/rag.repository.js';
+export * from '#modules/rag/qdrant.adapter.js';

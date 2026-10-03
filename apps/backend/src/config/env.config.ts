@@ -21,6 +21,8 @@ const envSchema = z.object({
   REDIS_HOST: z.string().optional(),
   REDIS_PORT: z.coerce.number().optional(),
   REDIS_PASSWORD: z.string().optional(),
+  QDRANT_URL: z.string().url("QDRANT_URL geçerli bir URL olmalıdır.").optional(),
+  QDRANT_API_KEY: z.string().optional(),
 });
 
 const _env = envSchema.safeParse(process.env);
