@@ -105,7 +105,7 @@ export function AdminLayout() {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-sm tracking-tight text-slate-900 dark:text-slate-100">
-                  NexusAI
+                  Chotonack AI
                 </span>
                 <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400 font-semibold uppercase">
                   Admin
@@ -191,7 +191,7 @@ export function AdminLayout() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs text-slate-500 dark:text-slate-400 hidden sm:inline">
-                Sistem Çevrimiçi — Nexus Gateway v2.1
+                Sistem Çevrimiçi — Chotonack Gateway v2.1
               </span>
             </div>
           </div>

@@ -9,7 +9,7 @@
 
 ## 1. Proje Kimliği ve Temel Vizyon
 
-- **Proje Adı:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)
+- **Proje Adı:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_)
 - **Dağıtım Modeli:** Self-Hosted / On-Premises (Müşteri veya kurum sunucularında yerel kurulum)
 - **Ana Hedef:** Kurumların yerel LLM'leri (Ollama, vLLM) ve bulut modellerini (OpenAI, Anthropic) tek bir gateway üzerinden yönetmesi, RAG destekli bilgi bankası sorgulaması yapması ve esnek RBAC ile yetkilendirmesi.
 - **Alt Projeler:**
@@ -65,6 +65,8 @@
    Tüm kod geliştirmelerinde SonarQube MCP entegrasyonu ve kalite standartları (Clean Code taksonomisi, Security Hotspots, OWASP uyumluluğu, sıfır kritik güvenlik açığı/vulnerability, düşük bilişsel karmaşıklık ve sıfır code smell) dikkate alınır. Geliştirilen her parça SonarQube kurallarına tam uyumlu olarak yazılır ve onaylanmış kalite kapısı (Quality Gate: Sonar way) standartları korunur.
 10. **Standart Node.js Subpath Imports (#*) Mimarisi (Native ESM Specifier):**  
     Dosya ve modül erişimlerinde (import/export) Node.js ve ECMAScript standart subpath import tanımlayıcıları (`#modules/*`, `#shared/*`, `#config/*`, `#*`) zorunlu olarak kullanılır. Derin göreceli/relatif yollar (`../../`, `../../../`) dizin düzeni güncellendiğinde tüm dosya yollarının kırılmasına ve gereksiz bakım maliyetine yol açacağından yasaktır. `package.json` içerisindeki `"imports"` haritası ve `tsconfig.json` altındaki `"paths"` eşlemesi sayesinde harici bir derleme sonrası betiğe (regex / resolve-aliases) ihtiyaç kalmadan hem geliştirme (`tsx`/`vitest`), hem IDE, hem de üretimde (native Node ESM) sıfır runtime overhead ile kusursuz modül çözünürlüğü garanti edilir.
+11. **README.md ve Ortam Değişkenleri (.env.example) Sürekli Senkronizasyonu (Living README & Env Sync):**  
+    Proje geliştikçe; yeni ortam değişkenleri (`env.config.ts`), mimari bileşenler, portlar, veri tabanı/kuyruk servisleri veya temel kullanıcı yetenekleri eklendiğinde/değiştirildiğinde; kök dizindeki `README.md` ve ilgili alt projelerin `.env.example` dosyaları eşzamanlı olarak güncellenmelidir. Geliştiricilerin veya sistem yöneticilerinin repoyu sıfırdan klonladıklarında sorunsuz kurulum yapabilmesi ve güncel durumu görebilmesi için `README.md` ve `.env.example` dosyaları daima projenin anlık çalışan gerçeğini yansıtmalı, bu güncelleme kullanıcının hatırlatmasına gerek kalmaksızın proaktif olarak yapılmalıdır.
 
 ---
 
@@ -80,8 +82,8 @@
    Token verimliliği esastır. Bir hata **en fazla 5 denemede** çözülemediğinde inatlaşma derhal durdurulur; kök neden analizi ve denenen yollar özetlenerek kullanıcıdan destek istenir.
 5. **Mantık Odaklı ve Pragmatik Test Yaklaşımı:**  
    Mimari test edilebilir tasarlanır; çekirdek domain mantığı, yetkilendirme ve çok kiracılı veri izolasyonu (Multi-Tenancy) test edilir. Ancak en küçük UI veya önemsiz detay için anlamsız testler yazarak proje hantallaştırılmaz.
-6. **Çift Odaklı ve Yaşayan Dökümantasyon Kültürü:**  
-   Dökümantasyon her zaman güncel tutulur. İnsanlar için detaylı ve görsel (`documents/common/`, `documents/backend/`, `documents/admin-interface/`, `documents/user-interface/`), AI'lar için net ve amaca yönelik (`documents/ai_context/`) belgeler güncellenir veya gerekirse yenileri oluşturulur.
+6. **Çift Odaklı ve Yaşayan Dökümantasyon Kültürü (README & Env Dahil):**  
+   Dökümantasyon her zaman güncel tutulur. İnsanlar için detaylı ve görsel (`documents/common/`, `documents/backend/`, `documents/admin-interface/`, `documents/user-interface/`), AI'lar için net ve amaca yönelik (`documents/ai_context/`), kamuya açık repo vitrini için kök `README.md` ve yapılandırma için tüm `.env.example` şablonları anında güncellenir. Kod veya mimari değiştiğinde dokümantasyon ve ortam değişkeni şablonları senkronize edilmeden o geliştirme tamamlanmış sayılamaz.
 7. **Adım Adım, Parça Parça ve İstişareli Geliştirme (Iterative Collaborative Engineering):**  
    Büyük kod blokları veya çoklu katmanlar asla tek seferde ve tek taraflı varsayımlarla yazılamaz. Her geliştirme adımı öncesinde kullanıcı ile mimari yöntem, kapsam ve uygulanacak parçalar istişare edilir; kullanıcının teyidi ve onayı alındıktan sonra adım adım, parça parça kodlanır ve doğrulanır.  
    _(Ayrıntılı yönergeler için: [COMMON_GUIDELINES.md](documents/ai_context/COMMON_GUIDELINES.md))_

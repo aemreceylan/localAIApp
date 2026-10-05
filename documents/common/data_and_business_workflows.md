@@ -1,7 +1,7 @@
 # VERİTABANI MİMARİSİ, VARLIK İLİŞKİLERİ (ERD) VE İŞ MANTIĞI ÇALIŞMA ŞEMALARI
 
 > **DOKÜMAN TİPİ:** Ortak Veritabanı ve İş Akışları Referansı (Tüm Monorepo: `backend`, `admin-interface`, `user-interface`)  
-> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)  
+> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_)  
 > **Doküman:** Veritabanı ve İş Mantığı Çalışma Şemaları (Data & Business Architecture Specification)  
 > **Sürüm:** v1.0.0  
 > **Tarih:** Eylül 2026  

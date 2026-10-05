@@ -78,7 +78,7 @@ const MessageBubbleComponent: React.FC<MessageBubbleProps> = ({
       <div className="space-y-3 max-w-2xl text-sm leading-relaxed min-w-0 flex-1">
         {/* Üst Bilgi Başlığı */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-slate-900 dark:text-white text-xs">Nexus AI</span>
+          <span className="font-semibold text-slate-900 dark:text-white text-xs">Chotonack AI</span>
           {message.model && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-mono">
               {message.model.includes('/') ? message.model.split('/')[1] : message.model}

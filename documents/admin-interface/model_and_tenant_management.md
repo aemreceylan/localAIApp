@@ -1,7 +1,7 @@
 # ADMIN MODEL, TENANT VE KULLANICI YÖNETİMİ SPESİFİKASYONU
 
 > **DOKÜMAN TİPİ:** Alt Proje İş Mantığı ve Yetkilendirme Rehberi (`apps/admin-interface`)  
-> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)  
+> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_)  
 > **İlişkili Dokümanlar:** [Ortak PRD v2.1.0](../common/prd.md), [Backend Mimarisi](../backend/architecture.md), [Veritabanı Şemaları](../common/data_and_business_workflows.md)  
 
 ---

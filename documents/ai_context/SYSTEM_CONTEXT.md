@@ -7,7 +7,7 @@
 
 ## 1. Proje Kimliği ve Ekosistem Özeti
 
-- **Platform:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_).
+- **Platform:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_).
 - **Dağıtım Modeli:** Self-hosted / On-prem sunucularda çalışan, uzaktan erişilebilir, yerel (Ollama, vLLM) ve bulut LLM'leri orkestre eden kurumsal RAG platformu.
 - **Mimari Tip:** 1 Ortak Çatı + 3 Bağımsız Alt Proje içeren Monorepo yapısı.
 
@@ -86,4 +86,6 @@ localAIApp/
 7. **Standart Subpath Imports (#*):** Backend modül erişimlerinde Node.js native ESM `#modules/*`, `#config/*`, `#shared/*` zorunludur.
 8. **Canlı OpenAPI 3.0 Dokümantasyonu:** Zod DTO'lar ile Swagger UI (`/api/docs`) ve master dosya (`documents/openapi.json`) canlı tutulur.
 9. **Eşzamanlı Güvenlik Denetimi (Security-by-Design & Continuous Security Review):** Geliştirilen veya güncellenen her kod parçası (API uç noktaları, servisler, repository'ler, frontend bileşenleri/formları) eşzamanlı güvenlik testinden (BOLA/IDOR, kimlik doğrulama/yetkilendirme guard'ları, header spoofing önleme, katı girdi doğrulama, dosya yükleme kontrolü, hassas veri maskeleme, rate limiting) geçirilir ve güvenliği sağlanmadan kod teslim edilmez.
+10. **README.md ve .env.example Sürekli Senkronizasyonu:** Yeni ortam değişkeni, altyapı servisi, port veya mimari yetenek eklendiğinde/değiştirildiğinde; kök dizindeki `README.md` ve ilgili alt projelerin `.env.example` dosyaları eşzamanlı ve proaktif olarak güncellenir.
+
 

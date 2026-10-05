@@ -1,7 +1,7 @@
 # USER INTERFACE (KULLANICI ARAYÜZÜ) MİMARİSİ VE SOHBET AKIŞLARI
 
 > **DOKÜMAN TİPİ:** Alt Proje Özel Mimari & UI Şartnamesi (`apps/user-interface`)  
-> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)  
+> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_)  
 > **İlişkili Dokümanlar:** [Ortak PRD v2.1.0](../common/prd.md), [Tasarım Sistemi](../common/design_system_and_tokens.md), [Canlı Tasarım Prototipi](../stitch_design_preview.html)  
 > **Rol:** AI Lead Product Designer & Frontend Architect  
 

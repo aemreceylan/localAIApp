@@ -60,11 +60,11 @@ const ChatStreamComponent: React.FC<ChatStreamProps> = ({
           {messages.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-6 my-auto">
               <div className="w-12 h-12 rounded-2xl bg-brand-50 dark:bg-brand-900/50 text-brand-600 dark:text-brand-300 flex items-center justify-center font-bold text-xl shadow-sm border border-brand-200 dark:border-brand-800">
-                NX
+                CH
               </div>
               <div className="max-w-md space-y-1.5">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  NexusAI Kurumsal Asistan
+                  Chotonack AI Kurumsal Asistan
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   Yerel açık kaynak LLM'ler ve RAG Bilgi Bankası ile güvenli ve hızlı kurumsal analiz gerçekleştirin.

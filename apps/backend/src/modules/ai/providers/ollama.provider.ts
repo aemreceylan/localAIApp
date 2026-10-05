@@ -33,14 +33,26 @@ export class OllamaModelProvider implements IAiModelProvider {
     Array<{ id: string; name: string; isLocal: boolean; description?: string }>
   > {
     try {
-      const url = this.baseURL.replace(/\/api\/?$/, '') + '/api/tags';
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const cleanUrl = this.baseURL.replace(/\/api\/?$/, '');
+      let response: Response | null = null;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        response = await fetch(`${cleanUrl}/api/tags`, { signal: controller.signal });
+        clearTimeout(timeoutId);
+      } catch (networkErr) {
+        if (cleanUrl.includes('localhost')) {
+          const fallbackUrl = cleanUrl.replace('localhost', '127.0.0.1');
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          response = await fetch(`${fallbackUrl}/api/tags`, { signal: controller.signal });
+          clearTimeout(timeoutId);
+        } else {
+          throw networkErr;
+        }
+      }
 
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
+      if (!response || !response.ok) {
         return [];
       }
 

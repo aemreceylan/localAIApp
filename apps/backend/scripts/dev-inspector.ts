@@ -22,7 +22,7 @@ const BLUE = '\x1b[34m';
 function printBanner(): void {
   console.clear();
   console.log(`${CYAN}${BOLD}╔══════════════════════════════════════════════════════════════════════╗${RESET}`);
-  console.log(`${CYAN}${BOLD}║              🚀 NexusAI Dev Traffic & Stream Inspector               ║${RESET}`);
+  console.log(`${CYAN}${BOLD}║           🚀 Chotonack AI Dev Traffic & Stream Inspector             ║${RESET}`);
   console.log(`${CYAN}${BOLD}║                  (Canlı İstek & Yanıt Gözlemcisi)                    ║${RESET}`);
   console.log(`${CYAN}${BOLD}╚══════════════════════════════════════════════════════════════════════╝${RESET}`);
   console.log(`${DIM}Bu pencere backend çalışırken gelen/giden tüm HTTP trafiğini ve${RESET}`);

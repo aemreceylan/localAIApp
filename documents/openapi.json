@@ -1,11 +1,11 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "NexusAI Gateway & Knowledge Base API",
+    "title": "Chotonack AI Gateway & Knowledge Base API",
     "version": "1.0.0",
     "description": "Kurumsal LLM Orkestrasyonu, Yerel Modeller (Ollama), Bulut Modeller ve On-Premises Role-Based Access Control (RBAC) API Dokümantasyonu",
     "contact": {
-      "name": "NexusAI Platform Team"
+      "name": "Chotonack AI Platform Team"
     }
   },
   "servers": [
@@ -401,7 +401,7 @@
             "type": "string",
             "format": "email",
             "description": "Super Admin E-posta Adresi",
-            "example": "admin@nexusai.local"
+            "example": "admin@chotonack.local"
           },
           "password": {
             "type": "string",
@@ -425,7 +425,7 @@
             "type": "string",
             "format": "email",
             "description": "Kayıtlı kullanıcı e-posta adresi",
-            "example": "admin@nexusai.local"
+            "example": "admin@chotonack.local"
           },
           "password": {
             "type": "string",
@@ -1757,7 +1757,7 @@
                     "type": "string",
                     "format": "email",
                     "description": "Super Admin E-posta Adresi",
-                    "example": "admin@nexusai.local"
+                    "example": "admin@chotonack.local"
                   },
                   "password": {
                     "type": "string",
@@ -1928,7 +1928,7 @@
                     "type": "string",
                     "format": "email",
                     "description": "Kayıtlı kullanıcı e-posta adresi",
-                    "example": "admin@nexusai.local"
+                    "example": "admin@chotonack.local"
                   },
                   "password": {
                     "type": "string",

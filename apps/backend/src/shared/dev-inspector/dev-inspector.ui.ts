@@ -9,7 +9,7 @@ export function renderDevInspectorHtml(): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NexusAI Dev Inspector | Canlı Trafik ve Stream İzleyici</title>
+  <title>Chotonack AI Dev Inspector | Canlı Trafik ve Stream İzleyici</title>
   <style>
     :root {
       --bg-base: #090d16;
@@ -319,7 +319,7 @@ export function renderDevInspectorHtml(): string {
     <div class="header-left">
       <div class="logo">
         <span class="logo-badge">Dev</span>
-        <span>NexusAI Traffic Inspector</span>
+        <span>Chotonack AI Traffic Inspector</span>
       </div>
       <div id="connectionStatus" class="status-pill">
         <span class="pulse-dot"></span>

@@ -1,7 +1,7 @@
 # USER INTERFACE RAG ÇEKMECESİ VE PROMPT YÖNETİMİ SPESİFİKASYONU
 
 > **DOKÜMAN TİPİ:** Alt Proje RAG & Prompt Arayüz Şartnamesi (`apps/user-interface`)  
-> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)  
+> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_)  
 > **İlişkili Dokümanlar:** [Ortak PRD v2.1.0](../common/prd.md), [İş Akışları](../common/data_and_business_workflows.md), [Canlı Prototip](../stitch_design_preview.html)  
 
 ---

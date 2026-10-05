@@ -1,7 +1,7 @@
 # ÜRÜN GEREKSİNİMLERİ BELGESİ (PRD) & İŞ ANALİZİ RAPORU
 
 > **DOKÜMAN TİPİ:** Ortak Referans Belgesi (Tüm Monorepo: `backend`, `admin-interface`, `user-interface`)  
-> **Proje Adı:** Kurumsal LLM & Veri Yönetim Platformu (_Enterprise AI Platform_)  
+> **Proje Adı:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_)  
 > **Dağıtım Modeli:** Self-Hosted / On-Premises (Tüzel veya Gerçek Kişi Tarafından Kendi Sunucularına Kurulur)  
 > **Doküman Sürümü:** v2.1.0  
 > **Rol:** AI Lead Product Manager & Business Analyst

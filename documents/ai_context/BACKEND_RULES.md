@@ -38,9 +38,11 @@ Klasik katmanlı Clean Architecture yerine, sistem **iş alanlarına (Bounded Co
    - **Gerekçe:** Dosya veya klasör düzeni güncellendiğinde tüm dosyaların import yollarının tek tek güncellenmesi zorunluluğunu ortadan kaldırır; refactor süreçlerini güvenli ve hızlı kılar.
    - **Build & Runtime:** `package.json` altındaki `"imports"` nesnesi ve `tsconfig.json` altındaki `"paths"` eşlemesi sayesinde hem geliştirme (`tsx`/`vitest`), hem IDE, hem de üretimde (native Node ESM) sıfır ek yük ile yerel çözümleme sağlanır. Üretim derlemesinde doğrudan `tsc -p tsconfig.build.json` çalıştırılır.
 5. **Katı Ortam Değişkeni Yönetimi (Strict Zero-Default & Fail-Fast Validation):**
-   - Kod tabanında (özellikle `src/config/env.config.ts`) hiçbir ortam değişkenine varsayılan değer (`.default(...)`) verilemez; tüm parametreler (`NODE_ENV`, `HOST`, `PORT`, `CORS_ORIGIN`, `OLLAMA_BASE_URL`, `MONGODB_URI`) doğrudan `.env` veya sistem ortamından Zod ile doğrulanmalıdır.
+   - Kod tabanında (özellikle `src/config/env.config.ts`) hiçbir ortam değişkenine varsayılan değer (`.default(...)`) verilemez; tüm parametreler (`NODE_ENV`, `HOST`, `PORT`, `CORS_ORIGIN`, `OLLAMA_BASE_URL`, `MONGODB_URI`, `REDIS_URL`, `QDRANT_URL`) doğrudan `.env` veya sistem ortamından Zod ile doğrulanmalıdır.
    - Uygulama başlatılırken herhangi bir eksiklik veya tip uyuşmazlığı tespit edilirse, fail-fast prensibiyle detaylı hata listesini içeren bir istisna fırlatılarak (`throw new Error(...)`) süreç kontrollü olarak sonlandırılır; konfigürasyon modülü içinde doğrudan `process.exit()` çağrısı yapılmaz.
    - Kural 5 gereği ortam değişkenlerinde `DEFAULT_MODEL` gibi hardcoded model tanımlamaları yer alamaz.
+   - **`.env.example` ve `README.md` Eşzamanlı Senkronizasyonu:** `src/config/env.config.ts` şemasına yeni bir ortam değişkeni eklendiğinde veya mevcut bir değişken güncellendiğinde; `apps/backend/.env.example` şablonu ve kök dizindeki `README.md` kurulum kılavuzu aynı geliştirme adımında eşzamanlı olarak güncellenmelidir.
+
 
 ### Klasör Yapısı (`apps/backend/src/`)
 

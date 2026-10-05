@@ -143,4 +143,8 @@ Her geliştirme sürecinde aşağıdaki kurallar işletilmelidir:
 4. **Proaktif ve Kendiliğinden Güncelleme İlkesi (Autonomous Living Documentation):**
    - AI ajanı, kodda veya mimaride yapılan değişikliklerin dokümantasyon yansımasını **kullanıcının hatırlatmasına gerek kalmadan kendiliğinden akıl etmeli ve proaktif olarak güncellemelidir.**
    - Bir model, veri şeması veya iş kuralı değiştiğinde ilgili tüm insan ve AI odaklı dökümanlar aynı adımda güncellenmeden o geliştirme tamamlanmış sayılmaz.
+5. **README.md ve .env.example Yaşam Döngüsü Senkronizasyonu (Living README & Env Sync):**
+   - Yeni bir ortam değişkeni eklendiğinde (`env.config.ts`), port veya servis yapılandırması değiştiğinde veya yeni bir mimari/kullanıcı yeteneği geliştirildiğinde; kök dizindeki `README.md` ve ilgili alt projenin `.env.example` dosyası anında, proaktif olarak ve kullanıcının hatırlatmasına gerek kalmaksızın güncellenmelidir.
+   - Geliştiricilerin repoyu sıfırdan klonlayıp `.env.example` üzerinden doğrudan ayağa kaldırabilmesi için `README.md` kurulum adımları ve `.env.example` içerikleri daima çalışan kodla %100 senkronize olmak zorundadır.
+
 

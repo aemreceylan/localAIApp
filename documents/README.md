@@ -1,6 +1,6 @@
 # Proje Bilgi Bankası (Knowledge Base Index)
 
-**Kurumsal LLM & Veri Yönetim Platformu** (*NexusAI Gateway & Knowledge Base*) dökümantasyon havuzuna hoş geldiniz.
+**Kurumsal LLM & Veri Yönetim Platformu** (*Chotonack AI — Gateway & Knowledge Base*) dökümantasyon havuzuna hoş geldiniz.
 
 Bu bilgi bankası, **1 Ortak Çatı + 3 Bağımsız Alt Proje** (`backend`, `admin-interface`, `user-interface`) içeren Monorepo yapısına göre düzenlenmiştir. Hem **yazılım geliştiriciler ve ürün yöneticileri (İnsan Okuması)** hem de **Yapay Zeka Oturumları (AI Agents)** için projenin tek ve güncel doğruluk kaynağı (Single Source of Truth) olarak yapılandırılmıştır.
 

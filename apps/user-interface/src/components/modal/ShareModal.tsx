@@ -22,7 +22,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const activeShareUrl =
-    shareUrl || (typeof window !== 'undefined' ? `${window.location.origin}/share/c_98f41e0a2` : 'https://nexusai.local/share/c_98f41e0a2');
+    shareUrl || (typeof window !== 'undefined' ? `${window.location.origin}/share/c_98f41e0a2` : 'https://chotonack.local/share/c_98f41e0a2');
 
   const handleCopy = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {

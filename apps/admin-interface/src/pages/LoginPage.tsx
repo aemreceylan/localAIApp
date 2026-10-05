@@ -69,7 +69,7 @@ export function LoginPage() {
             <Shield className="w-6 h-6" />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            {isSetupNeeded ? 'Sistem İlk Kurulumu' : 'NexusAI Yönetim Konsolu'}
+            {isSetupNeeded ? 'Sistem İlk Kurulumu' : 'Chotonack AI Yönetim Konsolu'}
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {isSetupNeeded
@@ -156,7 +156,7 @@ export function LoginPage() {
 
         <div className="pt-4 border-t border-slate-100 dark:border-slate-800 text-center">
           <p className="text-[11px] text-slate-400">
-            NexusAI Precision Gateway • Uçtan Uca Şifreli Oturum
+            Chotonack AI Gateway • Uçtan Uca Şifreli Oturum
           </p>
         </div>
       </div>

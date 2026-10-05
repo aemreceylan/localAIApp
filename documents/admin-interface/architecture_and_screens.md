@@ -1,7 +1,7 @@
 # ADMIN INTERFACE (YÖNETİCİ PANELİ) MİMARİSİ VE EKRAN SPESİFİKASYONU
 
 > **DOKÜMAN TİPİ:** Alt Proje Özel Mimari & UI Şartnamesi (`apps/admin-interface`)  
-> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)  
+> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_)  
 > **İlişkili Dokümanlar:** [Ortak PRD v2.1.0](../common/prd.md), [Tasarım Sistemi](../common/design_system_and_tokens.md), [Canlı Tasarım Prototipi](../stitch_design_preview.html)  
 > **Rol:** AI Lead Product Designer & Admin Systems Architect  
 
@@ -38,7 +38,7 @@ Yönetici arayüzü, sol sabit menü ve ana içerik alanından oluşan modern bi
 ```
 Admin Dashboard Layout
 ├── Sol Sabit Menü (Sidebar)
-│   ├── Logo & Kurum Başlığı (NexusAI Gateway Admin)
+│   ├── Logo & Kurum Başlığı (Chotonack AI Gateway Admin)
 │   ├── 1. Genel Bakış & Telemetri (Dashboard Overview)
 │   ├── 2. LLM & Yerel Modeller (Model Management & SSE Pull)
 │   ├── 3. Bilgi Bankası / RAG (Knowledge Base, Roles & Ingestion)

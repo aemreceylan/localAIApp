@@ -1016,12 +1016,12 @@ export function generateOpenApiDocument() {
   return generator.generateDocument({
     openapi: '3.0.0',
     info: {
-      title: 'NexusAI Gateway & Knowledge Base API',
+      title: 'Chotonack AI Gateway & Knowledge Base API',
       version: '1.0.0',
       description:
         'Kurumsal LLM Orkestrasyonu, Yerel Modeller (Ollama), Bulut Modeller ve On-Premises Role-Based Access Control (RBAC) API Dokümantasyonu',
       contact: {
-        name: 'NexusAI Platform Team',
+        name: 'Chotonack AI Platform Team',
       },
     },
     servers: [

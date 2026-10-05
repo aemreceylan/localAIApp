@@ -72,11 +72,11 @@ const SidebarComponent: React.FC<SidebarProps> = ({
               <div className="flex items-center justify-between px-1 py-1 shrink-0">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-xs shadow-sm shadow-brand-500/30 shrink-0 select-none">
-                    NX
+                    CH
                   </div>
                   <div className="min-w-0 leading-tight">
                     <h1 className="text-xs font-bold text-slate-900 dark:text-white tracking-tight truncate">
-                      NexusAI Gateway
+                      Chotonack AI
                     </h1>
                     <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
                       Knowledge Base
@@ -289,14 +289,14 @@ const SidebarComponent: React.FC<SidebarProps> = ({
           <div id="sidebarMiniContent" className="flex flex-col items-center justify-between h-full w-full py-3 px-1.5 overflow-hidden">
             <div className="flex flex-col items-center gap-2.5 w-full">
               {/* Logo / Genişletme Butonu (Kapalıyken Sadece Logo) */}
-              <Tooltip content="NexusAI Gateway (Genişlet - Ctrl+B)" position="right">
+              <Tooltip content="Chotonack AI (Genişlet - Ctrl+B)" position="right">
                 <button
                   type="button"
                   onClick={onToggleCollapse}
                   className="w-10 h-10 rounded-xl bg-brand-600 hover:bg-brand-700 text-white flex items-center justify-center font-bold text-sm shadow-sm shadow-brand-500/30 hover:scale-105 transition-all shrink-0 cursor-pointer select-none"
                   aria-label="Kenar Çubuğunu Genişlet"
                 >
-                  NX
+                  CH
                 </button>
               </Tooltip>
 

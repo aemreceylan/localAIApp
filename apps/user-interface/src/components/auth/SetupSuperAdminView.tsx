@@ -16,7 +16,7 @@ export function SetupSuperAdminView() {
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [organizationName, setOrganizationName] = useState('NexusAI Kurumsal');
+  const [organizationName, setOrganizationName] = useState('Chotonack AI Kurumsal');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export function SetupSuperAdminView() {
         lastName: lastName.trim(),
         email: email.trim().toLowerCase(),
         password,
-        organizationName: organizationName.trim() || 'NexusAI Kurumsal',
+        organizationName: organizationName.trim() || 'Chotonack AI Kurumsal',
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Kurulum sırasında beklenmeyen bir hata oluştu.';
@@ -81,7 +81,7 @@ export function SetupSuperAdminView() {
           <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800 mb-2">
             İlk Kurulum (Bootstrap Mode)
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">NexusAI Platform Kurulumu</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Chotonack AI Platform Kurulumu</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">
             Sistemin ilk yönetici (Super Admin) hesabını ve kurumunuzu tanımlayın.
           </p>
@@ -173,7 +173,7 @@ export function SetupSuperAdminView() {
               type="text"
               value={organizationName}
               onChange={(e) => setOrganizationName(e.target.value)}
-              placeholder="NexusAI Kurumsal"
+              placeholder="Chotonack AI Kurumsal"
               className="w-full px-3.5 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
             />
           </div>

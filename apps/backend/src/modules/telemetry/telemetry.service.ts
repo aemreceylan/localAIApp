@@ -299,16 +299,33 @@ export class TelemetryService {
     // Ollama /api/ps (Aktif yüklenmiş modeller ve VRAM tüketimi)
     let ollamaInfo: SystemMetrics['ollama'] = undefined;
     try {
-      const ollamaUrl = env.OLLAMA_BASE_URL || 'http://localhost:11434';
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1500);
+      const rawUrl = env.OLLAMA_BASE_URL || 'http://localhost:11434';
+      const cleanUrl = rawUrl.replace(/\/api\/?$/, '');
 
-      const res = await fetch(`${ollamaUrl}/api/ps`, {
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      let res: Response | null = null;
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        res = await fetch(`${cleanUrl}/api/ps`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (networkErr) {
+        // Localhost -> 127.0.0.1 IPv6/IPv4 fallback (Windows uyumluluğu)
+        if (cleanUrl.includes('localhost')) {
+          const fallbackUrl = cleanUrl.replace('localhost', '127.0.0.1');
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3000);
+          res = await fetch(`${fallbackUrl}/api/ps`, {
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+        } else {
+          throw networkErr;
+        }
+      }
 
-      if (res.ok) {
+      if (res && res.ok) {
         const data = (await res.json()) as { models?: any[] };
         const activeModels = (data.models || []).map((m: any) => ({
           name: m.name,
@@ -320,6 +337,11 @@ export class TelemetryService {
         ollamaInfo = {
           isAvailable: true,
           activeModels,
+        };
+      } else {
+        ollamaInfo = {
+          isAvailable: false,
+          activeModels: [],
         };
       }
     } catch {

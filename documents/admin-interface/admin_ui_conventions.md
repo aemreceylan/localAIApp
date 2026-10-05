@@ -1,7 +1,7 @@
 # ADMIN INTERFACE FRONTEND VE BİLEŞEN GELİŞTİRME STANDARTLARI
 
 > **DOKÜMAN TİPİ:** Alt Proje Kodlama ve UI Standartları (`apps/admin-interface`)  
-> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)  
+> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_)  
 > **İlişkili Dokümanlar:** [Tasarım Sistemi](../common/design_system_and_tokens.md), [OpenAPI Sözleşmesi](../openapi.json)  
 
 ---

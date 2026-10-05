@@ -1,7 +1,7 @@
 # BACKEND YAZILIM MİMARİSİ VE TEKNİK TASARIM DOKÜMANI
 
 > **DOKÜMAN TİPİ:** Alt Proje Özel Mimari Spesifikasyonu (`apps/backend`)  
-> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_NexusAI Gateway & Knowledge Base_)  
+> **Proje:** Kurumsal LLM & Veri Yönetim Platformu (_Chotonack AI — Gateway & Knowledge Base_)  
 > **İlişkili Dokümanlar:** [Ortak PRD v2.1.0](../common/prd.md), [Veritabanı ve İş Akış Şemaları](../common/data_and_business_workflows.md), [OpenAPI 3.0 Dokümanı](../openapi.json)  
 > **Sürüm:** v1.3.0  
 > **Hazırlayan:** Chief System Architect & Security Lead  

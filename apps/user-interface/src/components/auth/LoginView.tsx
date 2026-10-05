@@ -66,7 +66,7 @@ export function LoginView() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">NexusAI Giriş</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Chotonack AI Giriş</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1.5">
             Kurumsal LLM ve Bilgi Bankası Platformu
           </p>

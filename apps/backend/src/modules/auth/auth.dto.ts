@@ -30,7 +30,7 @@ export const setupSuperAdminSchema = z.object({
     .email('Geçerli bir kurumsal e-posta adresi giriniz.')
     .openapi({
       description: 'Super Admin E-posta Adresi',
-      example: 'admin@nexusai.local',
+      example: 'admin@chotonack.local',
     }),
   password: z
     .string()
@@ -48,7 +48,7 @@ export const loginSchema = z.object({
     .email('Geçerli bir e-posta adresi giriniz.')
     .openapi({
       description: 'Kayıtlı kullanıcı e-posta adresi',
-      example: 'admin@nexusai.local',
+      example: 'admin@chotonack.local',
     }),
   password: z
     .string()
