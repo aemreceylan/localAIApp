@@ -34,6 +34,8 @@ erDiagram
     USER ||--o{ CONVERSATION : creates
     USER ||--o{ SESSION : has
     USER ||--o{ AUDIT_LOG : triggers
+    USER ||--o{ INVITATION_CODE : creates
+    USER ||--o{ AI_USAGE_LOG : logs
     CONVERSATION ||--o{ MESSAGE : contains
     PROMPT ||--o{ CONVERSATION : applies_to
     DOCUMENT ||--o{ QDRANT_VECTOR_CHUNK : chunked_into
@@ -132,6 +134,29 @@ erDiagram
         string uploaded_by FK "Yukleyen Kullanici"
         date created_at "Yuklenme tarihi"
         date updated_at "Guncellenme tarihi"
+    }
+
+    INVITATION_CODE {
+        string id PK
+        string code UK "Kriptografik Tekil Davet Kodu"
+        array assigned_roles "Katilimda atanacak fonksiyonel roller"
+        int max_uses "Maksimum kullanim adedi (Varsayilan 1)"
+        int used_count "Kullanilma sayisi"
+        date expires_at "Gecerlilik sonu"
+        string created_by FK "Ureten Admin ID"
+        date created_at "Uretim tarihi"
+    }
+
+    AI_USAGE_LOG {
+        string id PK
+        string user_id FK "Kullanan Kullanici ID"
+        string model "Kullanilan Model Adi"
+        int prompt_tokens "Giris Token Sayisi"
+        int completion_tokens "Uretilen Token Sayisi"
+        int total_tokens "Toplam Token"
+        int duration_ms "Toplam Yanit Suresi ms"
+        int ttft_ms "Ilk Token Gecikmesi ms"
+        date created_at "TTL 90 Gunluk Kayit Zamani"
     }
 
     QDRANT_VECTOR_CHUNK {

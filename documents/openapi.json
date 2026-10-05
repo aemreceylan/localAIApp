@@ -512,6 +512,16 @@
           "isActive": {
             "type": "boolean",
             "description": "Hesap aktiflik/ban durumu"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "pending_approval",
+              "rejected",
+              "banned"
+            ],
+            "description": "Onay/Aktivasyon durumu"
           }
         },
         "required": [
@@ -592,6 +602,16 @@
               "isActive": {
                 "type": "boolean",
                 "description": "Hesap aktiflik/ban durumu"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "pending_approval",
+                  "rejected",
+                  "banned"
+                ],
+                "description": "Onay/Aktivasyon durumu"
               }
             },
             "required": [
@@ -1839,6 +1859,16 @@
                             "isActive": {
                               "type": "boolean",
                               "description": "Hesap aktiflik/ban durumu"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "pending_approval",
+                                "rejected",
+                                "banned"
+                              ],
+                              "description": "Onay/Aktivasyon durumu"
                             }
                           },
                           "required": [
@@ -1997,6 +2027,16 @@
                             "isActive": {
                               "type": "boolean",
                               "description": "Hesap aktiflik/ban durumu"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "active",
+                                "pending_approval",
+                                "rejected",
+                                "banned"
+                              ],
+                              "description": "Onay/Aktivasyon durumu"
                             }
                           },
                           "required": [
@@ -2192,6 +2232,16 @@
                         "isActive": {
                           "type": "boolean",
                           "description": "Hesap aktiflik/ban durumu"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "pending_approval",
+                            "rejected",
+                            "banned"
+                          ],
+                          "description": "Onay/Aktivasyon durumu"
                         }
                       },
                       "required": [
@@ -2411,6 +2461,16 @@
                         "isActive": {
                           "type": "boolean",
                           "description": "Hesap aktiflik/ban durumu"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "pending_approval",
+                            "rejected",
+                            "banned"
+                          ],
+                          "description": "Onay/Aktivasyon durumu"
                         }
                       },
                       "required": [
@@ -2555,6 +2615,16 @@
                         "isActive": {
                           "type": "boolean",
                           "description": "Hesap aktiflik/ban durumu"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "pending_approval",
+                            "rejected",
+                            "banned"
+                          ],
+                          "description": "Onay/Aktivasyon durumu"
                         }
                       },
                       "required": [
@@ -2678,6 +2748,16 @@
                           "isActive": {
                             "type": "boolean",
                             "description": "Hesap aktiflik/ban durumu"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "pending_approval",
+                              "rejected",
+                              "banned"
+                            ],
+                            "description": "Onay/Aktivasyon durumu"
                           }
                         },
                         "required": [
@@ -2813,6 +2893,16 @@
                         "isActive": {
                           "type": "boolean",
                           "description": "Hesap aktiflik/ban durumu"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "pending_approval",
+                            "rejected",
+                            "banned"
+                          ],
+                          "description": "Onay/Aktivasyon durumu"
                         }
                       },
                       "required": [
@@ -2948,6 +3038,16 @@
                         "isActive": {
                           "type": "boolean",
                           "description": "Hesap aktiflik/ban durumu"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "pending_approval",
+                            "rejected",
+                            "banned"
+                          ],
+                          "description": "Onay/Aktivasyon durumu"
                         }
                       },
                       "required": [
@@ -3096,6 +3196,16 @@
                         "isActive": {
                           "type": "boolean",
                           "description": "Hesap aktiflik/ban durumu"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "pending_approval",
+                            "rejected",
+                            "banned"
+                          ],
+                          "description": "Onay/Aktivasyon durumu"
                         }
                       },
                       "required": [
@@ -3736,6 +3846,16 @@
                         "isActive": {
                           "type": "boolean",
                           "description": "Hesap aktiflik/ban durumu"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "pending_approval",
+                            "rejected",
+                            "banned"
+                          ],
+                          "description": "Onay/Aktivasyon durumu"
                         }
                       },
                       "required": [

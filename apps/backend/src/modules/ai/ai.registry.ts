@@ -205,31 +205,18 @@ export class AiProviderRegistry {
       }
     }
 
-    // Yerel Ollama'da model bulunamazsa veya henüz çekilmemişse katalog modelleri:
-    if (results.length === 0) {
-      results.push(
-        {
-          id: 'ollama/llama3.2:3b',
-          name: 'Llama 3.2 3B',
-          provider: 'ollama',
-          isLocal: true,
-          description: 'Hafif yerel model (Ollama)',
-          isDefault: true,
-        },
-        {
-          id: 'ollama/llama3.3:70b',
-          name: 'Llama 3.3 70B',
-          provider: 'ollama',
-          isLocal: true,
-          description: 'Gelişmiş kurumsal açık kaynak model',
-        }
-      );
-    }
-
     this.cachedModels = results;
     this.cachedModelsExpiresAt = Date.now() + 60000;
 
     return results;
+  }
+
+  /**
+   * Model listesi önbelleğini sıfırlar (yeni model indirildiğinde veya silindiğinde çağrılır).
+   */
+  public clearCache(): void {
+    this.cachedModels = [];
+    this.cachedModelsExpiresAt = 0;
   }
 
   /**

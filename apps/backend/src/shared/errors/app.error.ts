@@ -48,6 +48,15 @@ export class DomainError extends AppError {
   }
 }
 
+export class BusinessRuleError extends AppError {
+  readonly statusCode = 400;
+  readonly code = 'BUSINESS_RULE_ERROR';
+
+  constructor(message = 'İş kuralı ihlali gerçekleşti', details?: unknown, isOperational = true) {
+    super(message, details, isOperational);
+  }
+}
+
 export class NotFoundError extends AppError {
   readonly statusCode = 404;
   readonly code = 'NOT_FOUND';

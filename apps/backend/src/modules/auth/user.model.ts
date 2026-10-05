@@ -12,6 +12,7 @@
 import mongoose, { Schema, type Model } from 'mongoose';
 
 export type SystemRole = 'superadmin' | 'admin' | 'user';
+export type UserStatus = 'active' | 'pending_approval' | 'rejected' | 'banned';
 
 export interface IUserCustomPermissions {
   allow: string[];
@@ -27,6 +28,7 @@ export interface IUser {
   roles: string[];
   custom_permissions?: IUserCustomPermissions;
   is_active: boolean;
+  status?: UserStatus;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -82,6 +84,12 @@ const userSchema = new Schema<IUser>(
       default: true,
       index: true,
     },
+    status: {
+      type: String,
+      enum: ['active', 'pending_approval', 'rejected', 'banned'],
+      default: 'active',
+      index: true,
+    },
   },
   {
     timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
@@ -90,6 +98,9 @@ const userSchema = new Schema<IUser>(
 );
 
 userSchema.post('init', function (doc) {
+  if (!doc.status) {
+    doc.status = doc.is_active ? 'active' : 'banned';
+  }
   const legacyRole = (doc as any).role;
   if (legacyRole && (doc.system_role === 'user' || !doc.system_role)) {
     if (legacyRole === 'superadmin' || legacyRole === 'admin') {

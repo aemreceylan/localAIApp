@@ -9,82 +9,119 @@
 
 ## 1. Giriş ve Amaç
 
-Bu doküman, `apps/admin-interface` alt projesinin sayfa mimarisini, navigasyon yapısını, yönetici paneli bileşenlerini ve telemetri ekranlarını tanımlar. 
+Bu doküman, `apps/admin-interface` alt projesinin sayfa mimarisini, navigasyon yapısını, yönetici paneli bileşenlerini, güvenlik kurgusunu ve telemetri ekranlarını tanımlar. 
 
-Yönetici Paneli, platformun teknik altyapısını, donanım kaynaklarını, modelleri, bilgi bankasını (RAG) ve kullanıcı yetkilendirmesini tek bir merkezden yönetmek üzere tasarlanmıştır.
+Yönetici Paneli; platformun donanım kaynaklarını, LLM modellerini, bilgi bankasını (RAG), kullanıcı onay havuzunu/davetiyeleri ve dinamik RBAC yetkilendirmesini tek bir merkezden sade, modern ve yüksek performanslı bir arayüzle yönetmek üzere tasarlanmıştır.
 
 ---
 
-## 2. Navigasyon ve Ekran Hiyerarşisi
+## 2. Teknoloji Yığını ve Mimari Standartlar
+
+- **Çekirdek:** React 19 + React Compiler (otomatik memoization & render optimizasyonu)
+- **Derleyici & Sunucu:** Vite 7 (Native ESM, Port 5174, Reverse Proxy `/admin`)
+- **Stil & Tasarım:** Tailwind CSS v4 (CSS-first `@theme` token mimarisi, "Nexus Precision" tasarım dili)
+- **Yönlendirme (Routing):** React Router v7
+- **Veri Yönetimi & Önbellek:** `@tanstack/react-query` v5 (otomatik deduplication, background refetch, stale-while-revalidate, request abort)
+- **UI Bileşenleri (Sıfır Harici UI Bağımlılığı):** Saf React + Tailwind (Radix, MUI, AntD, AG-Grid kesinlikle yasaktır). Tablolar, modallar, drawer'lar ve grafikler projenin kendi kod tabanında sıfır şişkinlikle yazılır.
+- **Güvenlik & Oturum Mimarisi:**
+  - Token asla `localStorage` içinde tutulmaz (XSS saldırılarına karşı mutlak koruma).
+  - Backend destekli `HttpOnly` + `Secure` + `SameSite=Strict` cookie (`admin_token`) kullanılır.
+  - Oturum Politikası: 30 dakika hareketsizlik (idle timeout) + 8 saat mutlak süre aşımı (absolute timeout).
+  - İstemci Seviyesi Savunma (AppSec): Form submit spam koruması (request throttling/debouncing), katı Zod validasyonu, DOM sanitization.
+
+---
+
+## 3. Navigasyon ve Ekran Hiyerarşisi
 
 Yönetici arayüzü, sol sabit menü ve ana içerik alanından oluşan modern bir B2B SaaS dashboard mimarisine sahiptir:
 
 ```
 Admin Dashboard Layout
 ├── Sol Sabit Menü (Sidebar)
-│   ├── Logo & Kurum Başlığı
-│   ├── Genel Bakış (Dashboard Overview)
-│   ├── LLM & Yerel Modeller (Model Management)
-│   ├── Bilgi Bankası / RAG (Knowledge Base & Ingestion)
-│   ├── Kullanıcılar & Esnek RBAC (Users & Access Control)
-│   ├── Denetim Kayıtları (Audit & Telemetry Logs)
-│   ├── Sistem Ayarları (Settings & Environment)
-│   └── Alt Durum Göstergesi (Ollama / vLLM Engine Status)
+│   ├── Logo & Kurum Başlığı (NexusAI Gateway Admin)
+│   ├── 1. Genel Bakış & Telemetri (Dashboard Overview)
+│   ├── 2. LLM & Yerel Modeller (Model Management & SSE Pull)
+│   ├── 3. Bilgi Bankası / RAG (Knowledge Base, Roles & Ingestion)
+│   ├── 4. Kullanıcılar & Onay Havuzu (Users, Invites & Onboarding)
+│   ├── 5. Esnek RBAC & İzin Matrisi (Roles, Templates & Overrides)
+│   ├── 6. Denetim Kayıtları (Audit & Security Logs)
+│   ├── 7. Sistem Ayarları (Queue Engine & Hot-Reload Settings)
+│   └── Alt Durum Göstergesi (Ollama / BullMQ Engine Status)
 └── Ana İçerik Alanı
-    ├── Üst Durum & Telemetri Çubuğu (System Health & GPU Load)
+    ├── Üst Durum & Telemetri Çubuğu (System Health, CPU/RAM, Uptime, Anlık Kullanıcılar)
     └── İlgili Sayfa İçeriği
 ```
 
 ---
 
-## 3. Ekran Detayları ve Fonksiyonel Kapsam
+## 4. Ekran Detayları ve Fonksiyonel Kapsam
 
-### 3.1. Genel Bakış (Dashboard Overview)
+### 4.1. Genel Bakış & Donanım/İstek Telemetrisi (Dashboard Overview)
 
 - **Üst Durum & Telemetri Çubuğu:**
-  - Sistem Sağlığı: `Uptime: %99.98`, `NVIDIA A100 GPU: %42 Yük`.
+  - Sistem Sağlığı: `Uptime: %99.98`, `CPU Yükü: %24`, `RAM: 6.2GB / 32GB`, `Ollama VRAM: 14.8GB`.
 - **4 Ana KPI Kartı:**
-  1. **Toplam Token Kullanımı:** Dönemsel tüketim rakamı ve değişim yüzdesi (örn: `248.4M - ↑ %14.2`).
-  2. **Aktif Yerel Modeller:** Kullanıma hazır / indirilmiş model oranı (örn: `12 / 16`).
-  3. **Bekleyen RAG İndekslemeleri:** BullMQ kuyruğunda bekleyen veya işlenen doküman sayısı.
-  4. **Aktif Kullanıcılar:** Toplam kayıtlı ve anlık çevrim içi kullanıcı sayısı.
+  1. **Toplam Token Kullanımı:** Dönemsel tüketim rakamı (prompt/completion) ve haftalık değişim yüzdesi.
+  2. **HTTP İstek Sayısı & Ort. Yanıt Süresi:** Son 24 saatlik istek hacmi ve p95 yanıt gecikmesi (Redis dakikalık kovalardan).
+  3. **Aktif Yerel Modeller:** Kullanıma hazır / indirilmiş model oranı ve Ollama bellek durumu.
+  4. **Kullanıcı Havuzu:** Aktif kullanıcılar, çevrim içi personel ve onay bekleyen yeni başvurular.
 - **Grafikler ve Metrikler:**
-  - 24 saatlik GPU yükü ve Token tüketim dağılım grafiği.
-  - Canlı model İlk Token Gecikmesi (Time to First Token - TTFT) tablosu.
+  - 24 saatlik HTTP İstekleri & Hata Dağılımı (2xx, 4xx, 5xx).
+  - 24 saatlik Token tüketimi ve model bazlı İlk Token Gecikmesi (Time to First Token - TTFT) tablosu.
+  - Sistem Kaynak Tüketimi (CPU, RAM, Event-Loop lag, Disk doluluk oranı).
 
-### 3.2. LLM & Yerel Model Yönetimi Ekranı
+### 4.2. LLM & Yerel Model Yönetimi Ekranı
 
 - **Model Listesi & İzin Yönetimi:**
-  - Kurum genelinde aktif/pasif olan yerel ve bulut LLM'lerin listesi.
-  - Hangi kiracıların veya rollerin hangi modelleri görebileceğinin yapılandırılması.
-  - Varsayılan önerilen modelin seçilmesi (Kural 5 uyarınca kodda hardcode model yoktur; seçim admin panelindedir).
+  - Aktif/pasif yerel (Ollama) ve bulut modellerin listesi.
+  - Hangi rollerin hangi modelleri görebileceğinin yapılandırılması.
+  - Dinamik Varsayılan Model seçimi (Kural 5 uyarınca hardcoded model yoktur; veritabanından dinamik yönetilir).
 - **Lokal Model İndirme Yöneticisi Tablosu:**
-  - Model Adı, Disk Boyutu, Parametre Boyutu (örn: 8B, 70B), Sağlayıcı (Ollama/vLLM), Durum Rozeti.
-  - Anlık indirme ilerleme barı (% oran, MB/s aktarım hızı).
-  - Aksiyon butonları: *Yapılandır, Duraklat, İptal Et, Durdur, Sil*.
+  - Model Adı, Disk Boyutu, Parametre Boyutu (örn: 8B, 70B), Durum Rozeti.
+  - SSE Tabanlı Canlı İlerleme Çubuğu: Anlık yüzde, indirilen boyut, kalan süre ve MB/s transfer hızı.
+  - Model Aksiyonları: *Varsayılan Yap, Diskten Sil, Yeniden Başlat*.
 
-### 3.3. Bilgi Bankası (RAG) & Doküman Yönetimi Ekranı
+### 4.3. Bilgi Bankası (RAG) & Doküman Yönetimi Ekranı
 
-- Kurumsal dokümanların ve veri havuzlarının taranması, yüklenmesi ve Qdrant koleksiyonlarına bağlanması.
+- Bilgi bankasına yüklenmiş tüm dokümanların listesi, dosya boyutu, MIME türü, chunk adedi.
 - İndeksleme durumları (*İşleniyor, Tamamlandı, Hata, Bekliyor*).
-- Parça (chunk) adedi, depolama boyutu ve vektör boyut bilgileri.
+- Belge Erişim Rolleri Düzenleme (Document ACL - `allowed_roles`): Belirli belgeleri yalnızca belirli departmanlara/rollere açma.
+- Bull-Board Kuyruk Yönetim Entegrasyonu: Arka plandaki BullMQ kuyruğunun durumunu tek tıkla izleme ve retry yapabilme.
 
-### 3.4. Kullanıcılar & Esnek RBAC Yönetimi Ekranı
+### 4.4. Kullanıcılar, Onay Havuzu & Davetiyeler (Users & Onboarding)
 
-- Kayıtlı kullanıcı listesi, arama, filtreleme ve hesap dondurma/aktif etme.
-- Yeni kullanıcı onaylama/reddetme kuyruğu (*"Onay Bekliyor"* durumundaki açık kayıtlar).
-- Davet linki veya tek kullanımlık kayıt kodu üretme modalı.
-- Esnek Rol Matrisi: Ana şablonlar (`Admin`, `User`) ve bunlardan türetilen departman rolleri. Kullanıcı bazlı yetki ezme (override) paneli.
+- **Kayıtlı Kullanıcılar Tablosu:**
+  - E-posta, Ad Soyad, Sistem Rolü (`admin`, `user`), Fonksiyonel Roller (`developer`, `hr` vb.), Durum rozeti (`Aktif`, `Banlı`).
+  - Hızlı Aksiyonlar: Banla / Banı Kaldır, Admin Yap / Adminliği Al, Rolleri Düzenle.
+- **Onay Bekleyen Kayıtlar Havuzu (Approval Queue):**
+  - Kendi kendine kayıt olan personeller *"Onay Bekliyor"* sekmesinde listelenir.
+  - Admin tek tıkla *Onayla & Rol Ata* veya *Reddet* işlemi yapar.
+- **Süreli / Tek Kullanımlık Davet Kodu Üretici:**
+  - Admin belirli rollerle ilişkilendirilmiş davet kodu üretir.
+  - Maksimum kullanım sayısı (varsayılan: 1 kişi) ve geçerlilik süresi (örn: 24 saat, 7 gün) belirlenir.
+  - Arayüzde "Güvenlik uyarısı: Davet kodlarını tek kişilik oluşturmanız önerilir" rozeti gösterilir.
 
-### 3.5. Denetim Kayıtları (Audit Logs) ve Raporlama
+### 4.5. Esnek RBAC & İzin Matrisi
 
-- Kullanıcı bazlı, model bazlı ve tarih bazlı filtrelemeli sorgulama.
-- Kimin ne zaman hangi modeli kullandığı, oturum süresi ve tüketilen token miktarı.
-- CSV / JSON formatında dışa aktarma (export).
+- **Rol Şablonları:** Sistem yöneticisi, standart kullanıcı ve departman rolleri (`developer`, `hr`, `finance` vb.).
+- **Yetki Tavanı Koruması:** `user` arketipindeki rollere `admin:` izinlerinin verilmesi arayüzde ve backend'de kilitlidir.
+- **Kullanıcı Bazlı Yetki Ezme (Override):** Rol haricinde tek bir kullanıcıya özel yetki ekleme (`allow`) veya çıkarma (`deny`).
+- **Yetki Simülatörü:** Bir kullanıcının seçilen kaynak için erişim hakkını anında test eden doğrulama aracı.
+
+### 4.6. Denetim Kayıtları (Audit Logs)
+
+- Değişmez (immutable) güvenlik olayları günlüğü: Kullanıcı banlama, admin atama, rol değişikliği, belge erişim güncellemesi.
+- Aktör, aksiyon, hedef, IP adresi, tarayıcı ve tarih filtrelemeleri.
+- CSV ve JSON formatında dışa aktarma (export).
+
+### 4.7. Sistem Ayarları (Settings & Environment)
+
+- RAG & BullMQ Kuyruk Ayarları (Concurrency, chunk boyutu, overlap, retry attempts) hot-reload ile canlı güncelleme.
+- Güvenlik ve oturum politikası ayarları.
 
 ---
 
-## 4. Görünüm & Tema Entegrasyonu
+## 5. Görünüm & Tema Entegrasyonu
 
-- Tasarım dili ortak [Nexus Precision](../common/design_system_and_tokens.md) standartlarına tam uyumludur.
-- Sol alttaki profil çarkından açılan Görünüm Ayarları Modalı üzerinden sistem teması (`prefers-color-scheme`) veya Aydınlık/Karanlık mod ve 4 kurumsal palet (Indigo, Emerald, Obsidian, Ocean) seçilebilir.
+- Tasarım dili [Nexus Precision](../common/design_system_and_tokens.md) standartlarına tam uyumludur.
+- Sistem teması (`prefers-color-scheme`) varsayılandır; profil menüsünden Aydınlık/Karanlık mod ve 4 kurumsal palet (Indigo, Emerald, Obsidian, Ocean) seçilebilir.

@@ -10,6 +10,11 @@ import mongoose, { Schema, type Model } from 'mongoose';
 export type AuditAction =
   | 'USER_BANNED'
   | 'USER_UNBANNED'
+  | 'USER_REGISTERED'
+  | 'USER_APPROVED'
+  | 'USER_REJECTED'
+  | 'INVITATION_CREATED'
+  | 'INVITATION_USED'
   | 'ADMIN_ASSIGNED'
   | 'ADMIN_REVOKED'
   | 'ROLES_ASSIGNED'

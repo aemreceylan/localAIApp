@@ -4,6 +4,7 @@ import { LLMProviderError, NotFoundError, ValidationError } from '#shared/errors
 import { chatRepository } from '#modules/chat/chat.repository.js';
 import { promptService } from '#modules/prompt/index.js';
 import { ragService, type RagCitation } from '#modules/rag/index.js';
+import { telemetryService } from '#modules/telemetry/index.js';
 import type { ChatMessageDto, ChatRequestDto, CreateSessionDto } from '#modules/chat/chat.dto.js';
 
 interface SessionContext {
@@ -239,6 +240,7 @@ export class ChatService {
         ragContext
       );
 
+      const startTime = Date.now();
       const streamResult = streamText({
         model,
         messages: dto.messages,
@@ -248,6 +250,25 @@ export class ChatService {
           if (dto.conversationId && event.text) {
             await this.persistAssistantMessage(dto.conversationId, event.text);
           }
+
+          const durationMs = Date.now() - startTime;
+          const usage = event.usage as any;
+          const promptTokens = usage?.promptTokens ?? usage?.prompt_tokens ?? 0;
+          const completionTokens = usage?.completionTokens ?? usage?.completion_tokens ?? 0;
+          const totalTokens = usage?.totalTokens ?? usage?.total_tokens ?? (promptTokens + completionTokens);
+          const provider = selectedModel.includes('/') ? selectedModel.split('/')[0] : 'ollama';
+
+          void telemetryService.recordLlmUsage({
+            userId: (user as any)?._id?.toString(),
+            conversationId: dto.conversationId,
+            model: selectedModel,
+            provider: provider || 'ollama',
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            durationMs,
+            status: 'success',
+          });
         },
       });
 

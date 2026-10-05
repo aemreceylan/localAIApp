@@ -13,6 +13,9 @@ export class AuthController {
    */
   async getSetupStatus(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       const status = await authService.getSetupStatus();
       res.status(200).json({
         success: true,
@@ -35,6 +38,14 @@ export class AuthController {
       const result = await authService.setupSuperAdmin(req.body, {
         ...(ipAddress ? { ipAddress } : {}),
         ...(userAgent ? { userAgent } : {}),
+      });
+
+      res.cookie('nexus_session', result.token, {
+        httpOnly: true,
+        secure: process.env['NODE_ENV'] === 'production',
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
       });
 
       res.status(201).json({
@@ -61,6 +72,14 @@ export class AuthController {
         ...(userAgent ? { userAgent } : {}),
       });
 
+      res.cookie('nexus_session', result.token, {
+        httpOnly: true,
+        secure: process.env['NODE_ENV'] === 'production',
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
       res.status(200).json({
         success: true,
         message: 'Giriş başarılı.',
@@ -77,10 +96,17 @@ export class AuthController {
    */
   async logout(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const cookieToken = (req.cookies as Record<string, string> | undefined)?.['nexus_session'] ||
+        (req.cookies as Record<string, string> | undefined)?.['admin_token'];
       const authHeader = req.headers.authorization;
-      const rawToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : req.rawToken || '';
+      const rawToken = authHeader?.startsWith('Bearer ')
+        ? authHeader.slice(7).trim()
+        : cookieToken || req.rawToken || '';
 
       const result = await authService.logout(rawToken);
+
+      res.clearCookie('nexus_session', { path: '/' });
+      res.clearCookie('admin_token', { path: '/' });
 
       res.status(200).json({
         success: true,
@@ -293,6 +319,172 @@ export class AuthController {
         success: true,
         message: 'Kullanıcıya özel yetki istisnaları başarıyla uygulandı.',
         data: user,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/register
+   * Açık kayıt veya davet kodu ile yeni kullanıcı kaydı.
+   */
+  async register(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const result = await authService.register(req.body, {
+        ...(ipAddress ? { ipAddress } : {}),
+        ...(userAgent ? { userAgent } : {}),
+      });
+
+      if (result.token) {
+        res.cookie('nexus_session', result.token, {
+          httpOnly: true,
+          secure: process.env['NODE_ENV'] === 'production',
+          sameSite: 'strict',
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+      }
+
+      res.status(201).json({
+        success: true,
+        message: result.message,
+        data: result,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/auth/users/pending
+   * Onay bekleyen personelleri listeler.
+   */
+  async getPendingUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const users = await authService.getPendingUsers();
+      res.status(200).json({
+        success: true,
+        data: users,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/users/:id/approve
+   * Bekleyen kullanıcıyı onaylar ve rollerini atar.
+   */
+  async approveUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const targetUserId = req.params.id as string;
+      const { roles } = req.body || {};
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const user = await authService.approveUser(req.user!, targetUserId, roles, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Kullanıcı kaydı başarıyla onaylandı.',
+        data: user,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/users/:id/reject
+   * Bekleyen kullanıcı başvurusunu gerekçeli reddeder.
+   */
+  async rejectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const targetUserId = req.params.id as string;
+      const { reason } = req.body || {};
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const user = await authService.rejectUser(req.user!, targetUserId, reason, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Kullanıcı kayıt başvurusu reddedildi.',
+        data: user,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * POST /api/auth/invitations
+   * Yeni davetiye kodu oluşturur.
+   */
+  async createInvitation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const invitation = await authService.createInvitation(req.user!, req.body, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'Davet kodu başarıyla üretildi.',
+        data: invitation,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * GET /api/auth/invitations
+   * Sistemdeki tüm davet kodlarını listeler.
+   */
+  async listInvitations(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const invitations = await authService.listInvitations();
+      res.status(200).json({
+        success: true,
+        data: invitations,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * DELETE /api/auth/invitations/:code
+   * Davetiye kodunu iptal eder.
+   */
+  async revokeInvitation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const code = req.params.code as string;
+      const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress;
+      const userAgent = req.headers['user-agent'];
+
+      const result = await authService.revokeInvitation(req.user!, code, {
+        ipAddress,
+        userAgent,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: result.message,
       });
     } catch (err) {
       next(err);

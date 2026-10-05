@@ -80,6 +80,7 @@ export const userResponseSchema = z.object({
   roles: z.array(z.string()).openapi({ description: 'Kurum içi fonksiyonel departman rolleri' }),
   customPermissions: customPermissionsSchema.optional().openapi({ description: 'Kullanıcıya özel yetki istisnaları' }),
   isActive: z.boolean().openapi({ description: 'Hesap aktiflik/ban durumu' }),
+  status: z.enum(['active', 'pending_approval', 'rejected', 'banned']).optional().openapi({ description: 'Onay/Aktivasyon durumu' }),
 });
 
 export const authResponseSchema = z.object({
@@ -88,6 +89,28 @@ export const authResponseSchema = z.object({
     example: 'nx_live_7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f',
   }),
   user: userResponseSchema,
+});
+
+export const registerSchema = z.object({
+  email: z.string().email('Geçerli bir kurumsal e-posta adresi giriniz.').toLowerCase().trim(),
+  password: z.string().min(8, 'Parola en az 8 karakter olmalıdır.'),
+  firstName: z.string().min(1, 'Ad zorunludur.').max(50, 'Ad en fazla 50 karakter olabilir.').trim(),
+  lastName: z.string().min(1, 'Soyad zorunludur.').max(50, 'Soyad en fazla 50 karakter olabilir.').trim(),
+  inviteCode: z.string().trim().optional().openapi({ description: 'Opsiyonel davet kodu' }),
+});
+
+export const approveUserSchema = z.object({
+  roles: z.array(z.string()).optional().openapi({ description: 'Onaylanan kullanıcıya atanacak fonksiyonel roller' }),
+});
+
+export const rejectUserSchema = z.object({
+  reason: z.string().max(300).optional().openapi({ description: 'Reddedilme gerekçesi' }),
+});
+
+export const createInvitationSchema = z.object({
+  assignedRoles: z.array(z.string()).default([]).openapi({ description: 'Davetle katılan kullanıcıya atanacak roller' }),
+  maxUses: z.number().int().min(1).default(1).openapi({ description: 'Maksimum kullanım sayısı (Önerilen: 1)' }),
+  expiresInHours: z.number().int().min(1).max(720).default(24).openapi({ description: 'Geçerlilik süresi (Saat)' }),
 });
 
 export const transferSuperAdminSchema = z.object({
@@ -117,6 +140,10 @@ export const overridePermissionsSchema = z.object({
 
 export type SetupSuperAdminDto = z.infer<typeof setupSuperAdminSchema>;
 export type LoginDto = z.infer<typeof loginSchema>;
+export type RegisterDto = z.infer<typeof registerSchema>;
+export type ApproveUserDto = z.infer<typeof approveUserSchema>;
+export type RejectUserDto = z.infer<typeof rejectUserSchema>;
+export type CreateInvitationDto = z.infer<typeof createInvitationSchema>;
 export type UserResponseDto = z.infer<typeof userResponseSchema>;
 export type AuthResponseDto = z.infer<typeof authResponseSchema>;
 export type TransferSuperAdminDto = z.infer<typeof transferSuperAdminSchema>;

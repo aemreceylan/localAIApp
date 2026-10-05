@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
 import { env } from '#config/env.config.js';
 import { generateOpenApiDocument, saveOpenApiDocument } from '#config/openapi.config.js';
@@ -9,6 +10,8 @@ import { promptRoutes } from '#modules/prompt/index.js';
 import { authRoutes, requireAuth, requirePermission } from '#modules/auth/index.js';
 import { roleRoutes, PERMISSIONS } from '#modules/role/index.js';
 import { adminRagRoutes, ragRoutes, bullBoardRouter } from '#modules/rag/index.js';
+import { telemetryMiddleware, telemetryRoutes } from '#modules/telemetry/index.js';
+import { adminModelRoutes } from '#modules/ai/index.js';
 import {
   notFoundHandler,
   globalErrorHandler,
@@ -42,6 +45,8 @@ app.use(
 );
 
 app.use(express.json({ limit: '2mb' }));
+app.use(cookieParser());
+app.use(telemetryMiddleware);
 
 // Geliştirme ortamında istek/yanıt loglaması ve Canlı Trafik & Stream Inspector (sadece development)
 if (process.env['NODE_ENV'] !== 'production') {
@@ -82,6 +87,8 @@ app.use('/api/chat', requireAuth, chatRoutes);
 app.use('/api/prompts', requireAuth, promptRoutes);
 app.use('/api/rag', ragRoutes);
 app.use('/api/admin/rag', adminRagRoutes);
+app.use('/api/admin/metrics', telemetryRoutes);
+app.use('/api/admin/models', adminModelRoutes);
 
 // 404 & Global Error Handling
 app.use(notFoundHandler);

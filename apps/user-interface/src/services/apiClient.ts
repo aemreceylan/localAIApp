@@ -55,6 +55,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
   }
 
   const response = await fetch(endpoint, {
+    cache: options.cache || (endpoint.includes('setup-status') ? 'no-store' : 'default'),
     ...options,
     headers,
   });

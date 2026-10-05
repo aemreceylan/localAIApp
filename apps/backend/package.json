@@ -23,6 +23,7 @@
     }
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/helmet": "^0.0.48",
@@ -43,6 +44,7 @@
     "@types/pdf-parse": "^1.1.5",
     "ai": "^4.1.54",
     "bullmq": "^6.3.11",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^18.0.4",
     "express": "^5.2.1",

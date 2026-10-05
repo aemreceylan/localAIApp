@@ -231,6 +231,10 @@ export class RoleService {
   async getAllRoles(): Promise<IRole[]> {
     return await roleRepository.findAll();
   }
+
+  async getRoleBySlug(slug: string): Promise<IRole | null> {
+    return await roleRepository.findBySlug(slug);
+  }
 }
 
 export const roleService = new RoleService();

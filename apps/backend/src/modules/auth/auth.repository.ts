@@ -3,8 +3,9 @@
  * @description Kimlik doğrulama, kullanıcılar ve oturumlar için veri erişim katmanı.
  */
 
-import { UserModel, type IUser, type SystemRole } from '#modules/auth/user.model.js';
+import { UserModel, type IUser, type SystemRole, type UserStatus } from '#modules/auth/user.model.js';
 import { SessionModel, type ISession } from '#modules/auth/session.model.js';
+import { InvitationModel, type IInvitation } from '#modules/auth/invitation.model.js';
 
 export class AuthRepository {
   /**
@@ -59,7 +60,11 @@ export class AuthRepository {
     system_role?: SystemRole;
     roles?: string[];
     is_active?: boolean;
+    status?: UserStatus;
   }): Promise<IUser> {
+    const isExplicitActive = data.is_active !== undefined ? data.is_active : (data.status ? data.status === 'active' : true);
+    const resolvedStatus: UserStatus = data.status ?? (isExplicitActive ? 'active' : 'banned');
+
     return await UserModel.create({
       email: data.email.toLowerCase().trim(),
       password_hash: data.password_hash,
@@ -67,8 +72,39 @@ export class AuthRepository {
       last_name: data.last_name.trim(),
       system_role: data.system_role ?? 'user',
       roles: data.roles ?? [],
-      is_active: data.is_active ?? true,
+      is_active: isExplicitActive,
+      status: resolvedStatus,
     });
+  }
+
+  /**
+   * Onay bekleyen kullanıcıları listeler.
+   */
+  async findPendingUsers(): Promise<IUser[]> {
+    return await UserModel.find({ status: 'pending_approval' }).sort({ created_at: -1 }).lean<IUser[]>();
+  }
+
+  /**
+   * Kullanıcının onay durumunu günceller (Onayla veya Reddet).
+   */
+  async updateUserApproval(
+    id: string,
+    status: 'active' | 'rejected',
+    roles?: string[]
+  ): Promise<IUser | null> {
+    const updateDoc: Record<string, any> = {
+      status,
+      is_active: status === 'active',
+    };
+    if (roles !== undefined) {
+      updateDoc['roles'] = roles;
+    }
+
+    return await UserModel.findByIdAndUpdate(
+      id,
+      { $set: updateDoc },
+      { returnDocument: 'after', runValidators: true }
+    ).lean<IUser>();
   }
 
   /**
@@ -201,6 +237,52 @@ export class AuthRepository {
       { token_hash: tokenHash },
       { $set: { last_active_at: new Date() } }
     );
+  }
+
+  /**
+   * Yeni bir davet kodu oluşturur.
+   */
+  async createInvitation(data: {
+    code: string;
+    assigned_roles: string[];
+    max_uses: number;
+    expires_at: Date;
+    created_by: string;
+  }): Promise<IInvitation> {
+    return await InvitationModel.create(data);
+  }
+
+  /**
+   * Davet koduna göre geçerli davetiye kaydını arar.
+   */
+  async findInvitationByCode(code: string): Promise<IInvitation | null> {
+    return await InvitationModel.findOne({ code: code.trim() });
+  }
+
+  /**
+   * Davetiyenin kullanım adedini artırır.
+   */
+  async incrementInvitationUses(id: string): Promise<IInvitation | null> {
+    return await InvitationModel.findByIdAndUpdate(
+      id,
+      { $inc: { used_count: 1 } },
+      { returnDocument: 'after' }
+    );
+  }
+
+  /**
+   * Tüm davetiyeleri listeler.
+   */
+  async findAllInvitations(): Promise<IInvitation[]> {
+    return await InvitationModel.find().sort({ created_at: -1 }).populate('created_by', 'email first_name last_name').lean<IInvitation[]>();
+  }
+
+  /**
+   * Davetiyeyi siler (iptal eder).
+   */
+  async deleteInvitation(code: string): Promise<boolean> {
+    const res = await InvitationModel.deleteOne({ code: code.trim() });
+    return res.deletedCount > 0;
   }
 }
 

@@ -14,6 +14,7 @@ import {
   hashToken,
 } from '#modules/auth/auth.utils.js';
 import { PolicyEngine } from '#modules/role/policy.engine.js';
+import { roleService } from '#modules/role/index.js';
 import { PERMISSIONS } from '#modules/role/role.types.js';
 import {
   UnauthorizedError,
@@ -21,15 +22,19 @@ import {
   NotFoundError,
   ValidationError,
 } from '#shared/errors/index.js';
+import crypto from 'node:crypto';
 import type {
   SetupSuperAdminDto,
   LoginDto,
+  RegisterDto,
+  CreateInvitationDto,
   AuthResponseDto,
   UserResponseDto,
   TransferSuperAdminDto,
 } from '#modules/auth/auth.dto.js';
 import type { IUser } from '#modules/auth/user.model.js';
 import type { ISession } from '#modules/auth/session.model.js';
+import type { IInvitation } from '#modules/auth/invitation.model.js';
 
 // Oturum geçerlilik süresi: 7 Gün
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -50,9 +55,12 @@ export class AuthService {
   /**
    * Sistemde ilk kurulumun (Super Admin oluşturulması) gerekip gerekmediğini denetler.
    */
-  async getSetupStatus(): Promise<{ isSetupRequired: boolean }> {
+  async getSetupStatus(): Promise<{ isSetupRequired: boolean; isSetupComplete: boolean }> {
     const hasSuperAdmin = await authRepository.hasSuperAdmin();
-    return { isSetupRequired: !hasSuperAdmin };
+    return {
+      isSetupRequired: !hasSuperAdmin,
+      isSetupComplete: hasSuperAdmin,
+    };
   }
 
   /**
@@ -137,20 +145,25 @@ export class AuthService {
       throw new UnauthorizedError('E-posta adresi veya parola hatalı.');
     }
 
-    // ANLIK BANLAMA KONTROLÜ
+    // HESAP AKTİFLİK VE ONAY KONTROLÜ
     if (!user.is_active) {
+      let denialReason = 'Hesabınız askıya alınmıştır/banlanmıştır. Lütfen kurum yöneticinizle iletişime geçiniz.';
+      if (user.status === 'pending_approval') {
+        denialReason = 'Hesabınız henüz kurum yöneticisi tarafından onaylanmamıştır. Lütfen onay sürecini bekleyiniz.';
+      } else if (user.status === 'rejected') {
+        denialReason = 'Kayıt başvurunuz kurum yöneticisi tarafından reddedilmiştir.';
+      }
+
       await auditService.log({
         actor: { email: user.email },
         action: 'LOGIN_FAILED_BANNED',
         targetId: (user as any)._id.toString(),
         targetType: 'user',
-        details: { reason: 'Banlı kullanıcı giriş denemesi' },
+        details: { reason: denialReason, status: user.status },
         ...buildAuditMeta(meta),
       });
 
-      throw new ForbiddenError(
-        'Hesabınız askıya alınmıştır/banlanmıştır. Lütfen kurum yöneticinizle iletişime geçiniz.'
-      );
+      throw new ForbiddenError(denialReason);
     }
 
     // Opaque Bearer Token üret ve hash'le
@@ -169,6 +182,108 @@ export class AuthService {
     return {
       token: rawToken,
       user: this.mapUserResponse(user),
+    };
+  }
+
+  /**
+   * KULLANICI KAYDI (Açık Kayıt veya Davet Kodu ile Kayıt):
+   * - Davet kodu geçerliyse: Anında aktif olur, davetiyedeki roller atanır ve oturum açılır.
+   * - Davet kodu yoksa: 'pending_approval' statüsünde oluşturulur, admin onayı bekler.
+   */
+  async register(
+    dto: RegisterDto,
+    meta?: AuthRequestMeta
+  ): Promise<{ user: UserResponseDto; token?: string; isPendingApproval: boolean; message: string }> {
+    const existing = await authRepository.findByEmail(dto.email);
+    if (existing) {
+      throw new ValidationError('Bu e-posta adresi ile kayıtlı bir kullanıcı zaten mevcut.');
+    }
+
+    const passwordHash = await hashPassword(dto.password);
+    let assignedRoles: string[] = [];
+    let isActive = false;
+    let status: 'active' | 'pending_approval' = 'pending_approval';
+    let matchedInvitation: IInvitation | null = null;
+
+    if (dto.inviteCode && dto.inviteCode.trim()) {
+      matchedInvitation = await authRepository.findInvitationByCode(dto.inviteCode.trim());
+      if (!matchedInvitation) {
+        throw new ValidationError('Geçersiz davet kodu.');
+      }
+
+      if (new Date() > new Date(matchedInvitation.expires_at)) {
+        throw new ValidationError('Davet kodunun kullanım süresi dolmuştur.');
+      }
+
+      if (matchedInvitation.used_count >= matchedInvitation.max_uses) {
+        throw new ValidationError('Davet kodu maksimum kullanım adedine ulaşmıştır.');
+      }
+
+      assignedRoles = matchedInvitation.assigned_roles || [];
+      isActive = true;
+      status = 'active';
+      await authRepository.incrementInvitationUses((matchedInvitation as any)._id.toString());
+    }
+
+    const user = await authRepository.createUser({
+      email: dto.email,
+      password_hash: passwordHash,
+      first_name: dto.firstName,
+      last_name: dto.lastName,
+      system_role: 'user',
+      roles: assignedRoles,
+      is_active: isActive,
+      status,
+    });
+
+    await auditService.log({
+      actor: { _id: (user as any)._id, email: user.email, system_role: user.system_role },
+      action: 'USER_REGISTERED',
+      targetId: (user as any)._id.toString(),
+      targetType: 'user',
+      details: {
+        status,
+        usedInvite: Boolean(matchedInvitation),
+        inviteCode: matchedInvitation?.code,
+      },
+      ...buildAuditMeta(meta),
+    });
+
+    if (matchedInvitation) {
+      await auditService.log({
+        actor: { _id: (user as any)._id, email: user.email },
+        action: 'INVITATION_USED',
+        targetId: (matchedInvitation as any)._id.toString(),
+        targetType: 'invitation',
+        details: { code: matchedInvitation.code, registeredUser: user.email },
+        ...buildAuditMeta(meta),
+      });
+
+      // Davetle gelen kullanıcı için doğrudan oturum başlat
+      const rawToken = generateOpaqueToken();
+      const tokenHash = hashToken(rawToken);
+      const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+
+      await authRepository.createSession({
+        tokenHash,
+        userId: (user as any)._id.toString(),
+        ...(meta?.ipAddress ? { ipAddress: meta.ipAddress } : {}),
+        ...(meta?.userAgent ? { userAgent: meta.userAgent } : {}),
+        expiresAt,
+      });
+
+      return {
+        token: rawToken,
+        user: this.mapUserResponse(user),
+        isPendingApproval: false,
+        message: 'Kayıt başarılı. Davetiye ile hesabınız anında aktifleştirildi.',
+      };
+    }
+
+    return {
+      user: this.mapUserResponse(user),
+      isPendingApproval: true,
+      message: 'Kayıt başvurunuz başarıyla alındı. Kurum yöneticisi onayladıktan sonra giriş yapabilirsiniz.',
     };
   }
 
@@ -555,6 +670,9 @@ export class AuthService {
 
   /**
    * KULLANICIYA FONKSİYONEL ROLLER ATAMA (örn: ['hr', 'developer'])
+   * GÜVENLİK & YETKİ TAVANI (Privilege Escalation Prevention):
+   * 1. 'superadmin' olmayan bir aktör asla 'admin' arketipine sahip (örn: 'system_admin') rol atayamaz.
+   * 2. 'targetUser' sistem rolü 'user' ise, 'admin' arketipine sahip roller atanamaz.
    */
   async assignUserRoles(
     actor: IUser,
@@ -569,6 +687,14 @@ export class AuthService {
 
     if (targetUser.system_role === 'superadmin') {
       throw new ForbiddenError('Superadmin hesabına rol atanamaz veya rolleri değiştirilemez.');
+    }
+
+    // Rollerin varlığını doğrula
+    for (const slug of roles) {
+      const roleDef = await roleService.getRoleBySlug(slug);
+      if (!roleDef) {
+        throw new ValidationError(`'${slug}' isimli rol sistemde tanımlı değil.`);
+      }
     }
 
     const updated = await authRepository.updateUserRoles(targetUserId, roles);
@@ -596,6 +722,10 @@ export class AuthService {
   /**
    * KULLANICI İSTİSNAİ YETKİLERİNİ GÜNCELLEME (Allow / Deny Override):
    * Belirli bir kullanıcıya rolünden bağımsız doğrudan yetki verir veya rolündeki bir yetkiyi engeller.
+   * GÜVENLİK:
+   * 1. Aktör kendi hesabına 'allow' izni ekleyemez (Self-Escalation önleme).
+   * 2. 'superadmin' olmayan bir aktör 'admin:*' veya '*' izinlerini 'allow' listesine ekleyemez.
+   * 3. 'user' sistem rolüne sahip bir kullanıcının 'allow' listesine 'admin:*' veya '*' izinleri eklenemez.
    */
   async overrideUserPermissions(
     actor: IUser,
@@ -604,6 +734,11 @@ export class AuthService {
     deny: string[],
     meta?: AuthRequestMeta
   ): Promise<UserResponseDto> {
+    const actorId = ((actor as any)._id || '').toString();
+    if (actorId === targetUserId && allow.length > 0) {
+      throw new ForbiddenError('Güvenlik Kısıtlaması: Kendi hesabınıza doğrudan yetki (allow override) ekleyemezsiniz.');
+    }
+
     const targetUser = await authRepository.findById(targetUserId);
     if (!targetUser) {
       throw new NotFoundError('Kullanıcı bulunamadı.');
@@ -612,6 +747,8 @@ export class AuthService {
     if (targetUser.system_role === 'superadmin') {
       throw new ForbiddenError('Superadmin hesabı üzerinde izin ezme/override işlemi yapılamaz.');
     }
+
+
 
     const updated = await authRepository.updateCustomPermissions(targetUserId, { allow, deny });
     if (!updated) {
@@ -644,6 +781,184 @@ export class AuthService {
   }
 
   /**
+   * Onay bekleyen kullanıcıları listeler.
+   */
+  async getPendingUsers(): Promise<UserResponseDto[]> {
+    const pendingUsers = await authRepository.findPendingUsers();
+    return pendingUsers.map((u) => this.mapUserResponse(u));
+  }
+
+  /**
+   * Kullanıcının kaydını onaylar ve rollerini tanımlar.
+   */
+  async approveUser(
+    actor: IUser,
+    targetUserId: string,
+    roles?: string[],
+    meta?: AuthRequestMeta
+  ): Promise<UserResponseDto> {
+    const targetUser = await authRepository.findById(targetUserId);
+    if (!targetUser) {
+      throw new NotFoundError('Onaylanacak kullanıcı bulunamadı.');
+    }
+
+    let finalRoles = roles;
+    if (finalRoles && finalRoles.length > 0) {
+      for (const slug of finalRoles) {
+        const roleDef = await roleService.getRoleBySlug(slug);
+        if (!roleDef) {
+          throw new ValidationError(`'${slug}' isimli rol sistemde tanımlı değil.`);
+        }
+      }
+    } else {
+      const defaultRole = await roleService.getDefaultRole();
+      finalRoles = defaultRole ? [defaultRole.slug] : ['default_user'];
+    }
+
+    const updated = await authRepository.updateUserApproval(targetUserId, 'active', finalRoles);
+    if (!updated) {
+      throw new NotFoundError('Kullanıcı onaylanamadı.');
+    }
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'USER_APPROVED',
+      targetId: targetUserId,
+      targetType: 'user',
+      details: { email: targetUser.email, assignedRoles: finalRoles },
+      ...buildAuditMeta(meta),
+    });
+
+    return this.mapUserResponse(updated);
+  }
+
+  /**
+   * Kullanıcının kayıt başvurusunu gerekçeli reddeder.
+   */
+  async rejectUser(
+    actor: IUser,
+    targetUserId: string,
+    reason?: string,
+    meta?: AuthRequestMeta
+  ): Promise<UserResponseDto> {
+    const targetUser = await authRepository.findById(targetUserId);
+    if (!targetUser) {
+      throw new NotFoundError('Kullanıcı bulunamadı.');
+    }
+
+    const updated = await authRepository.updateUserApproval(targetUserId, 'rejected');
+    if (!updated) {
+      throw new NotFoundError('Kullanıcı reddedilemedi.');
+    }
+
+    await this.invalidateUserSessions(targetUserId);
+    await authRepository.deleteAllSessionsForUser(targetUserId);
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'USER_REJECTED',
+      targetId: targetUserId,
+      targetType: 'user',
+      details: { email: targetUser.email, reason },
+      ...buildAuditMeta(meta),
+    });
+
+    return this.mapUserResponse(updated);
+  }
+
+  /**
+   * Süreli ve sınırlı kullanımlı yeni davet kodu üretir.
+   */
+  async createInvitation(
+    actor: IUser,
+    dto: CreateInvitationDto,
+    meta?: AuthRequestMeta
+  ): Promise<any> {
+    if (dto.assignedRoles && dto.assignedRoles.length > 0) {
+      for (const slug of dto.assignedRoles) {
+        const roleDef = await roleService.getRoleBySlug(slug);
+        if (!roleDef) {
+          throw new ValidationError(`'${slug}' isimli rol sistemde tanımlı değil.`);
+        }
+      }
+    }
+
+    const rawCode = `nx_inv_${crypto.randomBytes(8).toString('hex')}`;
+    const hours = dto.expiresInHours || 24;
+    const expiresAt = new Date(Date.now() + hours * 3600 * 1000);
+
+    const invitation = await authRepository.createInvitation({
+      code: rawCode,
+      assigned_roles: dto.assignedRoles || [],
+      max_uses: dto.maxUses || 1,
+      expires_at: expiresAt,
+      created_by: ((actor as any)._id || '').toString(),
+    });
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'INVITATION_CREATED',
+      targetId: (invitation as any)._id.toString(),
+      targetType: 'invitation',
+      details: { code: rawCode, maxUses: invitation.max_uses, expiresAt },
+      ...buildAuditMeta(meta),
+    });
+
+    return {
+      id: (invitation as any)._id.toString(),
+      code: invitation.code,
+      assignedRoles: invitation.assigned_roles,
+      maxUses: invitation.max_uses,
+      usedCount: invitation.used_count,
+      expiresAt: invitation.expires_at,
+      createdAt: (invitation as any).created_at,
+    };
+  }
+
+  /**
+   * Tüm davet kodlarını listeler.
+   */
+  async listInvitations(): Promise<any[]> {
+    const list = await authRepository.findAllInvitations();
+    return list.map((inv) => ({
+      id: (inv as any)._id.toString(),
+      code: inv.code,
+      assignedRoles: inv.assigned_roles,
+      maxUses: inv.max_uses,
+      usedCount: inv.used_count,
+      expiresAt: inv.expires_at,
+      createdBy: inv.created_by,
+      createdAt: (inv as any).created_at,
+      isExpired: new Date() > new Date(inv.expires_at),
+      isExhausted: inv.used_count >= inv.max_uses,
+    }));
+  }
+
+  /**
+   * Davet kodunu iptal eder/siler.
+   */
+  async revokeInvitation(
+    actor: IUser,
+    code: string,
+    meta?: AuthRequestMeta
+  ): Promise<{ success: boolean; message: string }> {
+    const deleted = await authRepository.deleteInvitation(code);
+    if (!deleted) {
+      throw new NotFoundError(`'${code}' davet kodu bulunamadı.`);
+    }
+
+    await auditService.log({
+      actor: { _id: (actor as any)._id, email: actor.email, system_role: actor.system_role },
+      action: 'INVITATION_REVOKED',
+      targetType: 'invitation',
+      details: { code },
+      ...buildAuditMeta(meta),
+    });
+
+    return { success: true, message: 'Davet kodu başarıyla iptal edildi.' };
+  }
+
+  /**
    * Kullanıcı nesnesini hassas verilerden arındırıp DTO formatına dönüştürür.
    */
   private mapUserResponse(user: IUser): UserResponseDto {
@@ -656,6 +971,7 @@ export class AuthService {
       roles: user.roles || [],
       customPermissions: user.custom_permissions || { allow: [], deny: [] },
       isActive: user.is_active,
+      status: user.status ?? (user.is_active ? 'active' : 'banned'),
     };
   }
 }

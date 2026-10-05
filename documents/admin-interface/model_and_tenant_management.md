@@ -62,8 +62,19 @@ Sistem iki temel rol şablonuna dayanır:
 
 Admin panelinde iki kayıt mekanizmasının yönetimi sağlanır:
 1. **Davet Bağlantıları / Kayıt Kodları:**
-   - Admin tek tıkla belirli bir role veya departmana atanmış süreli davet linki üretir.
+   - Admin tek tıkla belirli bir role veya departmana atanmış süreli davet linki üretir (`nx_inv_*`).
    - Bağlantıyı kullanan kişi doğrudan aktif kullanıcı olarak sisteme dahil olur.
 2. **Açık Kayıt Onay Havuzu:**
-   - Kendi kendine kayıt olan personeller *"Onay Bekliyor"* listesine düşer.
+   - Kendi kendine kayıt olan personeller *"Onay Bekliyor"* listesine düşer (`status: pending_approval`).
    - Admin tek tıkla hesabı onaylar, rolünü atar veya başvuruyu gerekçe belirterek reddeder.
+
+### 3.4. Rol Delegasyonu ve Granüler Yetkilendirme Prensipleri
+
+1. **Admin Rol Atama Yetkisi:**
+   - `admin:user:assign_role` iznine sahip bir yönetici, sistemde kayıtlı herhangi bir rolü (admin arketipinde olanlar dahil) diğer kullanıcılara atayabilir.
+2. **Arketip Türetimi ve İzin İzolasyonu:**
+   - Bir rolün `base_archetype: 'admin'` olarak tanımlanmış olması, o rolden türetilen personelin otomatik olarak kullanıcı veya yönetici atama yetkisine sahip olmasını gerektirmez.
+   - Her rol, yalnızca izinler dizisinde (`permissions`) açıkça belirtilen yetkileri kullanabilir. Örneğin yalnızca RAG dokümanlarını yönetmek üzere türetilmiş bir `rag_manager` rolüne `admin:user:assign_role` izni verilmezse, o yönetici başka bir kullanıcıya rol atayamaz veya yetki yükseltemez.
+3. **Kullanıcı Bazlı Yetki İstisnaları (Override) Güvenliği:**
+   - `admin:user:override` yetkisine sahip yönetici, hedef kullanıcıların rollerindeki izinleri ezebilir (`allow`/`deny`).
+   - **Öz-Yetkilendirme (Self-Escalation) Engeli:** Bir yönetici kendi hesabına doğrudan `allow` listesiyle yeni yetki ekleyemez (403 Forbidden). Yetki artışları her zaman başka bir yetkili yönetici tarafından yapılmalıdır.

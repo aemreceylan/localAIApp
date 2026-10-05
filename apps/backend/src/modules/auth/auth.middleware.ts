@@ -31,10 +31,15 @@ export const requireAuth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const cookieToken =
+      (req.cookies as Record<string, string> | undefined)?.['nexus_session'] ||
+      (req.cookies as Record<string, string> | undefined)?.['admin_token'];
     const authHeader = req.headers.authorization;
     let rawToken: string | undefined;
 
-    if (authHeader?.startsWith('Bearer ')) {
+    if (cookieToken && typeof cookieToken === 'string' && cookieToken.trim()) {
+      rawToken = cookieToken.trim();
+    } else if (authHeader?.startsWith('Bearer ')) {
       rawToken = authHeader.slice(7).trim();
     } else if (typeof req.query['token'] === 'string' && req.query['token'].trim()) {
       rawToken = req.query['token'].trim();
@@ -114,10 +119,15 @@ export const optionalAuth = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const cookieToken =
+      (req.cookies as Record<string, string> | undefined)?.['nexus_session'] ||
+      (req.cookies as Record<string, string> | undefined)?.['admin_token'];
     const authHeader = req.headers.authorization;
     let rawToken: string | undefined;
 
-    if (authHeader?.startsWith('Bearer ')) {
+    if (cookieToken && typeof cookieToken === 'string' && cookieToken.trim()) {
+      rawToken = cookieToken.trim();
+    } else if (authHeader?.startsWith('Bearer ')) {
       rawToken = authHeader.slice(7).trim();
     } else if (typeof req.query['token'] === 'string' && req.query['token'].trim()) {
       rawToken = req.query['token'].trim();

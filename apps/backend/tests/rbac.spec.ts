@@ -320,4 +320,68 @@ describe('Kurumsal RBAC, Arketip Tavanı ve Hiyerarşik Yetkilendirme Testleri',
 
     expect(superOverride.status).toBe(403);
   });
+
+  it('13. Rol Atama Yetkisi: admin:user:assign_role yetkisine sahip yönetici bir kullanıcıya system_admin rolü atayabilmelidir', async () => {
+    const res = await request(app)
+      .put(`/api/auth/users/${user1Id}/roles`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({ roles: ['system_admin'] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.roles).toContain('system_admin');
+
+    // user1'i tekrar standart default_user rolüne geri al
+    const revertRes = await request(app)
+      .put(`/api/auth/users/${user1Id}/roles`)
+      .set('Authorization', `Bearer ${superAdminToken}`)
+      .send({ roles: ['default_user'] });
+    expect(revertRes.status).toBe(200);
+  });
+
+  it('14. Rol Delegasyon Denetimi: Yetkisi olmayan kullanıcı rol atayamaz (403), yetkili yönetici atayabilir (200)', async () => {
+    // user1 için yeni token al (rol değişikliği oturumunu sonlandırmıştı)
+    const user1Login = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'user1@test.local', password: 'KullaniciSifre123!' });
+    const freshUserToken = user1Login.body.data.token;
+
+    // user1'in izinlerinde admin:user:assign_role yok -> 403 Forbidden
+    const forbiddenRes = await request(app)
+      .put(`/api/auth/users/${user1Id}/roles`)
+      .set('Authorization', `Bearer ${freshUserToken}`)
+      .send({ roles: ['system_admin'] });
+
+    expect(forbiddenRes.status).toBe(403);
+    expect(forbiddenRes.body.error.code).toBe('FORBIDDEN');
+
+    // admin1 (admin yetkilerine sahip) kullanıcıya rol atayabilir -> 200
+    const successRes = await request(app)
+      .put(`/api/auth/users/${user1Id}/roles`)
+      .set('Authorization', `Bearer ${admin1Token}`)
+      .send({ roles: ['default_user'] });
+
+    expect(successRes.status).toBe(200);
+    expect(successRes.body.data.roles).toContain('default_user');
+  });
+
+  it('15. İzin Ezme (Override) Yönetimi: admin:user:override yetkisine sahip yönetici başka bir kullanıcıya özel izin tanımlayabilir', async () => {
+    const res = await request(app)
+      .put(`/api/auth/users/${user1Id}/permissions/override`)
+      .set('Authorization', `Bearer ${admin1Token}`)
+      .send({ allow: [PERMISSIONS.ADMIN_MODEL_MANAGE], deny: [] });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.customPermissions.allow).toContain(PERMISSIONS.ADMIN_MODEL_MANAGE);
+  });
+
+  it('16. Öz-Yetkilendirme Koruması: Bir yönetici kendi hesabına allow override ile izin ekleyemez (403)', async () => {
+    const res = await request(app)
+      .put(`/api/auth/users/${admin1Id}/permissions/override`)
+      .set('Authorization', `Bearer ${admin1Token}`)
+      .send({ allow: [PERMISSIONS.USER_MODEL_USE], deny: [] });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('FORBIDDEN');
+    expect(res.body.error.message).toContain('Kendi hesabınıza doğrudan yetki');
+  });
 });
