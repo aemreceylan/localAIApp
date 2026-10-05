@@ -383,6 +383,14 @@ sequenceDiagram
     Gateway->>ChatCtrl: handleChat(req, res)
     ChatCtrl->>ChatSvc: streamChat(dto, userContext)
 
+    rect rgb(255, 240, 240)
+    Note over ChatSvc, ChatSvc: OWASP LLM01 & LLM06: Prompt Injection & Jailbreak Denetimi
+    ChatSvc->>ChatSvc: PromptGuard.assertSafe(lastUserMessage & customInstructions)
+    alt Saldırı / Direktif Ezme / Sistem İfşası Tespit Edilirse
+        ChatSvc-->>User: 400 Bad Request (SECURITY_VIOLATION) & Akış Durdurulur
+    end
+    end
+
     alt enableRag: true ise
         Note over ChatSvc, RagSvc: Semantik Bilgi Bankası Araması
         ChatSvc->>RagSvc: queryKnowledge({ query: lastUserMessage, limit: 5 }, userContext)
@@ -391,13 +399,13 @@ sequenceDiagram
     end
 
     rect rgb(240, 245, 255)
-    Note over ChatSvc, PromptFacade: 4 Katmanlı Dinamik Prompt Derleme (Prompt Stacking)
+    Note over ChatSvc, PromptFacade: Çok Katmanlı Dinamik Prompt Derleme & XML İzolasyonu (Prompt Stacking)
     ChatSvc->>PromptFacade: buildSystemPrompt({ prompt_id, custom_instructions, userRoles, ragContext })
     PromptFacade->>Redis: GET prompt:guardrail:{roles} & prompt:persona:{id}
     alt Cache Miss (Redis'te Yoksa)
         PromptFacade->>DB: lean() ile Mongo'dan oku & Redis'e set() et (24h TTL)
     end
-    PromptFacade-->>ChatSvc: Katman 1 + Katman 2 + Katman 3 + Katman 4 (RAG Grounding)
+    PromptFacade-->>ChatSvc: Katman 0 (Güvenlik Protokolü) + Katman 1 (Guardrails) + Katman 2 (Persona) + Katman 3 (<user_custom_instructions>) + Katman 4 (<untrusted_rag_context>)
     end
 
     ChatSvc->>AIProvider: streamText({ model, system: finalPrompt, messages })

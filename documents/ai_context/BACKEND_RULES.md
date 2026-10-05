@@ -178,6 +178,7 @@ AppError (Soyut Ana Hata - statusCode, code, isOperational, details)
   - Sınır aşıldığında HTTP 429 Too Many Requests ve `Retry-After` başlığı döndürülür.
 - **Yönetim Paneli & Kuyruk Koruması:** Bull-Board (`/admin/queues`) rotası `requireAuth` ve `requirePermission(PERMISSIONS.ADMIN_RAG_SYNC)` güvenlik katmanlarıyla korunur; yetkisiz erişime kapalıdır.
 - **Sohbet & BOLA/IDOR İzolasyonu:** `/api/chat` uç noktası `requireAuth` zorunludur. `x-user-id` gibi sahte istemci başlıkları asla kabul edilmez; tüm oturumlar doğrulanmış `req.user._id` üzerinden izole edilir.
+- **Prompt Injection & Jailbreak Savunması (`PromptGuard`):** OWASP Top 10 for LLM (LLM01 - Prompt Injection & LLM06 - Sensitive Information Disclosure) uyumludur. Kullanıcı mesajları ve özel talimatlar `PromptGuard.assertSafe` ile taranır; talimat ezme (`ignore previous instructions`, `tüm kuralları unut`), jailbreak/persona modları (`DAN mode`, `unfiltered`), sistem promptu ifşası (`reveal system prompt`) ve delimiter enjeksiyonları doğrudan `400 SECURITY_VIOLATION` ile engellenir.
 - **Prompt & Guardrail Koruma:** `/api/prompts` uç noktası `requireAuth` zorunludur. Ekleme, güncelleme ve silme işlemleri `admin:prompt:create` ve `admin:prompt:manage` izinlerine bağlıdır; sistem guardrail'lerinin zehirlenmesi matematiksel olarak engellenir.
 - **Multer Dosya Yükleme & Kesin Doğrulama:** `EXTENSION_MIME_MAP` ile hem uzantı hem de MIME türü birlikte (`&&`) doğrulanır; `.exe`, `.sh` vb. yürütülebilir dosyalar kabul edilmez; diske daima güvenli uzantıyla yazılır.
 - **Security Headers:** `helmet` zorunlu, katı CORS (Allow-Credentials).
@@ -212,14 +213,16 @@ AppError (Soyut Ana Hata - statusCode, code, isOperational, details)
 
 ---
 
-## 9. Çok Katmanlı Dinamik Sistem Prompt Mimarisi (Prompt Stacking)
+## 9. Çok Katmanlı Dinamik Sistem Prompt Mimarisi (Prompt Stacking & Güvenlik Çekirdeği)
 
 1. **Bağımsız Prompt Modülü (`src/modules/prompt`):** Bağımsız Mongoose koleksiyonunda (`PromptModel`) saklanır.
-2. **Anlık Birleştirme (Realtime Assembly):**
-   - 1. Katman: Kurumsal Güvenlik & Guardrails (`system_guardrail`)
-   - 2. Katman: Rol & Persona (`persona`)
-   - 3. Katman: Kullanıcı Özel Talimatı (`custom_instructions`)
-3. **Anlık Etki:** Yönetici güncellediğinde sonraki ilk mesajda yeni kurallar devreye girer.
+2. **Anlık Birleştirme & Güvenlik Hiyerarşisi (Realtime Assembly):**
+   - **0. Katman:** Değişmez Güvenlik Protokolü ve Enjeksiyon Savunması Çekirdeği (Anti-Prompt Leakage, Anti-Jailbreak, Anti-Override)
+   - **1. Katman:** Kurumsal Güvenlik & Guardrails (`system_guardrail`)
+   - **2. Katman:** Rol & Persona (`persona`)
+   - **3. Katman:** Kullanıcı Özel Talimatı (`<user_custom_instructions>` XML etiketli & delimiter sanitized)
+   - **4. Katman:** Kurumsal Bilgi Bankası ve Belge Alıntıları (`<untrusted_rag_context>` XML etiketli & delimiter sanitized)
+3. **Anlık Etki:** Yönetici güncellediğinde sonraki ilk mesajda yeni kurallar devreye girer. Prompt önbellekleri Redis Read-Through ile <1ms sürede çözümlenir ve her değişiklikte anında geçersizleştirilir.
 
 ---
 

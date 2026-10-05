@@ -126,3 +126,16 @@ export class ForbiddenError extends AppError {
     super(message, details, isOperational);
   }
 }
+
+export class SecurityViolationError extends AppError {
+  readonly statusCode = 400;
+  readonly code = 'SECURITY_VIOLATION';
+
+  constructor(
+    message = 'Güvenlik kuralı ihlali tespit edildi.',
+    details?: unknown,
+    isOperational = true
+  ) {
+    super(message, details, isOperational);
+  }
+}
