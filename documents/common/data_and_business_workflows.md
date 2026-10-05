@@ -319,7 +319,7 @@ Kurumsal dokümanların üst verileri, işlenme durumu ve rol bazlı erişim izi
 Qdrant üzerinde her vektör kaydı bir `Point` nesnesidir ve Zero-Context-Leakage prensibiyle filtrelenir:
 
 - **Point ID:** UUIDv4 formatında benzersiz parça kimliği.
-- **Vector:** Model embedding çıktısı (örn: 1536 veya 768 float değerleri).
+- **Vector:** Model embedding çıktısı (Yerel `nomic-embed-text` standardı: 768 float değerleri; Cosine uzaklığı).
 - **Payload (Filtrelenebilir Meta Veri):**
   ```json
   {

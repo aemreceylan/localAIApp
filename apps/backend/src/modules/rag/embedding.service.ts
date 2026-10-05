@@ -33,7 +33,7 @@ import type { DocumentChunk } from './chunker.js';
 import type { QdrantPoint } from './qdrant.adapter.js';
 
 export const DEFAULT_EMBEDDING_MODEL = 'nomic-embed-text';
-export const DEFAULT_EMBEDDING_DIMENSION = 1536;
+export const DEFAULT_EMBEDDING_DIMENSION = 768;
 
 export class EmbeddingService {
   private readonly ollamaProvider;

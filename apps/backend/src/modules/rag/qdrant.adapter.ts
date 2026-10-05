@@ -17,7 +17,7 @@
  * import { qdrantAdapter } from '#modules/rag/qdrant.adapter.js';
  *
  * // 1. Koleksiyon hazırlığı
- * await qdrantAdapter.ensureCollection(1536);
+ * await qdrantAdapter.ensureCollection(768);
  *
  * // 2. Vektör yükleme
  * await qdrantAdapter.upsertPoints([{
@@ -47,7 +47,7 @@ import { env } from '#config/env.config.js';
 import { LLMProviderError } from '#shared/errors/index.js';
 
 export const DEFAULT_QDRANT_COLLECTION = 'rag_documents_vectors';
-export const DEFAULT_VECTOR_DIMENSION = 1536;
+export const DEFAULT_VECTOR_DIMENSION = 768;
 
 /**
  * Qdrant Point Payload formatı
@@ -191,7 +191,7 @@ export class QdrantAdapter {
   /**
    * Vektör koleksiyonunun varlığını denetler; yoksa Cosine mesafesi ile oluşturur.
    *
-   * @param dimension Embedding vektör boyutu (varsayılan: 1536)
+   * @param dimension Embedding vektör boyutu (varsayılan: 768)
    */
   async ensureCollection(dimension = DEFAULT_VECTOR_DIMENSION): Promise<boolean> {
     if (this.isMemoryFallbackActive) return true;

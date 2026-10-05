@@ -161,7 +161,7 @@ Kullanıcıların yüklediği yüksek boyutlu dokümanların işlenmesi ana sunu
                                 ┌─────────────────────────────────┴─────────────────────────────────┐
                                 │ - Text Extraction (PdfExtractor / PlainTextExtractor / Registry)   │
                                 │ - Chunking Strategy (RecursiveCharacterChunker - 800 char/150 ov) │
-                                │ - Vercel AI SDK (`generateEmbeddings`) -> 768/1536d Cosine Vector │
+                                │ - Vercel AI SDK (`generateEmbeddings`) -> 768d Cosine Vector │
                                 │ - Save Vectors to Qdrant (with allowed_roles Document ACL payload) │
                                 │ - Update Job Progress (job.updateProgress(%))                    │
                                 └─────────────────────────────────┬─────────────────────────────────┘

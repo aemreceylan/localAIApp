@@ -4,7 +4,11 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { QdrantAdapter, type QdrantPoint } from '#modules/rag/qdrant.adapter.js';
+import {
+  QdrantAdapter,
+  DEFAULT_VECTOR_DIMENSION,
+  type QdrantPoint,
+} from '#modules/rag/qdrant.adapter.js';
 
 describe('QdrantAdapter & Zero-Context-Leakage Vektör Güvenliği Testleri', () => {
   let adapter: QdrantAdapter;
@@ -15,7 +19,7 @@ describe('QdrantAdapter & Zero-Context-Leakage Vektör Güvenliği Testleri', ()
   });
 
   it('ensureCollection başarılı bir şekilde tamamlanmalıdır', async () => {
-    const result = await adapter.ensureCollection(1536);
+    const result = await adapter.ensureCollection(DEFAULT_VECTOR_DIMENSION);
     expect(result).toBe(true);
   });
 
@@ -167,7 +171,7 @@ describe('QdrantAdapter & Zero-Context-Leakage Vektör Güvenliği Testleri', ()
       return;
     }
 
-    const collectionReady = await liveAdapter.ensureCollection(1536);
+    const collectionReady = await liveAdapter.ensureCollection(DEFAULT_VECTOR_DIMENSION);
     expect(collectionReady).toBe(true);
   });
 });
